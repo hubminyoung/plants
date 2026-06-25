@@ -379,8 +379,9 @@ table.dtbl tr:last-child td { border-bottom: none; }
 'use strict';
 
 // ── Config ────────────────────────────────────────────────────────────────────
+const WORKER_DEFAULT = 'https://plantlist.younrake.workers.dev';
 const CFG = {
-  get worker() { return localStorage.getItem('workerUrl') || ''; }
+  get worker() { return localStorage.getItem('workerUrl') || WORKER_DEFAULT; }
 };
 document.getElementById('workerInput').value = CFG.worker;
 function saveWorker() {
@@ -426,25 +427,25 @@ async function inatFetch(q) {
 function parsePlants() {
   const raw = document.getElementById('plantInput').value.trim();
   if (!raw) return;
-  let names;
 
-  if (/[,;]/.test(raw)) {
-    names = raw.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-  } else if (raw.includes('\n')) {
-    names = raw.split('\n').map(s => s.trim()).filter(Boolean);
-  } else {
-    // mixed text: extract Latin names + Korean words ≥2 chars
-    const latins = [...(raw.match(/[A-Z][a-z]+(?:\s+[a-z×'".]+){1,3}/g) || [])];
-    let rest = raw;
-    latins.forEach(l => rest = rest.replace(l, ' '));
-    const koreans = rest.split(/[\s,、]+/).filter(s => s.length >= 2 && /[가-힣]/.test(s));
-    names = [...latins, ...koreans];
-  }
+  // 1. 학명 추출: 대문자 속명 + 소문자 종명 + '품종명' (Perry's 같은 소유격 포함)
+  const latinRe = /[A-Z][a-z]{2,}(?:\s+×?\s*[a-z][a-z-]{1,})*(?:\s+'[^']*(?:'s[^']*)*')?/g;
+  const latins = [...new Set(raw.match(latinRe) || [])].map(s => s.trim());
 
-  const unique = [...new Set(names.filter(n => n.length >= 2))];
-  unique.forEach(n => {
+  // 2. 한국어 이름 추출: 숫자·기호·학명 제거 후 한글 단어만
+  let rest = raw;
+  latins.forEach(l => rest = rest.replace(new RegExp(l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' '));
+  const koreans = [...new Set(
+    rest.split(/[\s\d,、\n\t/+|()\[\]:·\-]+/)
+        .filter(s => s.length >= 2 && /[가-힣]/.test(s))
+  )];
+
+  // 3. 합치기 (길이 2 이상)
+  const names = [...latins, ...koreans].filter(n => n.length >= 2);
+  names.forEach(n => {
     if (!plants.find(p => p.name === n)) plants.push(mkPlant(n));
   });
+
   renderAll();
   plants.filter(p => !p.fetching && !p.done).forEach(loadPlant);
 }
@@ -580,7 +581,7 @@ function renderChips() {
     <span class="chip">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
       <span>${p.korName || p.name}</span>
-      ${p.latName ? `<span class="chip-latin">${p.latName}</span>` : ''}
+      <span class="chip-latin">${p.latName || p.name}</span>
       <button class="chip-rm" onclick="removePlant(${JSON.stringify(p.name)})">✕</button>
     </span>`).join('');
 }
@@ -633,8 +634,12 @@ function imgRow(p) {
   return `<div class="img-row">
     ${thumb}
     <div class="img-info">
-      <div class="img-name">${displayName}${p.fetching ? ' <span style="font-size:0.68rem;color:#aaa">로딩중…</span>' : ''}</div>
-      <div class="img-latin">${lat}</div>
+      <div class="img-name">
+        ${p.korName
+          ? `${p.korName} <span style="color:#c0d8b8;margin:0 0.2rem">|</span> <span style="font-style:italic;font-weight:400;font-size:0.83rem">${lat}</span>`
+          : `<span style="font-style:italic">${lat}</span>`}
+        ${p.fetching ? ' <span style="font-size:0.68rem;color:#aaa">로딩중…</span>' : ''}
+      </div>
       <div class="img-meta">${nativeBadge}</div>
       <div class="img-links">
         <a class="ilink lk-g" href="https://www.google.com/search?q=${gImgQ}&tbm=isch" target="_blank">🔍 Google 이미지</a>
