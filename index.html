@@ -423,29 +423,69 @@ async function inatFetch(q) {
   } catch { return null; }
 }
 
+// ── Korean parsing helpers ────────────────────────────────────────────────────
+// 한국어 조사 목록 (긴 것 먼저 매칭)
+const KOR_PTCL = ['에서','에게','이랑','이다','부터','까지','으로','이네','이야','가','이','은','는','을','를','의','로','에','도','만','와','과','랑','야','아'];
+const _ptclSorted = [...KOR_PTCL].sort((a,b) => b.length - a.length);
+
+function stripPtcl(s) {
+  for (const p of _ptclSorted) {
+    if (s.endsWith(p) && s.length > p.length + 1) return s.slice(0, -p.length);
+  }
+  return s;
+}
+
+// 동사/형용사 활용형 감지: 받침 없는 ㅏ·ㅐ·ㅒ·ㅓ·ㅔ·ㅝ·ㅞ 결말
+// 이뻐(ㅓ), 좋아(ㅏ), 예뻐(ㅓ), 봐(ㅘ→제외), 화(ㅘ→제외) 구분
+function isKorVerb(s) {
+  if (!s) return false;
+  const c = s[s.length - 1].charCodeAt(0);
+  if (c < 0xAC00 || c > 0xD7A3) return false;
+  const off = c - 0xAC00;
+  if (off % 28 !== 0) return false;           // 받침 있으면 명사 가능성 높음
+  const v = Math.floor(off / 28) % 21;
+  // 0=ㅏ, 1=ㅐ, 3=ㅒ, 4=ㅓ, 5=ㅔ, 14=ㅝ, 15=ㅞ → 동사/형용사형
+  return [0, 1, 3, 4, 5, 14, 15].includes(v);
+}
+
 // ── Parsing ───────────────────────────────────────────────────────────────────
 function parsePlants() {
   const raw = document.getElementById('plantInput').value.trim();
   if (!raw) return;
 
-  // 1. 학명 추출: 대문자 속명 + 소문자 종명 + '품종명' (Perry's 같은 소유격 포함)
+  // 1. 학명 패턴: 속명 + 종명 [+ '품종명']
   const latinRe = /[A-Z][a-z]{2,}(?:\s+×?\s*[a-z][a-z-]{1,})*(?:\s+'[^']*(?:'s[^']*)*')?/g;
-  const latins = [...new Set(raw.match(latinRe) || [])].map(s => s.trim());
 
-  // 2. 한국어 이름 추출: 숫자·기호·학명 제거 후 한글 단어만
-  let rest = raw;
-  latins.forEach(l => rest = rest.replace(new RegExp(l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' '));
-  const koreans = [...new Set(
-    rest.split(/[\s\d,、\n\t/+|()\[\]:·\-]+/)
-        .filter(s => s.length >= 2 && /[가-힣]/.test(s))
-  )];
+  // 2. 구분자로 세그먼트 분리 (줄바꿈·탭·콤마·슬래시·기호)
+  const segs = raw.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
 
-  // 3. 합치기 (길이 2 이상)
+  const latins = new Set();
+  const koreans = new Set();
+
+  for (const seg of segs) {
+    // 학명 추출
+    const lm = [...(seg.match(latinRe) || [])];
+    lm.forEach(l => latins.add(l.trim()));
+
+    // 학명 제거 후 한글 추출
+    let rest = seg;
+    lm.forEach(l => rest = rest.replace(new RegExp(l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' '));
+    rest = rest.replace(/[^가-힣\s]/g, ' ').trim();
+    if (!rest) continue;
+
+    // 공백으로 쪼개 각 단어: 조사 제거 → 동사형 필터
+    rest.split(/\s+/).forEach(w => {
+      w = w.trim();
+      if (!w) return;
+      const stripped = stripPtcl(w);
+      if (stripped.length >= 2 && !isKorVerb(stripped)) koreans.add(stripped);
+    });
+  }
+
   const names = [...latins, ...koreans].filter(n => n.length >= 2);
   names.forEach(n => {
     if (!plants.find(p => p.name === n)) plants.push(mkPlant(n));
   });
-
   renderAll();
   plants.filter(p => !p.fetching && !p.done).forEach(loadPlant);
 }
@@ -577,13 +617,20 @@ function renderChips() {
   document.getElementById('plantCount').textContent = plants.length;
   if (!plants.length) { sec.style.display = 'none'; return; }
   sec.style.display = 'block';
-  area.innerHTML = plants.map(p => `
+  area.innerHTML = plants.map((p, i) => `
     <span class="chip">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
       <span>${p.korName || p.name}</span>
       <span class="chip-latin">${p.latName || p.name}</span>
-      <button class="chip-rm" onclick="removePlant(${JSON.stringify(p.name)})">✕</button>
+      <button class="chip-rm" data-idx="${i}">✕</button>
     </span>`).join('');
+  // 이벤트 위임 (onclick 인라인 대신 → 특수문자 이스케이프 문제 없음)
+  area.querySelectorAll('.chip-rm').forEach(btn => {
+    btn.addEventListener('click', () => {
+      plants.splice(parseInt(btn.dataset.idx), 1);
+      renderAll();
+    });
+  });
 }
 
 function switchTab(tab) {
@@ -642,12 +689,12 @@ function imgRow(p) {
       </div>
       <div class="img-meta">${nativeBadge}</div>
       <div class="img-links">
-        <a class="ilink lk-g" href="https://www.google.com/search?q=${gImgQ}&tbm=isch" target="_blank">🔍 Google 이미지</a>
-        <a class="ilink lk-g" href="https://www.google.com/search?q=${gAllQ}&tbm=isch" target="_blank">🖼 전체 검색</a>
-        ${p.wikiUrl ? `<a class="ilink lk-w" href="${p.wikiUrl}" target="_blank">📖 Wikipedia</a>` : ''}
-        ${p.inatUrl ? `<a class="ilink lk-in" href="${p.inatUrl}" target="_blank">🌍 iNaturalist</a>` : ''}
-        <a class="ilink lk-rhs" href="https://www.rhs.org.uk/search#q=${rhsQ}" target="_blank">🌹 RHS</a>
-        <a class="ilink lk-mb" href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=0&basic=${mbQ}" target="_blank">🌺 MoBotGarden</a>
+        <a class="ilink lk-g" href="https://www.google.com/search?q=${gImgQ}&tbm=isch" target="_blank" rel="noopener">🔍 Google 이미지</a>
+        <a class="ilink lk-g" href="https://www.google.com/search?q=${encodeURIComponent((p.korName||'') + ' ' + lat)}&tbm=isch" target="_blank" rel="noopener">🖼 국명+학명 검색</a>
+        ${p.wikiUrl ? `<a class="ilink lk-w" href="${p.wikiUrl}" target="_blank" rel="noopener">📖 Wikipedia</a>` : ''}
+        ${p.inatUrl ? `<a class="ilink lk-in" href="${p.inatUrl}" target="_blank" rel="noopener">🌍 iNaturalist</a>` : ''}
+        <a class="ilink lk-rhs" href="https://www.rhs.org.uk/search#q=${rhsQ}" target="_blank" rel="noopener">🌹 RHS</a>
+        <a class="ilink lk-mb" href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=0&basic=${mbQ}" target="_blank" rel="noopener">🌺 MoBotGarden</a>
       </div>
     </div>
   </div>`;
@@ -723,7 +770,9 @@ function renderSeasonal() {
       return `<div class="s-cell"></div>`;
     }).join('');
     return `<div class="season-row">
-      <div class="s-name">${p.korName || p.name}</div>${cells}
+      <div class="s-name">
+        ${p.korName ? `<span>${p.korName}</span><span class="eco-latin" style="display:block;font-size:0.68rem;font-style:italic">${p.latName || p.name}</span>` : `<span style="font-style:italic">${p.name}</span>`}
+      </div>${cells}
     </div>`;
   }).join('');
 
