@@ -115,8 +115,10 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .img-section-bar {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 0.9rem; gap: 0.5rem; flex-wrap: wrap;
+  background: white; padding: 0.6rem 0.9rem; border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
-.img-section-bar span { font-size: 0.74rem; color: #6a8a5a; }
+.img-section-bar span { font-size: 0.8rem; color: #4a6741; font-weight: 600; }
 .img-plant-row {
   background: white; border-radius: 8px; margin-bottom: 0.8rem;
   box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden;
@@ -294,9 +296,9 @@ table.dtbl tr:last-child td { border-bottom: none; }
   <div class="label">식물 목록 입력</div>
   <div class="input-row">
     <textarea id="plantInput"
-      placeholder="식물명을 붙여넣기 하세요. 쉼표·줄바꿈 구분 또는 혼합 텍스트(학명+한국명)도 인식합니다.&#10;예) 맥문동, 구절초, 수크령, Achillea millefolium, 붓꽃, 억새"></textarea>
+      placeholder="식물명 입력 후 Enter (줄바꿈은 Shift+Enter). 학명·국명·혼합 텍스트 모두 인식.&#10;예) Carex albicans, 맥문동, Amsonia 'Blue Ice'"></textarea>
     <div class="input-actions">
-      <button class="btn btn-primary" onclick="parsePlants()">🔍 식물 인식</button>
+      <button class="btn btn-primary" onclick="parsePlants()" style="padding:0.5rem 1.2rem;font-size:0.85rem;">🔍 검색</button>
       <button class="btn btn-ghost" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #c0d8b8;" onclick="clearAll()">초기화</button>
     </div>
   </div>
@@ -390,14 +392,11 @@ const CFG = {
 };
 document.getElementById('workerInput').value = CFG.worker;
 
-// textarea: 단일줄이면 Enter로 검색, 여러 줄이면 Ctrl+Enter
+// Enter = 검색, Shift+Enter = 줄바꿈
 document.getElementById('plantInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    const val = document.getElementById('plantInput').value;
-    if (!val.includes('\n') || e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      parsePlants();
-    }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    parsePlants();
   }
 });
 function saveWorker() {
@@ -434,7 +433,8 @@ async function wFetch(path, params = {}) {
 
 async function inatFetch(q) {
   try {
-    const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=species&per_page=3`);
+    // locale=ko 추가 → 한국어 common name 반환 시도
+    const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=species&per_page=3&locale=ko`);
     return r.json();
   } catch { return null; }
 }
@@ -469,8 +469,9 @@ function parsePlants() {
   const raw = document.getElementById('plantInput').value.trim();
   if (!raw) return;
 
-  // 1. 학명 패턴: 속명 + 종명 [+ '품종명']
-  const latinRe = /[A-Z][a-z]{2,}(?:\s+×?\s*[a-z][a-z-]{1,})*(?:\s+'[^']*(?:'s[^']*)*')?/g;
+  // 1. 학명 패턴: 반드시 이명법(속명+종명) 또는 속명+'품종명' 구조 필요
+  //    → East, Shade, Garden 같은 일반 영단어 단독은 제외
+  const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+×?\s*[a-z][a-z-]{1,})+(?:\s+'[^']*(?:'s[^']*)*')?|\s+'[^']*(?:'s[^']*)*')/g;
 
   // 2. 구분자로 세그먼트 분리 (줄바꿈·탭·콤마·슬래시·기호)
   const segs = raw.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
@@ -549,6 +550,9 @@ async function loadPlant(p) {
   if (inat?.results?.length) {
     const r = inat.results[0];
     if (!p.latName && /^[A-Z]/.test(r.name)) p.latName = r.name;
+    // iNaturalist 한국어 common name (locale=ko 시 preferred_common_name 반환)
+    if (!p.korName && r.preferred_common_name && /[가-힣]/.test(r.preferred_common_name))
+      p.korName = r.preferred_common_name;
     if (r.default_photo?.medium_url) p.imageUrl = r.default_photo.medium_url;
     if (r.wikipedia_url) p.wikiUrl = r.wikipedia_url;
     p.inatId = r.id;
@@ -642,13 +646,16 @@ function renderChips() {
   document.getElementById('plantCount').textContent = plants.length;
   if (!plants.length) { sec.style.display = 'none'; return; }
   sec.style.display = 'block';
-  area.innerHTML = plants.map((p, i) => `
-    <span class="chip">
+  area.innerHTML = plants.map((p, i) => {
+    const kor = p.korName;
+    const lat = p.latName || p.name;
+    return `<span class="chip">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
-      <span>${p.korName || p.name}</span>
-      <span class="chip-latin">${p.latName || p.name}</span>
+      <span>${kor || lat}</span>
+      ${kor ? `<span class="chip-latin">${lat}</span>` : ''}
       <button class="chip-rm" data-idx="${i}">✕</button>
-    </span>`).join('');
+    </span>`;
+  }).join('');
   // 이벤트 위임 (onclick 인라인 대신 → 특수문자 이스케이프 문제 없음)
   area.querySelectorAll('.chip-rm').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -684,7 +691,7 @@ function renderImages() {
   el.innerHTML = `
     <div class="img-section-bar">
       <span>iNaturalist 이미지 — ${plants.length}종</span>
-      <button class="btn btn-ghost btn-sm" onclick="openGoogleAll()">🔍 Google 이미지 전체 검색</button>
+      <button class="btn btn-primary btn-sm" onclick="openGoogleAll()">🔍 Google 이미지 전체 검색</button>
     </div>` + plants.map(imgRow).join('');
 }
 
@@ -766,10 +773,12 @@ function renderEcology() {
     const bloomStr = p.bloomMonths.length ? p.bloomMonths.map(m => MO_SHORT[m-1]+'월').join(', ') : (p.fetching ? '<span class="loading-val">…</span>' : '—');
     const fc = p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${c}</span>`).join('');
     const sq = encodeURIComponent(p.latName || p.korName || p.name);
+    const nameLine = p.korName || p.latName || p.name;
+    const latLine  = p.korName && p.latName ? p.latName : '';
     return `<tr>
       <td>
-        <div class="eco-name">${p.korName || p.name}</div>
-        <div class="eco-latin">${p.latName || ''}</div>
+        <div class="eco-name">${nameLine}</div>
+        ${latLine ? `<div class="eco-latin">${latLine}</div>` : ''}
         <div class="eco-ext-links">
           <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${sq}" target="_blank" rel="noopener" title="Missouri Botanical Garden">🌺</a>
           <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="Plants of the World Online (Kew)">🌍</a>
@@ -827,9 +836,12 @@ function renderSeasonal() {
       }
       return `<div class="s-cell"></div>`;
     }).join('');
+    const sKor = p.korName;
+    const sLat = p.latName || p.name;
     return `<div class="season-row">
-      <div class="s-name">
-        ${p.korName ? `<span>${p.korName}</span><span class="eco-latin" style="display:block;font-size:0.68rem;font-style:italic">${p.latName || p.name}</span>` : `<span style="font-style:italic">${p.name}</span>`}
+      <div class="s-name" style="flex-direction:column;align-items:flex-start;justify-content:center">
+        <span style="${sKor ? '' : 'font-style:italic'}">${sKor || sLat}</span>
+        ${sKor ? `<span class="eco-latin">${sLat}</span>` : ''}
       </div>${cells}
     </div>`;
   }).join('');
@@ -863,7 +875,7 @@ function calcDensity() {
     const cnt = Math.ceil(area * perM2);
     total += cnt;
     return `<tr>
-      <td><div class="eco-name">${p.korName || p.name}</div><div class="eco-latin">${p.latName || ''}</div></td>
+      <td><div class="eco-name">${p.korName || p.latName || p.name}</div>${p.korName && p.latName ? `<div class="eco-latin">${p.latName}</div>` : ''}</td>
       <td>${d.toFixed(2)} m</td>
       <td>${perM2.toFixed(2)} 본/㎡</td>
       <td><strong>${cnt} 본</strong></td>
@@ -942,64 +954,69 @@ async function generateAI() {
       out.innerHTML = `<div style="color:#c05030;padding:1rem;font-size:0.8rem;">이미지 생성 실패.<br>${txt || '응답에 이미지 없음. Gemini API 키 형식을 확인하세요 (AI Studio 재발급 권장).'}</div>`;
     }
   } catch (e) {
-    out.innerHTML = `<div style="color:#c05030;padding:1rem;font-size:0.8rem;">오류: ${e.message}</div>`;
+    const isKey = e.message?.toLowerCase().includes('api key') || e.message?.toLowerCase().includes('not valid');
+    out.innerHTML = `<div style="color:#c05030;padding:1rem;font-size:0.82rem;">
+      <strong>오류: ${e.message}</strong>
+      ${isKey ? `<br><br>🔑 <b>해결법</b>: Cloudflare 대시보드 → Workers → plantlist → Settings → Variables → Secret Variables<br>
+      <code>GEMINI_API_KEY</code> = Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>)에서 발급한 키 붙여넣기` : ''}
+    </div>`;
   }
 }
 
 // ── Tab 6: Care ───────────────────────────────────────────────────────────────
 const WATER_GUIDE = {
-  minimum: '건조에 강함. 식재 후 초기 정착 시 관수 필요. 이후 자연 강수로 충분한 경우 많음.',
-  average: '보통 관수. 토양이 지나치게 건조하지 않도록 유지.',
-  frequent: '규칙적 관수. 토양 수분 유지 중요. 건조 시 생육 저하.'
+  minimum: '건조에 강함',
+  average: '보통',
+  frequent: '습윤 선호'
 };
 
 function renderCare() {
   const el = document.getElementById('care-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div>'; return; }
 
-  el.innerHTML = plants.map(p => careCard(p)).join('');
-  el.querySelectorAll('.accord-head').forEach(h => {
-    h.onclick = () => {
-      const body = h.nextElementSibling;
-      body.classList.toggle('open');
-      h.querySelector('.tog').textContent = body.classList.contains('open') ? '▲' : '▼';
-    };
-  });
-}
+  const ld = (p, v) => p.fetching ? '<span class="loading-val">…</span>' : (v || '—');
+  const trunc = (s, n=60) => s && s.length > n ? `<span title="${s.replace(/"/g,'&quot;')}">${s.slice(0,n)}…</span>` : (s || '');
 
-function careCard(p) {
-  const lat = p.latName || p.name;
-  const care = p.care;
-  const secs = care?.section || [];
-  const getS = type => secs.find(s => s.type === type)?.description || '';
+  const rows = plants.map(p => {
+    const secs = p.care?.section || [];
+    const getS = type => secs.find(s => s.type === type)?.description || '';
+    const water = trunc(getS('watering') || WATER_GUIDE[p.watering?.toLowerCase()] || '');
+    const prune = trunc(getS('pruning') || '');
+    const fert  = trunc(getS('fertilization') || '');
+    const sun   = p.sunlight.map(s => SUN_KO[s] || s).join(', ');
+    const sq    = encodeURIComponent(p.latName || p.korName || p.name);
 
-  const water  = getS('watering')     || WATER_GUIDE[p.watering?.toLowerCase()] || '정보 없음';
-  const prune  = getS('pruning')      || '정보 없음';
-  const fert   = getS('fertilization')|| '정보 없음';
-  const sun    = p.sunlight.map(s => SUN_KO[s] || s).join(', ') || '—';
-  const soil   = p.soil.join(', ') || '—';
+    return `<tr>
+      <td>
+        <div class="eco-name">${p.korName || p.name}</div>
+        <div class="eco-latin">${p.latName || ''}</div>
+        <div class="eco-ext-links">
+          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${sq}" target="_blank" rel="noopener" title="MBG">🌺</a>
+          <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="POWO">🌍</a>
+          <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
+        </div>
+      </td>
+      <td>${ld(p, water)}</td>
+      <td>${ld(p, prune)}</td>
+      <td>${ld(p, fert)}</td>
+      <td>${sun ? sun : ld(p, '')}</td>
+      <td>${p.soil.join(', ') || ld(p, '')}</td>
+      <td>${ld(p, p.hardiness)}</td>
+      <td>${MAINT_KO[p.maintenance?.toLowerCase()] || ld(p, p.maintenance)}</td>
+    </tr>`;
+  }).join('');
 
-  return `<div class="accord">
-    <div class="accord-head">
-      <span>${p.korName || p.name}${p.latName ? ` <em style="font-weight:400;font-size:0.74rem;color:#6a8a5a">${p.latName}</em>` : ''}</span>
-      <span class="tog">▼</span>
+  el.innerHTML = `
+    <div class="tbl-wrap">
+      <table class="eco">
+        <thead><tr>
+          <th>식물명</th><th>관수</th><th>전정·관리</th><th>시비</th>
+          <th>빛</th><th>토양</th><th>내한성</th><th>관리난도</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
-    <div class="accord-body">
-      <div class="care-block"><h4>💧 관수</h4><p>${water}</p></div>
-      <div class="care-block"><h4>✂️ 전정·관리</h4><p>${prune}</p></div>
-      <div class="care-block"><h4>🌿 시비</h4><p>${fert}</p></div>
-      <div class="care-block"><h4>☀️ 환경 요약</h4>
-        <p>빛: ${sun} | 토양: ${soil} | 내한성: ${p.hardiness || '—'} | 관리: ${MAINT_KO[p.maintenance?.toLowerCase()] || p.maintenance || '—'}</p>
-      </div>
-      <div class="extern-links">
-        <a class="ilink lk-rhs" href="https://www.rhs.org.uk/search#q=${encodeURIComponent(lat)}" target="_blank">🌹 RHS</a>
-        <a class="ilink lk-mb"  href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=0&basic=${encodeURIComponent(lat)}" target="_blank">🌺 Missouri Botanical</a>
-        <a class="ilink lk-in"  href="https://www.floraincognita.com" target="_blank">🇩🇪 FloraIncognita</a>
-        <a class="ilink lk-g"   href="https://www.google.com/search?q=${encodeURIComponent(lat+' Pflege Schnitt')}" target="_blank">🔍 독일어 관리법</a>
-        <a class="ilink lk-g"   href="https://www.google.com/search?q=${encodeURIComponent(lat+' care pruning maintenance')}" target="_blank">🔍 영어 관리법</a>
-      </div>
-    </div>
-  </div>`;
+    <p class="src-note">* Perenual API 기준. 마우스 올리면 전체 내용 표시. 상세 관리법: 🌺 MBG · 🌍 POWO · 🌹 RHS 아이콘 클릭.</p>`;
 }
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
