@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 식재 분석 툴</title>
+<style>
+/* ── Base ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Segoe UI', sans-serif;
+  background: #f0f4ef; color: #1a2218; min-height: 100vh; font-size: 14px;
+}
+a { text-decoration: none; }
+
+/* ── Header ──────────────────────────────────────────── */
+header {
+  background: #2d5a1b; color: white;
+  padding: 0.7rem 1.2rem;
+  display: flex; align-items: center; gap: 1rem;
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+}
+header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
+.worker-row { display: flex; align-items: center; gap: 0.4rem; }
+#workerInput {
+  border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.12);
+  color: white; border-radius: 5px; padding: 0.3rem 0.6rem;
+  font-size: 0.72rem; width: 260px;
+}
+#workerInput::placeholder { color: rgba(255,255,255,0.45); }
+.btn { padding: 0.35rem 0.8rem; border: none; border-radius: 5px;
+  cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.15s; }
+.btn-ghost { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
+.btn-ghost:hover { background: rgba(255,255,255,0.28); }
+.btn-primary { background: #52b788; color: white; }
+.btn-primary:hover { background: #3d9b70; }
+.btn-warn { background: #e07b2a; color: white; }
+.btn-warn:hover { background: #c5691c; }
+.btn-sm { padding: 0.22rem 0.55rem; font-size: 0.7rem; }
+
+/* ── Input Section ───────────────────────────────────── */
+#input-section {
+  background: white; padding: 1rem 1.2rem;
+  border-bottom: 2px solid #d8f3dc;
+}
+#input-section .label { font-size: 0.78rem; font-weight: 700;
+  color: #3a6330; margin-bottom: 0.4rem; }
+.input-row { display: flex; gap: 0.7rem; align-items: flex-start; }
+#plantInput {
+  flex: 1; height: 72px; padding: 0.5rem 0.7rem;
+  border: 1.5px solid #c0d8b8; border-radius: 6px;
+  font-size: 0.82rem; resize: vertical; font-family: inherit; line-height: 1.5;
+}
+#plantInput:focus { outline: none; border-color: #52b788; }
+.input-actions { display: flex; flex-direction: column; gap: 0.4rem; }
+
+/* ── Plant List ──────────────────────────────────────── */
+#plant-list-section {
+  background: #f6fbf4; padding: 0.7rem 1.2rem;
+  border-bottom: 1px solid #d0e8c8; display: none;
+}
+.list-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+.list-header h3 { font-size: 0.8rem; font-weight: 700; color: #2d5a1b; }
+.badge { background: #52b788; color: white; border-radius: 10px;
+  padding: 0.1rem 0.45rem; font-size: 0.68rem; font-weight: 700; }
+.hint { font-size: 0.7rem; color: #8aaa7a; }
+#chipArea { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
+.chip {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: #e6f4de; border: 1px solid #b0d4a0;
+  border-radius: 18px; padding: 0.22rem 0.55rem;
+  font-size: 0.76rem; color: #2a4a20;
+}
+.chip .chip-latin { font-style: italic; font-size: 0.65rem; opacity: 0.7; }
+.chip-dot { width: 6px; height: 6px; border-radius: 50%;
+  background: #74c476; animation: blink 1.2s infinite; flex-shrink: 0; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+.chip-rm {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: #c8d8c0; border: none; cursor: pointer;
+  font-size: 9px; display: flex; align-items: center; justify-content: center;
+  color: #4a6741; transition: 0.12s;
+}
+.chip-rm:hover { background: #e05050; color: white; }
+.add-row { display: flex; gap: 0.4rem; align-items: center; }
+#addInput { border: 1px solid #c0d8b8; border-radius: 16px;
+  padding: 0.22rem 0.7rem; font-size: 0.78rem; width: 190px; }
+#addInput:focus { outline: none; border-color: #52b788; }
+
+/* ── Tabs ────────────────────────────────────────────── */
+#tabNav {
+  background: white; border-bottom: 2px solid #52b788;
+  padding: 0 1.2rem; display: flex; gap: 0; overflow-x: auto;
+  scrollbar-width: none;
+}
+#tabNav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  padding: 0.65rem 1rem; border: none; background: none;
+  font-size: 0.78rem; font-weight: 600; color: #7a9a6a;
+  cursor: pointer; border-bottom: 3px solid transparent;
+  margin-bottom: -2px; white-space: nowrap; transition: 0.15s;
+}
+.tab-btn:hover { color: #2d5a1b; background: #f0f8ec; }
+.tab-btn.active { color: #2d5a1b; border-bottom-color: #52b788; }
+
+/* ── Tab Content ─────────────────────────────────────── */
+.tab-pane { display: none; padding: 1rem 1.2rem; }
+.tab-pane.active { display: block; }
+.empty { text-align: center; padding: 3rem 1rem; color: #8aaa7a; }
+.empty .emo { font-size: 2.2rem; margin-bottom: 0.5rem; }
+.empty p { font-size: 0.82rem; }
+
+/* ── Tab 1: Images ───────────────────────────────────── */
+.img-row {
+  display: flex; gap: 1rem; align-items: flex-start;
+  padding: 0.9rem; background: white; border-radius: 8px;
+  margin-bottom: 0.7rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+.img-thumb {
+  width: 130px; height: 96px; object-fit: cover;
+  border-radius: 6px; flex-shrink: 0; cursor: pointer;
+  transition: 0.2s; border: 1px solid #e0e8da;
+}
+.img-thumb:hover { opacity: 0.88; transform: scale(1.02); }
+.img-placeholder {
+  width: 130px; height: 96px; border-radius: 6px;
+  background: #edf5e8; display: flex; align-items: center;
+  justify-content: center; font-size: 2rem; flex-shrink: 0;
+  color: #a0c0a0; border: 1px solid #d0e8c8;
+}
+.img-info { flex: 1; min-width: 0; }
+.img-name { font-weight: 700; font-size: 0.92rem; }
+.img-latin { font-style: italic; font-size: 0.76rem; color: #5a8050; margin-top: 0.1rem; }
+.img-meta { margin-top: 0.3rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.badge-native { font-size: 0.68rem; padding: 0.08rem 0.4rem; border-radius: 10px; font-weight: 600; }
+.nat-자생 { background: #d4f4e4; color: #1a6040; }
+.nat-귀화 { background: #fff3c8; color: #7a5a10; }
+.nat-재배 { background: #e0eaf8; color: #3a508a; }
+.img-links { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.55rem; }
+.ilink {
+  font-size: 0.7rem; padding: 0.13rem 0.48rem; border-radius: 10px;
+  border: 1px solid; transition: 0.12s;
+}
+.lk-g  { color: #4285f4; border-color: #4285f4; }
+.lk-g:hover  { background: #4285f4; color: white; }
+.lk-w  { color: #555; border-color: #aaa; }
+.lk-w:hover  { background: #555; color: white; }
+.lk-in { color: #74ac00; border-color: #74ac00; }
+.lk-in:hover { background: #74ac00; color: white; }
+.lk-rhs{ color: #c0392b; border-color: #c0392b; }
+.lk-rhs:hover{ background: #c0392b; color: white; }
+.lk-mb { color: #7b68ee; border-color: #7b68ee; }
+.lk-mb:hover { background: #7b68ee; color: white; }
+
+/* ── Tab 2: Ecology ──────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+table.eco {
+  width: 100%; border-collapse: collapse; font-size: 0.75rem; background: white;
+}
+table.eco th {
+  background: #2d5a1b; color: white; padding: 0.45rem 0.6rem;
+  text-align: left; font-weight: 600; white-space: nowrap;
+  position: sticky; top: 0;
+}
+table.eco td { padding: 0.45rem 0.6rem; border-bottom: 1px solid #eaf0e6; vertical-align: middle; }
+table.eco tr:last-child td { border-bottom: none; }
+table.eco tr:hover td { background: #f4faf2; }
+.eco-name { font-weight: 700; }
+.eco-latin { font-style: italic; font-size: 0.68rem; color: #6a8a5a; }
+.tag { display: inline-block; padding: 0.08rem 0.35rem; border-radius: 3px;
+  font-size: 0.66rem; margin: 0.05rem; white-space: nowrap; }
+.tag-sun  { background: #fff8d6; color: #7a5a00; }
+.tag-soil { background: #f0e8d8; color: #6b4c2a; }
+.tag-fc   { background: #f0e8f8; color: #5a3a8a; }
+.loading-val { color: #bbb; font-style: italic; }
+.src-note { font-size: 0.68rem; color: #8aaa7a; margin-top: 0.5rem; }
+
+/* ── Tab 3: Seasonal Chart ───────────────────────────── */
+.season-wrap { overflow-x: auto; border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+.season-grid { min-width: 700px; }
+.season-head {
+  display: grid; grid-template-columns: 170px repeat(12, 1fr);
+  background: #2d5a1b; color: white; font-size: 0.7rem; font-weight: 600;
+}
+.season-head div { padding: 0.4rem 0.15rem; text-align: center; }
+.season-head div:first-child { text-align: left; padding-left: 0.7rem; }
+.season-row {
+  display: grid; grid-template-columns: 170px repeat(12, 1fr);
+  border-bottom: 1px solid #eaf0e6; background: white;
+  transition: 0.1s;
+}
+.season-row:hover { background: #f6fbf4; }
+.s-name {
+  padding: 0.35rem 0.7rem; font-size: 0.74rem; font-weight: 600;
+  display: flex; align-items: center; color: #2a4a20;
+}
+.s-cell { display: flex; align-items: center; justify-content: center; padding: 0.2rem 0.1rem; }
+.bloom-bar {
+  width: 100%; height: 22px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.62rem;
+}
+.season-legend { display: flex; gap: 1rem; margin-top: 0.8rem;
+  font-size: 0.72rem; color: #6a8a5a; flex-wrap: wrap; }
+
+/* ── Tab 4: Density ──────────────────────────────────── */
+.density-card { background: white; border-radius: 8px; padding: 1.1rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+.density-card h3 { font-size: 0.88rem; font-weight: 700; color: #2d5a1b; margin-bottom: 0.8rem; }
+.form-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.9rem; }
+.fg { display: flex; flex-direction: column; gap: 0.25rem; }
+.fg label { font-size: 0.72rem; font-weight: 600; color: #4a6741; }
+.fg input, .fg select {
+  border: 1.5px solid #c0d8b8; border-radius: 5px;
+  padding: 0.38rem 0.55rem; font-size: 0.82rem; width: 140px;
+}
+.fg input:focus, .fg select:focus { outline: none; border-color: #52b788; }
+.density-total { font-size: 1rem; font-weight: 700; color: #2d5a1b; margin-bottom: 0.7rem; }
+table.dtbl { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+table.dtbl th { text-align: left; padding: 0.4rem 0.55rem;
+  background: #edf5e8; color: #2d5a1b; font-weight: 600; }
+table.dtbl td { padding: 0.4rem 0.55rem; border-bottom: 1px solid #e8f0e4; }
+table.dtbl tr:last-child td { border-bottom: none; }
+.dtbl-total { font-weight: 700; background: #f0f8ec !important; }
+
+/* ── Tab 5: AI Image ─────────────────────────────────── */
+.ai-card { background: white; border-radius: 8px; padding: 1.1rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+.ai-desc { font-size: 0.76rem; color: #6a8a5a; margin-bottom: 0.8rem; }
+.plant-select-area { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.9rem; }
+.sel-chip {
+  display: flex; align-items: center; gap: 0.3rem;
+  padding: 0.28rem 0.65rem; border-radius: 18px;
+  border: 1.5px solid #c0d8b8; font-size: 0.76rem;
+  cursor: pointer; transition: 0.12s; user-select: none;
+  background: white; color: #4a6741;
+}
+.sel-chip.on { background: #2d5a1b; border-color: #2d5a1b; color: white; }
+.ai-controls { display: flex; gap: 0.8rem; flex-wrap: wrap;
+  align-items: flex-end; padding-top: 0.8rem;
+  border-top: 1px solid #eaf0e6; margin-top: 0.5rem; }
+.ai-output { min-height: 180px; display: flex; align-items: center;
+  justify-content: center; background: #f4faf2;
+  border-radius: 8px; margin-top: 1rem; overflow: hidden; }
+.ai-output img { max-width: 100%; display: block; border-radius: 8px; }
+.spin-msg { text-align: center; color: #6a8a5a; }
+.spinner { font-size: 2rem; display: inline-block; animation: spin 2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Tab 6: Care ─────────────────────────────────────── */
+.accord { margin-bottom: 0.5rem; border-radius: 8px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+.accord-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.7rem 1rem; background: white; cursor: pointer;
+  font-weight: 600; font-size: 0.82rem; color: #2d5a1b;
+  transition: 0.12s; border-left: 3px solid #52b788;
+}
+.accord-head:hover { background: #f6fbf4; }
+.accord-body { display: none; padding: 0.8rem 1rem;
+  background: white; border-top: 1px solid #eaf0e6;
+  border-left: 3px solid #c8e8c0; font-size: 0.78rem; }
+.accord-body.open { display: block; }
+.care-block { margin-bottom: 0.6rem; }
+.care-block h4 { font-size: 0.72rem; font-weight: 700; color: #3a6330; margin-bottom: 0.2rem; }
+.care-block p { line-height: 1.55; color: #3a3a3a; }
+.extern-links { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+.extern-links a { font-size: 0.7rem; padding: 0.18rem 0.5rem; border-radius: 10px;
+  border: 1px solid; transition: 0.12s; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header>
+  <h1>🌿 식재 분석 툴</h1>
+  <div class="worker-row">
+    <input id="workerInput" type="text" placeholder="Worker URL: https://xxx.workers.dev">
+    <button class="btn btn-ghost btn-sm" onclick="saveWorker()">저장</button>
+  </div>
+  <button class="btn btn-warn btn-sm" onclick="exportPDF()">📄 PDF</button>
+</header>
+
+<!-- ── Plant Input ─────────────────────────────────────────────────────────── -->
+<section id="input-section">
+  <div class="label">식물 목록 입력</div>
+  <div class="input-row">
+    <textarea id="plantInput"
+      placeholder="식물명을 붙여넣기 하세요. 쉼표·줄바꿈 구분 또는 혼합 텍스트(학명+한국명)도 인식합니다.&#10;예) 맥문동, 구절초, 수크령, Achillea millefolium, 붓꽃, 억새"></textarea>
+    <div class="input-actions">
+      <button class="btn btn-primary" onclick="parsePlants()">🔍 식물 인식</button>
+      <button class="btn btn-ghost" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #c0d8b8;" onclick="clearAll()">초기화</button>
+    </div>
+  </div>
+</section>
+
+<!-- ── Plant Chips ─────────────────────────────────────────────────────────── -->
+<section id="plant-list-section">
+  <div class="list-header">
+    <h3>인식된 식물</h3>
+    <span class="badge" id="plantCount">0</span>
+    <span class="hint">✕ 클릭하여 제거</span>
+  </div>
+  <div id="chipArea"></div>
+  <div class="add-row">
+    <input id="addInput" type="text" placeholder="+ 식물명 직접 추가"
+      onkeydown="if(event.key==='Enter')addPlant()">
+    <button class="btn btn-primary btn-sm" onclick="addPlant()">추가</button>
+  </div>
+</section>
+
+<!-- ── Tab Nav ─────────────────────────────────────────────────────────────── -->
+<nav id="tabNav">
+  <button class="tab-btn active" data-tab="images"   onclick="switchTab('images')">📸 이미지</button>
+  <button class="tab-btn"        data-tab="ecology"  onclick="switchTab('ecology')">🌱 생태/형태</button>
+  <button class="tab-btn"        data-tab="seasonal" onclick="switchTab('seasonal')">📅 계절 도표</button>
+  <button class="tab-btn"        data-tab="density"  onclick="switchTab('density')">📐 식재 밀도</button>
+  <button class="tab-btn"        data-tab="ai"       onclick="switchTab('ai')">🎨 AI 이미지</button>
+  <button class="tab-btn"        data-tab="care"     onclick="switchTab('care')">🔧 유지관리</button>
+</nav>
+
+<!-- ── Tab Panes ──────────────────────────────────────────────────────────── -->
+<div id="pane-images"   class="tab-pane active"><div id="img-content"><div class="empty"><div class="emo">📷</div><p>식물을 입력하면 이미지를 불러옵니다.</p></div></div></div>
+<div id="pane-ecology"  class="tab-pane"><div id="eco-content"><div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div></div></div>
+<div id="pane-seasonal" class="tab-pane"><div id="sea-content"><div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div></div></div>
+<div id="pane-density"  class="tab-pane">
+  <div class="density-card">
+    <h3>식재 밀도 계산기</h3>
+    <div class="form-row">
+      <div class="fg"><label>식재 면적 (㎡)</label><input id="areaInput" type="number" value="100" min="1" oninput="calcDensity()"></div>
+      <div class="fg"><label>식재 방식</label>
+        <select id="gridType" onchange="calcDensity()">
+          <option value="square">정방형 (격자)</option>
+          <option value="tri">삼각형 (지그재그, +15%)</option>
+        </select>
+      </div>
+    </div>
+    <div id="density-out"><div class="empty"><div class="emo">📐</div><p>식물을 추가하면 본수를 계산합니다.</p></div></div>
+  </div>
+</div>
+<div id="pane-ai" class="tab-pane">
+  <div class="ai-card">
+    <h3 style="font-size:0.88rem;font-weight:700;color:#2d5a1b;margin-bottom:0.4rem;">🎨 AI 식재 시뮬레이션</h3>
+    <p class="ai-desc">생성할 식물을 선택 후 계절을 골라 Gemini로 식재 이미지를 생성합니다.</p>
+    <div id="plantSelector" class="plant-select-area">
+      <div class="empty" style="padding:0.8rem;"><p>식물을 추가하면 여기에 표시됩니다.</p></div>
+    </div>
+    <div class="ai-controls">
+      <div class="fg"><label>계절</label>
+        <select id="seasonSel">
+          <option value="spring">봄 Spring</option>
+          <option value="summer" selected>여름 Summer</option>
+          <option value="autumn">가을 Autumn</option>
+          <option value="winter">겨울 Winter</option>
+        </select>
+      </div>
+      <div class="fg"><label>이미지 스타일</label>
+        <select id="styleSel">
+          <option value="photo">정원 사진 (사실적)</option>
+          <option value="illus">식물 일러스트</option>
+          <option value="plan">식재 단면도</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="generateAI()">✨ 이미지 생성</button>
+    </div>
+    <div class="ai-output" id="ai-output"><p style="color:#8aaa7a;font-size:0.8rem;">생성된 이미지가 여기에 표시됩니다.</p></div>
+  </div>
+</div>
+<div id="pane-care" class="tab-pane"><div id="care-content"><div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div></div></div>
+
+<!-- ── PDF Library ─────────────────────────────────────────────────────────── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+'use strict';
+
+// ── Config ────────────────────────────────────────────────────────────────────
+const CFG = {
+  get worker() { return localStorage.getItem('workerUrl') || ''; }
+};
+document.getElementById('workerInput').value = CFG.worker;
+function saveWorker() {
+  const v = document.getElementById('workerInput').value.trim().replace(/\/$/, '');
+  localStorage.setItem('workerUrl', v);
+  showToast('Worker URL 저장됨');
+}
+
+function showToast(msg) {
+  const t = Object.assign(document.createElement('div'), {
+    textContent: msg,
+    style: 'position:fixed;bottom:1.5rem;right:1.5rem;background:#2d5a1b;color:white;padding:0.5rem 1rem;border-radius:6px;font-size:0.8rem;z-index:999;opacity:1;transition:opacity 0.5s'
+  });
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 500); }, 2000);
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+// plant = { name, korName, latName, native, family,
+//           perenualId, height, spreadM, flowerColors, bloomMonths,
+//           sunlight, soil, hardiness, watering, maintenance,
+//           imageUrl, wikiUrl, inatId, inatUrl,
+//           care, fetching, done }
+const plants = [];
+let activeTab = 'images';
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function wFetch(path, params = {}) {
+  if (!CFG.worker) { console.warn('Worker URL 미설정'); return null; }
+  const u = new URL(CFG.worker + path);
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  try { const r = await fetch(u); return r.json(); } catch { return null; }
+}
+
+async function inatFetch(q) {
+  try {
+    const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=species&per_page=3`);
+    return r.json();
+  } catch { return null; }
+}
+
+// ── Parsing ───────────────────────────────────────────────────────────────────
+function parsePlants() {
+  const raw = document.getElementById('plantInput').value.trim();
+  if (!raw) return;
+  let names;
+
+  if (/[,;]/.test(raw)) {
+    names = raw.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  } else if (raw.includes('\n')) {
+    names = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  } else {
+    // mixed text: extract Latin names + Korean words ≥2 chars
+    const latins = [...(raw.match(/[A-Z][a-z]+(?:\s+[a-z×'".]+){1,3}/g) || [])];
+    let rest = raw;
+    latins.forEach(l => rest = rest.replace(l, ' '));
+    const koreans = rest.split(/[\s,、]+/).filter(s => s.length >= 2 && /[가-힣]/.test(s));
+    names = [...latins, ...koreans];
+  }
+
+  const unique = [...new Set(names.filter(n => n.length >= 2))];
+  unique.forEach(n => {
+    if (!plants.find(p => p.name === n)) plants.push(mkPlant(n));
+  });
+  renderAll();
+  plants.filter(p => !p.fetching && !p.done).forEach(loadPlant);
+}
+
+function mkPlant(name) {
+  return {
+    name, korName: '', latName: '', native: '', family: '',
+    perenualId: null, height: '', spreadM: null, flowerColors: [],
+    bloomMonths: [], sunlight: [], soil: [], hardiness: '',
+    watering: '', maintenance: '',
+    imageUrl: '', wikiUrl: '', inatId: null, inatUrl: '',
+    care: null, fetching: false, done: false
+  };
+}
+
+function addPlant() {
+  const inp = document.getElementById('addInput');
+  const n = inp.value.trim();
+  if (!n || plants.find(p => p.name === n)) { inp.focus(); return; }
+  const p = mkPlant(n);
+  plants.push(p);
+  inp.value = '';
+  renderAll();
+  loadPlant(p);
+}
+
+function removePlant(name) {
+  const i = plants.findIndex(p => p.name === name);
+  if (i >= 0) plants.splice(i, 1);
+  renderAll();
+}
+
+function clearAll() {
+  plants.length = 0;
+  document.getElementById('plantInput').value = '';
+  renderAll();
+}
+
+// ── Data Loading ──────────────────────────────────────────────────────────────
+async function loadPlant(p) {
+  p.fetching = true;
+
+  // 1. iNaturalist (direct, CORS-OK)
+  const inat = await inatFetch(p.name);
+  if (inat?.results?.length) {
+    const r = inat.results[0];
+    if (!p.latName && /^[A-Z]/.test(r.name)) p.latName = r.name;
+    if (r.default_photo?.medium_url) p.imageUrl = r.default_photo.medium_url;
+    if (r.wikipedia_url) p.wikiUrl = r.wikipedia_url;
+    p.inatId = r.id;
+    p.inatUrl = `https://www.inaturalist.org/taxa/${r.id}`;
+  }
+  renderChips(); renderActiveTab();
+
+  // 2. 산림청 (via Worker)
+  const forest = await wFetch('/api/forest/search', { q: p.name });
+  if (forest?.length) {
+    const f = forest[0];
+    if (!p.korName && f.korNm && /[가-힣]/.test(f.korNm)) p.korName = f.korNm;
+    if (!p.latName && f.sn) p.latName = f.sn;
+    p.native  = f.natrlDvsnNm || '';
+    p.family  = f.familyNm || '';
+  }
+  renderChips(); renderActiveTab();
+
+  // 3. Perenual (via Worker) — search by Latin name for accuracy
+  const searchQ = p.latName || p.name;
+  const perenual = await wFetch('/api/perenual/search', { q: searchQ });
+  if (perenual?.data?.length) {
+    const pr = perenual.data[0];
+    p.perenualId = pr.id;
+    if (!p.imageUrl && pr.default_image?.medium_url) p.imageUrl = pr.default_image.medium_url;
+    await loadPerenualDetail(p);
+  }
+
+  p.fetching = false;
+  p.done = true;
+  renderAll();
+}
+
+async function loadPerenualDetail(p) {
+  if (!p.perenualId) return;
+  const [det, care] = await Promise.all([
+    wFetch('/api/perenual/details', { id: p.perenualId }),
+    wFetch('/api/perenual/care',    { id: p.perenualId })
+  ]);
+
+  if (det && !det.error) {
+    // Height: Perenual returns feet → convert to metres
+    const ftToM = v => +(v * 0.3048).toFixed(1);
+    if (det.dimensions?.min_value != null) {
+      p.height = `${ftToM(det.dimensions.min_value)}~${ftToM(det.dimensions.max_value)}m`;
+    }
+    if (det.spread?.max_value != null) {
+      p.spreadM = ftToM(det.spread.max_value);
+    }
+    p.sunlight     = det.sunlight  || [];
+    p.soil         = Array.isArray(det.soil) ? det.soil : (det.soil ? [det.soil] : []);
+    p.watering     = det.watering  || '';
+    p.maintenance  = det.maintenance || '';
+    p.hardiness    = det.hardiness ? `Zone ${det.hardiness.min}–${det.hardiness.max}` : '';
+    p.flowerColors = Array.isArray(det.flower_color)
+      ? det.flower_color.filter(Boolean)
+      : (det.flower_color ? [det.flower_color] : []);
+    p.bloomMonths  = seasonToMonths(det.flowering_season);
+  }
+
+  if (care?.data?.length) p.care = care.data[0];
+}
+
+function seasonToMonths(s) {
+  if (!s) return [];
+  const lo = s.toLowerCase();
+  const map = { spring:[3,4,5], summer:[6,7,8], fall:[9,10,11], autumn:[9,10,11], winter:[12,1,2] };
+  const out = [];
+  Object.entries(map).forEach(([k, v]) => { if (lo.includes(k)) out.push(...v); });
+  return [...new Set(out)].sort((a,b) => a - b);
+}
+
+// ── Render Helpers ────────────────────────────────────────────────────────────
+function renderAll() {
+  renderChips();
+  renderActiveTab();
+}
+
+function renderChips() {
+  const sec = document.getElementById('plant-list-section');
+  const area = document.getElementById('chipArea');
+  document.getElementById('plantCount').textContent = plants.length;
+  if (!plants.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  area.innerHTML = plants.map(p => `
+    <span class="chip">
+      ${p.fetching ? '<span class="chip-dot"></span>' : ''}
+      <span>${p.korName || p.name}</span>
+      ${p.latName ? `<span class="chip-latin">${p.latName}</span>` : ''}
+      <button class="chip-rm" onclick="removePlant(${JSON.stringify(p.name)})">✕</button>
+    </span>`).join('');
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+  document.getElementById(`pane-${tab}`).classList.add('active');
+  renderActiveTab();
+}
+
+function renderActiveTab() {
+  switch (activeTab) {
+    case 'images':   renderImages();   break;
+    case 'ecology':  renderEcology();  break;
+    case 'seasonal': renderSeasonal(); break;
+    case 'density':  calcDensity();    break;
+    case 'ai':       renderAISel();    break;
+    case 'care':     renderCare();     break;
+  }
+}
+
+// ── Tab 1: Images ─────────────────────────────────────────────────────────────
+function renderImages() {
+  const el = document.getElementById('img-content');
+  if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📷</div><p>식물을 입력하면 이미지를 불러옵니다.</p></div>'; return; }
+  el.innerHTML = plants.map(imgRow).join('');
+}
+
+function imgRow(p) {
+  const displayName = p.korName || p.name;
+  const lat = p.latName || p.name;
+  const gImgQ  = encodeURIComponent(lat + ' plant');
+  const gAllQ  = encodeURIComponent(lat);
+  const rhsQ   = encodeURIComponent(lat);
+  const mbQ    = encodeURIComponent(lat);
+
+  let nativeBadge = '';
+  if (p.native) {
+    const cls = p.native.includes('자생') ? 'nat-자생' : p.native.includes('귀화') ? 'nat-귀화' : 'nat-재배';
+    nativeBadge = `<span class="badge-native ${cls}">${p.native}</span>`;
+  }
+  if (p.family) nativeBadge += ` <span class="badge-native" style="background:#f0f0f0;color:#555">${p.family}</span>`;
+
+  const thumb = p.imageUrl
+    ? `<img class="img-thumb" src="${p.imageUrl}" alt="${displayName}" title="클릭해서 원본 보기" onclick="window.open('${p.imageUrl}')">`
+    : `<div class="img-placeholder">🌿</div>`;
+
+  return `<div class="img-row">
+    ${thumb}
+    <div class="img-info">
+      <div class="img-name">${displayName}${p.fetching ? ' <span style="font-size:0.68rem;color:#aaa">로딩중…</span>' : ''}</div>
+      <div class="img-latin">${lat}</div>
+      <div class="img-meta">${nativeBadge}</div>
+      <div class="img-links">
+        <a class="ilink lk-g" href="https://www.google.com/search?q=${gImgQ}&tbm=isch" target="_blank">🔍 Google 이미지</a>
+        <a class="ilink lk-g" href="https://www.google.com/search?q=${gAllQ}&tbm=isch" target="_blank">🖼 전체 검색</a>
+        ${p.wikiUrl ? `<a class="ilink lk-w" href="${p.wikiUrl}" target="_blank">📖 Wikipedia</a>` : ''}
+        ${p.inatUrl ? `<a class="ilink lk-in" href="${p.inatUrl}" target="_blank">🌍 iNaturalist</a>` : ''}
+        <a class="ilink lk-rhs" href="https://www.rhs.org.uk/search#q=${rhsQ}" target="_blank">🌹 RHS</a>
+        <a class="ilink lk-mb" href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=0&basic=${mbQ}" target="_blank">🌺 MoBotGarden</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Tab 2: Ecology ────────────────────────────────────────────────────────────
+const SUN_KO   = { 'full sun':'양지', 'part shade':'반음지', 'full shade':'음지', 'part_shade':'반음지', 'full_sun':'양지', 'full_shade':'음지', 'part sun/part shade':'반음지' };
+const WATER_KO = { minimum:'건조에 강함', average:'보통', frequent:'습윤 선호' };
+const MAINT_KO = { low:'낮음', medium:'보통', high:'높음', minimum:'최소' };
+const MO_SHORT = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+
+function renderEcology() {
+  const el = document.getElementById('eco-content');
+  if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div>'; return; }
+
+  const rows = plants.map(p => {
+    const ld = v => p.fetching ? `<span class="loading-val">…</span>` : (v || '—');
+    const sunTags = p.sunlight.map(s => `<span class="tag tag-sun">${SUN_KO[s] || s}</span>`).join('');
+    const soilTags = p.soil.map(s => `<span class="tag tag-soil">${s}</span>`).join('');
+    const bloomStr = p.bloomMonths.length ? p.bloomMonths.map(m => MO_SHORT[m-1]+'월').join(', ') : (p.fetching ? '<span class="loading-val">…</span>' : '—');
+    const fc = p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${c}</span>`).join('');
+    return `<tr>
+      <td><div class="eco-name">${p.korName || p.name}</div><div class="eco-latin">${p.latName || ''}</div></td>
+      <td>${p.native || ld('')}</td>
+      <td>${p.family || ld('')}</td>
+      <td>${ld(p.height)}</td>
+      <td>${fc || ld('')}</td>
+      <td>${bloomStr}</td>
+      <td>${sunTags || ld('')}</td>
+      <td>${soilTags || ld('')}</td>
+      <td>${WATER_KO[p.watering?.toLowerCase()] || ld(p.watering)}</td>
+      <td>${ld(p.hardiness)}</td>
+      <td>${MAINT_KO[p.maintenance?.toLowerCase()] || ld(p.maintenance)}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="tbl-wrap">
+      <table class="eco">
+        <thead><tr>
+          <th>식물명</th><th>자생 여부</th><th>과명</th>
+          <th>수고</th><th>꽃색</th><th>개화기</th>
+          <th>빛</th><th>토양</th><th>관수</th>
+          <th>내한성</th><th>관리난도</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p class="src-note">* 자생여부: 산림청 국가표준식물목록 | 생태: Perenual API (영국/국제 기준, feet→m 변환) | 이미지: iNaturalist</p>`;
+}
+
+function c2css(c) {
+  const m = { red:'#e85050', pink:'#e891b0', purple:'#9b59b6', blue:'#3498db', white:'#e8e8e8',
+    yellow:'#f1c40f', orange:'#e67e22', green:'#27ae60', lavender:'#967bb6', magenta:'#c0306a', violet:'#7f4fbe', 'light blue':'#87ceeb' };
+  return m[c?.toLowerCase()] || '#ccc';
+}
+function isDark(c) { return ['red','purple','blue','green','magenta','violet'].includes(c?.toLowerCase()); }
+
+// ── Tab 3: Seasonal ───────────────────────────────────────────────────────────
+const MO_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+function renderSeasonal() {
+  const el = document.getElementById('sea-content');
+  if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div>'; return; }
+
+  const headCells = MO_LABELS.map(m => `<div>${m}</div>`).join('');
+  const rows = plants.map(p => {
+    const cells = [1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
+      if (p.bloomMonths.includes(m)) {
+        const col = p.flowerColors[0] ? c2css(p.flowerColors[0]) : '#74c476';
+        return `<div class="s-cell"><div class="bloom-bar" style="background:${col}" title="${MO_LABELS[m-1]} 개화">🌸</div></div>`;
+      }
+      return `<div class="s-cell"></div>`;
+    }).join('');
+    return `<div class="season-row">
+      <div class="s-name">${p.korName || p.name}</div>${cells}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="season-wrap">
+      <div class="season-grid">
+        <div class="season-head"><div>식물명</div>${headCells}</div>
+        ${rows}
+      </div>
+    </div>
+    <div class="season-legend">
+      <span>🌸 = 개화기 (Perenual 계절→월 변환 기준)</span>
+      <span>꽃색은 Perenual 데이터 기준</span>
+    </div>`;
+}
+
+// ── Tab 4: Density ────────────────────────────────────────────────────────────
+function calcDensity() {
+  const el = document.getElementById('density-out');
+  if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📐</div><p>식물을 추가하면 본수를 계산합니다.</p></div>'; return; }
+
+  const area = parseFloat(document.getElementById('areaInput')?.value || 100);
+  const isTri = (document.getElementById('gridType')?.value === 'tri');
+  const factor = isTri ? 0.866 : 1.0;
+
+  let total = 0;
+  const rows = plants.map(p => {
+    const d = p.spreadM || 0.5;
+    const perM2 = 1 / (d * d * factor);
+    const cnt = Math.ceil(area * perM2);
+    total += cnt;
+    return `<tr>
+      <td><div class="eco-name">${p.korName || p.name}</div><div class="eco-latin">${p.latName || ''}</div></td>
+      <td>${d.toFixed(2)} m</td>
+      <td>${perM2.toFixed(2)} 본/㎡</td>
+      <td><strong>${cnt} 본</strong></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="density-total">합계: ${total}본 &nbsp;|&nbsp; 면적: ${area}㎡ &nbsp;|&nbsp; ${isTri ? '삼각 식재' : '정방 식재'}</div>
+    <table class="dtbl">
+      <thead><tr><th>식물명</th><th>권장 간격</th><th>㎡당 본수</th><th>필요 본수</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr class="dtbl-total"><td colspan="3">합계</td><td><strong>${total}본</strong></td></tr></tfoot>
+    </table>
+    <p class="src-note">* 간격 = Perenual 최대 너비(feet→m 변환). 미제공 시 0.5m 기본값. 삼각형 식재 시 15% 효율 향상.</p>`;
+}
+
+// ── Tab 5: AI Image ───────────────────────────────────────────────────────────
+function renderAISel() {
+  const el = document.getElementById('plantSelector');
+  if (!plants.length) { el.innerHTML = '<div class="empty" style="padding:0.7rem;"><p>식물을 추가하면 여기에 표시됩니다.</p></div>'; return; }
+  el.innerHTML = plants.map(p =>
+    `<span class="sel-chip on" data-name="${p.name}" onclick="this.classList.toggle('on')">
+      ${p.korName || p.name}
+    </span>`
+  ).join('');
+}
+
+async function generateAI() {
+  if (!CFG.worker) { alert('Worker URL을 먼저 설정하고 저장하세요.'); return; }
+
+  const sel = [...document.querySelectorAll('#plantSelector .sel-chip.on')]
+    .map(c => {
+      const p = plants.find(x => x.name === c.dataset.name);
+      return p ? (p.latName || p.korName || p.name) : c.dataset.name;
+    });
+
+  if (!sel.length) { alert('최소 1개 식물을 선택하세요.'); return; }
+
+  const season = document.getElementById('seasonSel').value;
+  const style  = document.getElementById('styleSel').value;
+  const seaKo  = { spring:'봄', summer:'여름', autumn:'가을', winter:'겨울' }[season];
+  const styleDesc = {
+    photo: 'professional garden photography, realistic, natural daylight, lush and detailed',
+    illus: 'detailed botanical illustration, scientific style, white background',
+    plan:  'landscape architecture planting cross-section diagram, architectural drawing'
+  }[style];
+
+  const prompt = `Create a ${seaKo}(${season}) season garden scene featuring these plants: ${sel.join(', ')}. Show accurate plant heights, forms, textures and colors in a naturalistic perennial garden. Style: ${styleDesc}. High quality.`;
+
+  const out = document.getElementById('ai-output');
+  out.innerHTML = `<div class="spin-msg"><div class="spinner">🌀</div><p style="margin-top:0.5rem;font-size:0.8rem;">Gemini로 이미지 생성 중…</p><p style="font-size:0.7rem;color:#aaa">${sel.length}종 · ${seaKo}</p></div>`;
+
+  try {
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ['IMAGE'] }
+    };
+    const resp = await fetch(CFG.worker + '/api/gemini/image', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await resp.json();
+
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+
+    const imgPart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+    if (imgPart) {
+      const src = `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+      out.innerHTML = `<div style="text-align:center;width:100%;">
+        <img src="${src}" style="max-width:100%;border-radius:8px;">
+        <div style="margin-top:0.5rem;font-size:0.72rem;color:#6a8a5a;">${sel.join(' · ')} — ${seaKo}</div>
+        <a href="${src}" download="식재시뮬_${seaKo}.png" class="btn btn-primary btn-sm" style="display:inline-block;margin-top:0.4rem;">💾 저장</a>
+      </div>`;
+    } else {
+      const txt = data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || '';
+      out.innerHTML = `<div style="color:#c05030;padding:1rem;font-size:0.8rem;">이미지 생성 실패.<br>${txt || '응답에 이미지 없음. Gemini API 키 형식을 확인하세요 (AI Studio 재발급 권장).'}</div>`;
+    }
+  } catch (e) {
+    out.innerHTML = `<div style="color:#c05030;padding:1rem;font-size:0.8rem;">오류: ${e.message}</div>`;
+  }
+}
+
+// ── Tab 6: Care ───────────────────────────────────────────────────────────────
+const WATER_GUIDE = {
+  minimum: '건조에 강함. 식재 후 초기 정착 시 관수 필요. 이후 자연 강수로 충분한 경우 많음.',
+  average: '보통 관수. 토양이 지나치게 건조하지 않도록 유지.',
+  frequent: '규칙적 관수. 토양 수분 유지 중요. 건조 시 생육 저하.'
+};
+
+function renderCare() {
+  const el = document.getElementById('care-content');
+  if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div>'; return; }
+
+  el.innerHTML = plants.map(p => careCard(p)).join('');
+  el.querySelectorAll('.accord-head').forEach(h => {
+    h.onclick = () => {
+      const body = h.nextElementSibling;
+      body.classList.toggle('open');
+      h.querySelector('.tog').textContent = body.classList.contains('open') ? '▲' : '▼';
+    };
+  });
+}
+
+function careCard(p) {
+  const lat = p.latName || p.name;
+  const care = p.care;
+  const secs = care?.section || [];
+  const getS = type => secs.find(s => s.type === type)?.description || '';
+
+  const water  = getS('watering')     || WATER_GUIDE[p.watering?.toLowerCase()] || '정보 없음';
+  const prune  = getS('pruning')      || '정보 없음';
+  const fert   = getS('fertilization')|| '정보 없음';
+  const sun    = p.sunlight.map(s => SUN_KO[s] || s).join(', ') || '—';
+  const soil   = p.soil.join(', ') || '—';
+
+  return `<div class="accord">
+    <div class="accord-head">
+      <span>${p.korName || p.name}${p.latName ? ` <em style="font-weight:400;font-size:0.74rem;color:#6a8a5a">${p.latName}</em>` : ''}</span>
+      <span class="tog">▼</span>
+    </div>
+    <div class="accord-body">
+      <div class="care-block"><h4>💧 관수</h4><p>${water}</p></div>
+      <div class="care-block"><h4>✂️ 전정·관리</h4><p>${prune}</p></div>
+      <div class="care-block"><h4>🌿 시비</h4><p>${fert}</p></div>
+      <div class="care-block"><h4>☀️ 환경 요약</h4>
+        <p>빛: ${sun} | 토양: ${soil} | 내한성: ${p.hardiness || '—'} | 관리: ${MAINT_KO[p.maintenance?.toLowerCase()] || p.maintenance || '—'}</p>
+      </div>
+      <div class="extern-links">
+        <a class="ilink lk-rhs" href="https://www.rhs.org.uk/search#q=${encodeURIComponent(lat)}" target="_blank">🌹 RHS</a>
+        <a class="ilink lk-mb"  href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=0&basic=${encodeURIComponent(lat)}" target="_blank">🌺 Missouri Botanical</a>
+        <a class="ilink lk-in"  href="https://www.floraincognita.com" target="_blank">🇩🇪 FloraIncognita</a>
+        <a class="ilink lk-g"   href="https://www.google.com/search?q=${encodeURIComponent(lat+' Pflege Schnitt')}" target="_blank">🔍 독일어 관리법</a>
+        <a class="ilink lk-g"   href="https://www.google.com/search?q=${encodeURIComponent(lat+' care pruning maintenance')}" target="_blank">🔍 영어 관리법</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── PDF Export ────────────────────────────────────────────────────────────────
+async function exportPDF() {
+  if (!window.jspdf) { showToast('PDF 라이브러리 로딩 중…'); return; }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+
+  // Cover
+  pdf.setFillColor(45, 90, 27);
+  pdf.rect(0, 0, 210, 38, 'F');
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(17); pdf.text('식재 분석 보고서', 14, 22);
+  pdf.setFontSize(9);  pdf.text(`총 ${plants.length}종 · ${new Date().toLocaleDateString('ko-KR')}`, 14, 32);
+
+  // Plant list
+  pdf.setTextColor(30, 30, 30); pdf.setFontSize(11);
+  pdf.text('수종 목록', 14, 52);
+  pdf.setFontSize(8.5);
+  let y = 62;
+  plants.forEach((p, i) => {
+    if (y > 272) { pdf.addPage(); y = 18; }
+    const line = `${i+1}. ${p.korName || p.name}   ${p.latName || ''}   ${p.native || ''}   ${p.hardiness || ''}`;
+    pdf.text(line, 14, y); y += 6.5;
+  });
+
+  // Active tab screenshot
+  if (plants.length) {
+    const pane = document.getElementById(`pane-${activeTab}`);
+    pdf.addPage();
+    pdf.setFontSize(10); pdf.text(`탭: ${activeTab}`, 14, 14);
+    try {
+      const canvas = await html2canvas(pane, { scale: 1.4, useCORS: true, logging: false });
+      const img = canvas.toDataURL('image/jpeg', 0.82);
+      const w = 182, h = Math.min(w * (canvas.height / canvas.width), 255);
+      pdf.addImage(img, 'JPEG', 14, 20, w, h);
+    } catch(e) { pdf.text('스크린샷 생성 실패: ' + e.message, 14, 28); }
+  }
+
+  pdf.save(`식재분석_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+</script>
+</body>
+</html>
