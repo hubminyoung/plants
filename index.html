@@ -112,46 +112,51 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .empty p { font-size: 0.82rem; }
 
 /* ── Tab 1: Images ───────────────────────────────────── */
-.img-row {
-  display: flex; gap: 1rem; align-items: flex-start;
-  padding: 0.9rem; background: white; border-radius: 8px;
-  margin-bottom: 0.7rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+.img-section-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.9rem; gap: 0.5rem; flex-wrap: wrap;
 }
-.img-thumb {
-  width: 130px; height: 96px; object-fit: cover;
+.img-section-bar span { font-size: 0.74rem; color: #6a8a5a; }
+.img-plant-row {
+  background: white; border-radius: 8px; margin-bottom: 0.8rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden;
+}
+.img-plant-header {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.5rem 0.9rem; border-bottom: 1px solid #eaf0e6;
+}
+.img-plant-name {
+  font-weight: 700; font-size: 0.9rem; color: #1a2218;
+  text-decoration: none; cursor: pointer;
+}
+.img-plant-name:hover { color: #2d5a1b; text-decoration: underline; }
+.img-plant-lat { font-style: italic; font-size: 0.76rem; color: #5a8050; }
+.img-gallery {
+  display: flex; gap: 0.5rem;
+  overflow-x: auto; padding: 0.65rem 0.9rem;
+  scrollbar-width: thin; scrollbar-color: #c0d8b8 transparent;
+}
+.img-gallery::-webkit-scrollbar { height: 4px; }
+.img-gallery::-webkit-scrollbar-thumb { background: #c0d8b8; border-radius: 2px; }
+.gal-img {
+  width: 140px; height: 105px; object-fit: cover;
   border-radius: 6px; flex-shrink: 0; cursor: pointer;
-  transition: 0.2s; border: 1px solid #e0e8da;
+  border: 1px solid #e0e8da; transition: 0.15s;
 }
-.img-thumb:hover { opacity: 0.88; transform: scale(1.02); }
-.img-placeholder {
-  width: 130px; height: 96px; border-radius: 6px;
+.gal-img:hover { opacity: 0.85; transform: scale(1.03); }
+.gal-placeholder {
+  width: 140px; height: 105px; border-radius: 6px; flex-shrink: 0;
   background: #edf5e8; display: flex; align-items: center;
-  justify-content: center; font-size: 2rem; flex-shrink: 0;
-  color: #a0c0a0; border: 1px solid #d0e8c8;
+  justify-content: center; font-size: 2rem; color: #a0c0a0; border: 1px solid #d0e8c8;
 }
-.img-info { flex: 1; min-width: 0; }
-.img-name { font-weight: 700; font-size: 0.92rem; }
-.img-latin { font-style: italic; font-size: 0.76rem; color: #5a8050; margin-top: 0.1rem; }
-.img-meta { margin-top: 0.3rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .badge-native { font-size: 0.68rem; padding: 0.08rem 0.4rem; border-radius: 10px; font-weight: 600; }
 .nat-자생 { background: #d4f4e4; color: #1a6040; }
 .nat-귀화 { background: #fff3c8; color: #7a5a10; }
 .nat-재배 { background: #e0eaf8; color: #3a508a; }
-.img-links { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.55rem; }
-.ilink {
-  font-size: 0.7rem; padding: 0.13rem 0.48rem; border-radius: 10px;
-  border: 1px solid; transition: 0.12s;
-}
-.lk-g  { color: #4285f4; border-color: #4285f4; }
-.lk-g:hover  { background: #4285f4; color: white; }
-.lk-w  { color: #555; border-color: #aaa; }
-.lk-w:hover  { background: #555; color: white; }
-.lk-in { color: #74ac00; border-color: #74ac00; }
-.lk-in:hover { background: #74ac00; color: white; }
-.lk-rhs{ color: #c0392b; border-color: #c0392b; }
-.lk-rhs:hover{ background: #c0392b; color: white; }
-.lk-mb { color: #7b68ee; border-color: #7b68ee; }
-.lk-mb:hover { background: #7b68ee; color: white; }
+/* ecology ext links */
+.eco-ext-links { display: flex; gap: 0.3rem; margin-top: 0.25rem; }
+.eco-ext-links a { font-size: 0.75rem; text-decoration: none; opacity: 0.7; transition: 0.1s; }
+.eco-ext-links a:hover { opacity: 1; }
 
 /* ── Tab 2: Ecology ──────────────────────────────────── */
 .tbl-wrap { overflow-x: auto; border-radius: 8px;
@@ -384,6 +389,17 @@ const CFG = {
   get worker() { return localStorage.getItem('workerUrl') || WORKER_DEFAULT; }
 };
 document.getElementById('workerInput').value = CFG.worker;
+
+// textarea: 단일줄이면 Enter로 검색, 여러 줄이면 Ctrl+Enter
+document.getElementById('plantInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const val = document.getElementById('plantInput').value;
+    if (!val.includes('\n') || e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      parsePlants();
+    }
+  }
+});
 function saveWorker() {
   const v = document.getElementById('workerInput').value.trim().replace(/\/$/, '');
   localStorage.setItem('workerUrl', v);
@@ -496,7 +512,7 @@ function mkPlant(name) {
     perenualId: null, height: '', spreadM: null, flowerColors: [],
     bloomMonths: [], sunlight: [], soil: [], hardiness: '',
     watering: '', maintenance: '',
-    imageUrl: '', wikiUrl: '', inatId: null, inatUrl: '',
+    imageUrl: '', images: [], wikiUrl: '', inatId: null, inatUrl: '',
     care: null, fetching: false, done: false
   };
 }
@@ -537,6 +553,15 @@ async function loadPlant(p) {
     if (r.wikipedia_url) p.wikiUrl = r.wikipedia_url;
     p.inatId = r.id;
     p.inatUrl = `https://www.inaturalist.org/taxa/${r.id}`;
+    // 여러 이미지 fetch (research-grade 관찰 사진)
+    try {
+      const obsR = await fetch(`https://api.inaturalist.org/v1/observations?taxon_id=${r.id}&quality_grade=research&per_page=10&order_by=votes&photos=true`);
+      const obsD = await obsR.json();
+      p.images = (obsD.results || [])
+        .flatMap(o => (o.photos || []).map(ph => ph.url?.replace('/square.', '/medium.')))
+        .filter(Boolean).slice(0, 10);
+    } catch { /* 실패시 단일 이미지로 */}
+    if (!p.images.length && p.imageUrl) p.images = [p.imageUrl];
   }
   renderChips(); renderActiveTab();
 
@@ -656,48 +681,72 @@ function renderActiveTab() {
 function renderImages() {
   const el = document.getElementById('img-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📷</div><p>식물을 입력하면 이미지를 불러옵니다.</p></div>'; return; }
-  el.innerHTML = plants.map(imgRow).join('');
+  el.innerHTML = `
+    <div class="img-section-bar">
+      <span>iNaturalist 이미지 — ${plants.length}종</span>
+      <button class="btn btn-ghost btn-sm" onclick="openGoogleAll()">🔍 Google 이미지 전체 검색</button>
+    </div>` + plants.map(imgRow).join('');
 }
 
 function imgRow(p) {
-  const displayName = p.korName || p.name;
-  const lat = p.latName || p.name;
-  const gImgQ  = encodeURIComponent(lat + ' plant');
-  const gAllQ  = encodeURIComponent(lat);
-  const rhsQ   = encodeURIComponent(lat);
-  const mbQ    = encodeURIComponent(lat);
+  const kor = p.korName || p.name;
+  const lat = p.latName || '';
+  const searchQ = encodeURIComponent(kor + (lat ? ' ' + lat : ''));
 
-  let nativeBadge = '';
+  let badges = '';
   if (p.native) {
     const cls = p.native.includes('자생') ? 'nat-자생' : p.native.includes('귀화') ? 'nat-귀화' : 'nat-재배';
-    nativeBadge = `<span class="badge-native ${cls}">${p.native}</span>`;
+    badges += `<span class="badge-native ${cls}">${p.native}</span>`;
   }
-  if (p.family) nativeBadge += ` <span class="badge-native" style="background:#f0f0f0;color:#555">${p.family}</span>`;
+  if (p.family) badges += ` <span class="badge-native" style="background:#f0f0f0;color:#555">${p.family}</span>`;
 
-  const thumb = p.imageUrl
-    ? `<img class="img-thumb" src="${p.imageUrl}" alt="${displayName}" title="클릭해서 원본 보기" onclick="window.open('${p.imageUrl}')">`
-    : `<div class="img-placeholder">🌿</div>`;
+  const imgs = p.images?.length ? p.images : (p.imageUrl ? [p.imageUrl] : []);
+  const gallery = imgs.length
+    ? imgs.map(url => `<img class="gal-img" src="${url}" loading="lazy" onclick="window.open('${url}','_blank')">`).join('')
+    : `<div class="gal-placeholder">🌿</div>`;
 
-  return `<div class="img-row">
-    ${thumb}
-    <div class="img-info">
-      <div class="img-name">
-        ${p.korName
-          ? `${p.korName} <span style="color:#c0d8b8;margin:0 0.2rem">|</span> <span style="font-style:italic;font-weight:400;font-size:0.83rem">${lat}</span>`
-          : `<span style="font-style:italic">${lat}</span>`}
-        ${p.fetching ? ' <span style="font-size:0.68rem;color:#aaa">로딩중…</span>' : ''}
-      </div>
-      <div class="img-meta">${nativeBadge}</div>
-      <div class="img-links">
-        <a class="ilink lk-g" href="https://www.google.com/search?q=${gImgQ}&tbm=isch" target="_blank" rel="noopener">🔍 Google 이미지</a>
-        <a class="ilink lk-g" href="https://www.google.com/search?q=${encodeURIComponent((p.korName||'') + ' ' + lat)}&tbm=isch" target="_blank" rel="noopener">🖼 국명+학명 검색</a>
-        ${p.wikiUrl ? `<a class="ilink lk-w" href="${p.wikiUrl}" target="_blank" rel="noopener">📖 Wikipedia</a>` : ''}
-        ${p.inatUrl ? `<a class="ilink lk-in" href="${p.inatUrl}" target="_blank" rel="noopener">🌍 iNaturalist</a>` : ''}
-        <a class="ilink lk-rhs" href="https://www.rhs.org.uk/search#q=${rhsQ}" target="_blank" rel="noopener">🌹 RHS</a>
-        <a class="ilink lk-mb" href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=0&basic=${mbQ}" target="_blank" rel="noopener">🌺 MoBotGarden</a>
-      </div>
+  return `<div class="img-plant-row">
+    <div class="img-plant-header">
+      <a class="img-plant-name" href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener">${kor}</a>
+      ${lat ? `<span class="img-plant-lat">| <em>${lat}</em></span>` : ''}
+      ${badges ? `<span style="margin-left:auto;display:flex;gap:0.3rem;align-items:center">${badges}</span>` : ''}
+      ${p.fetching ? '<span style="font-size:0.68rem;color:#aaa;margin-left:auto">로딩중…</span>' : ''}
     </div>
+    <div class="img-gallery">${gallery}</div>
   </div>`;
+}
+
+function openGoogleAll() {
+  const rows = plants.map(p => {
+    const kor = p.korName || p.name;
+    const lat = p.latName || '';
+    const url = `https://www.google.com/search?q=${encodeURIComponent(kor + (lat ? ' ' + lat : ''))}&tbm=isch`;
+    return `<div class="prow"><a href="${url}" target="_blank">
+      <span class="ico">🔍</span>
+      <span class="kor">${kor}</span>
+      ${lat ? `<span class="lat">${lat}</span>` : ''}
+    </a></div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="ko"><head>
+    <meta charset="UTF-8"><title>Google 이미지 검색</title>
+    <style>
+      body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:#1a1e1a;color:#dce8d4;padding:1.5rem;margin:0}
+      h2{font-size:0.8rem;color:#7a9a6a;margin-bottom:1.2rem;font-weight:400}
+      .prow{margin-bottom:0.15rem}
+      .prow a{display:flex;align-items:center;gap:0.9rem;padding:0.55rem 0.8rem;
+        border-radius:6px;text-decoration:none;color:inherit;transition:background 0.12s}
+      .prow a:hover{background:rgba(255,255,255,0.07)}
+      .ico{color:#52b788;font-size:0.85rem;flex-shrink:0}
+      .kor{font-weight:700;font-size:0.95rem}
+      .lat{font-style:italic;font-size:0.78rem;color:#8aaa7a}
+    </style></head><body>
+    <h2>Google 이미지 검색 — ${plants.length}종 · 클릭하면 새 탭에서 열림</h2>
+    ${rows}
+  </body></html>`;
+
+  const w = window.open('', '_blank', 'width=620,height=500,resizable=yes');
+  if (w) { w.document.write(html); w.document.close(); }
 }
 
 // ── Tab 2: Ecology ────────────────────────────────────────────────────────────
@@ -716,8 +765,17 @@ function renderEcology() {
     const soilTags = p.soil.map(s => `<span class="tag tag-soil">${s}</span>`).join('');
     const bloomStr = p.bloomMonths.length ? p.bloomMonths.map(m => MO_SHORT[m-1]+'월').join(', ') : (p.fetching ? '<span class="loading-val">…</span>' : '—');
     const fc = p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${c}</span>`).join('');
+    const sq = encodeURIComponent(p.latName || p.korName || p.name);
     return `<tr>
-      <td><div class="eco-name">${p.korName || p.name}</div><div class="eco-latin">${p.latName || ''}</div></td>
+      <td>
+        <div class="eco-name">${p.korName || p.name}</div>
+        <div class="eco-latin">${p.latName || ''}</div>
+        <div class="eco-ext-links">
+          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${sq}" target="_blank" rel="noopener" title="Missouri Botanical Garden">🌺</a>
+          <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="Plants of the World Online (Kew)">🌍</a>
+          <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
+        </div>
+      </td>
       <td>${p.native || ld('')}</td>
       <td>${p.family || ld('')}</td>
       <td>${ld(p.height)}</td>
