@@ -647,12 +647,11 @@ function renderChips() {
   if (!plants.length) { sec.style.display = 'none'; return; }
   sec.style.display = 'block';
   area.innerHTML = plants.map((p, i) => {
-    const kor = p.korName;
-    const lat = p.latName || p.name;
+    const { primary, secondary } = pNames(p);
     return `<span class="chip">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
-      <span>${kor || lat}</span>
-      ${kor ? `<span class="chip-latin">${lat}</span>` : ''}
+      <span>${primary}</span>
+      ${secondary ? `<span class="chip-latin">${secondary}</span>` : ''}
       <button class="chip-rm" data-idx="${i}">✕</button>
     </span>`;
   }).join('');
@@ -695,10 +694,17 @@ function renderImages() {
     </div>` + plants.map(imgRow).join('');
 }
 
+function pNames(p) {
+  // 한글 국명이 있을 때만 국명+학명 2줄, 없으면 학명 1줄
+  const hasKor = p.korName && /[가-힣]/.test(p.korName);
+  const primary   = hasKor ? p.korName : (p.latName || p.name);
+  const secondary = hasKor ? (p.latName || p.name) : '';
+  return { primary, secondary };
+}
+
 function imgRow(p) {
-  const kor = p.korName || p.name;
-  const lat = p.latName || '';
-  const searchQ = encodeURIComponent(kor + (lat ? ' ' + lat : ''));
+  const { primary, secondary } = pNames(p);
+  const searchQ = encodeURIComponent(primary + (secondary ? ' ' + secondary : ''));
 
   let badges = '';
   if (p.native) {
@@ -714,8 +720,8 @@ function imgRow(p) {
 
   return `<div class="img-plant-row">
     <div class="img-plant-header">
-      <a class="img-plant-name" href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener">${kor}</a>
-      ${lat ? `<span class="img-plant-lat">| <em>${lat}</em></span>` : ''}
+      <a class="img-plant-name" href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener">${primary}</a>
+      ${secondary ? `<span class="img-plant-lat">| <em>${secondary}</em></span>` : ''}
       ${badges ? `<span style="margin-left:auto;display:flex;gap:0.3rem;align-items:center">${badges}</span>` : ''}
       ${p.fetching ? '<span style="font-size:0.68rem;color:#aaa;margin-left:auto">로딩중…</span>' : ''}
     </div>
@@ -773,8 +779,7 @@ function renderEcology() {
     const bloomStr = p.bloomMonths.length ? p.bloomMonths.map(m => MO_SHORT[m-1]+'월').join(', ') : (p.fetching ? '<span class="loading-val">…</span>' : '—');
     const fc = p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${c}</span>`).join('');
     const sq = encodeURIComponent(p.latName || p.korName || p.name);
-    const nameLine = p.korName || p.latName || p.name;
-    const latLine  = p.korName && p.latName ? p.latName : '';
+    const { primary: nameLine, secondary: latLine } = pNames(p);
     return `<tr>
       <td>
         <div class="eco-name">${nameLine}</div>
@@ -836,12 +841,11 @@ function renderSeasonal() {
       }
       return `<div class="s-cell"></div>`;
     }).join('');
-    const sKor = p.korName;
-    const sLat = p.latName || p.name;
+    const { primary: sPrimary, secondary: sSecondary } = pNames(p);
     return `<div class="season-row">
       <div class="s-name" style="flex-direction:column;align-items:flex-start;justify-content:center">
-        <span style="${sKor ? '' : 'font-style:italic'}">${sKor || sLat}</span>
-        ${sKor ? `<span class="eco-latin">${sLat}</span>` : ''}
+        <span style="${sSecondary ? '' : 'font-style:italic'}">${sPrimary}</span>
+        ${sSecondary ? `<span class="eco-latin">${sSecondary}</span>` : ''}
       </div>${cells}
     </div>`;
   }).join('');
@@ -875,7 +879,7 @@ function calcDensity() {
     const cnt = Math.ceil(area * perM2);
     total += cnt;
     return `<tr>
-      <td><div class="eco-name">${p.korName || p.latName || p.name}</div>${p.korName && p.latName ? `<div class="eco-latin">${p.latName}</div>` : ''}</td>
+      <td>${(({primary,secondary})=>`<div class="eco-name">${primary}</div>${secondary?`<div class="eco-latin">${secondary}</div>`:''}`)(pNames(p))}</td>
       <td>${d.toFixed(2)} m</td>
       <td>${perM2.toFixed(2)} 본/㎡</td>
       <td><strong>${cnt} 본</strong></td>
@@ -988,8 +992,7 @@ function renderCare() {
 
     return `<tr>
       <td>
-        <div class="eco-name">${p.korName || p.name}</div>
-        <div class="eco-latin">${p.latName || ''}</div>
+        ${(({primary,secondary})=>`<div class="eco-name">${primary}</div>${secondary?`<div class="eco-latin">${secondary}</div>`:''}`)(pNames(p))}
         <div class="eco-ext-links">
           <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${sq}" target="_blank" rel="noopener" title="MBG">🌺</a>
           <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="POWO">🌍</a>
