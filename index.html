@@ -433,10 +433,108 @@ async function wFetch(path, params = {}) {
 
 async function inatFetch(q) {
   try {
-    // locale=ko 추가 → 한국어 common name 반환 시도
     const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=species&per_page=3&locale=ko`);
     return r.json();
   } catch { return null; }
+}
+
+// ── 이미지 폭포식 소스 ────────────────────────────────────────────────────────
+const _wikiCache = {}, _gbifCache = {}, _inatImgCache = {};
+
+async function fetchWiki(query) {
+  if (_wikiCache[query] !== undefined) return _wikiCache[query];
+  try {
+    const s = await fetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=6&srlimit=40&format=json&origin=*`
+    ).then(r => r.json());
+    const files = (s.query?.search || [])
+      .map(r => r.title)
+      .filter(t => /\.(jpe?g|png)$/i.test(t) && !/map|distribution|range|icon|logo|diagram|coat|flag|stamp/i.test(t))
+      .slice(0, 20);
+    if (!files.length) { _wikiCache[query] = []; return []; }
+    const info = await fetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(files.join('|'))}&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json&origin=*`
+    ).then(r => r.json());
+    const photos = Object.values(info.query?.pages || {})
+      .map(p => p.imageinfo?.[0]?.thumburl).filter(Boolean)
+      .map(url => ({ url, src: 'wiki' }));
+    _wikiCache[query] = photos;
+    return photos;
+  } catch { _wikiCache[query] = []; return []; }
+}
+
+async function fetchInatImgs(taxonId, query) {
+  const key = taxonId || query;
+  if (_inatImgCache[key] !== undefined) return _inatImgCache[key];
+  try {
+    let tid = taxonId;
+    if (!tid) {
+      const d = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(query)}&per_page=1`).then(r => r.json());
+      tid = d.results?.[0]?.id;
+    }
+    if (!tid) { _inatImgCache[key] = []; return []; }
+    const d = await fetch(`https://api.inaturalist.org/v1/observations?taxon_id=${tid}&quality_grade=research&photos=true&per_page=20&order_by=votes`).then(r => r.json());
+    const photos = [];
+    for (const obs of d.results || [])
+      for (const ph of obs.photos || []) {
+        const u = ph.url?.replace('/square.', '/medium.');
+        if (u) photos.push({ url: u, src: 'inat' });
+      }
+    _inatImgCache[key] = photos;
+    return photos;
+  } catch { _inatImgCache[key] = []; return []; }
+}
+
+async function fetchGbif(latin) {
+  if (_gbifCache[latin] !== undefined) return _gbifCache[latin];
+  try {
+    const d = await fetch(
+      `https://api.gbif.org/v1/occurrence/search?mediaType=StillImage&scientificName=${encodeURIComponent(latin)}&limit=20&hasCoordinate=false`
+    ).then(r => r.json());
+    const photos = [];
+    for (const occ of d.results || [])
+      for (const m of occ.media || [])
+        if (m.identifier && /\.(jpe?g|png)/i.test(m.identifier))
+          photos.push({ url: m.identifier, src: 'gbif' });
+    _gbifCache[latin] = photos;
+    return photos;
+  } catch { _gbifCache[latin] = []; return []; }
+}
+
+// 학명 → 한국어 발음 변환 (국명 없을 때 fallback)
+const _CV={b:['바','베','비','보','부'],d:['다','데','디','도','두'],f:['파','페','피','포','푸'],g:['가','게','기','고','구'],h:['하','헤','히','호','후'],k:['카','케','키','코','쿠'],l:['라','레','리','로','루'],m:['마','메','미','모','무'],n:['나','네','니','노','누'],p:['파','페','피','포','푸'],r:['라','레','리','로','루'],s:['사','세','시','소','수'],t:['타','테','티','토','투'],v:['바','베','비','보','부'],w:['와','웨','위','워','우'],z:['자','제','지','조','주']};
+const _VI={a:0,e:1,i:2,o:3,u:4,y:2},_VM={a:'아',e:'에',i:'이',o:'오',u:'우',y:'이'};
+const _AL={b:'브',c:'크',d:'드',f:'프',g:'그',h:'흐',j:'이',k:'크',l:'르',m:'므',n:'느',p:'프',r:'르',s:'스',t:'트',v:'브',w:'우',x:'크스',y:'이',z:'즈'};
+function _wk(raw){
+  let w=raw.toLowerCase().replace(/sch/g,'Ŝ').replace(/ph/g,'f').replace(/th/g,'t').replace(/rh/g,'r').replace(/([bdfgklmnprstvwz])\1/g,'$1');
+  const isV=c=>c in _VI,cv=(cons,v)=>_CV[cons]?.[_VI[v]]??(_AL[cons]+_VM[v]);
+  let out='',i=0;
+  while(i<w.length){
+    const c=w[i],n=w[i+1]||'',n2=w[i+2]||'';
+    if(c==='Ŝ'){out+=isV(n)?'스'+cv('k',n):'스크';i+=isV(n)?2:1;continue;}
+    if(c==='c'&&n==='h'){const fr='eiy'.includes(n2);out+=isV(n2)?(fr?['하','헤','히','호','후']:['카','케','키','코','쿠'])[_VI[n2]]:fr?'흐':'크';i+=isV(n2)?3:2;continue;}
+    if(c==='c'){const fr='eiy'.includes(n);out+=isV(n)?(fr?['차','체','치','초','추']:['카','케','키','코','쿠'])[_VI[n]]:fr?'치':'크';i+=isV(n)?2:1;continue;}
+    if(c==='s'&&n==='c'){out+=isV(n2)?'스'+['카','케','키','코','쿠'][_VI[n2]]:'스크';i+=isV(n2)?3:2;continue;}
+    if(c==='q'&&n==='u'){out+=isV(n2)?'쿠'+_VM[n2]:'쿠위';i+=isV(n2)?3:2;continue;}
+    if(c==='j'){out+=isV(n)?['야','예','이','요','유'][_VI[n]]:'이';i+=isV(n)?2:1;continue;}
+    if(isV(c)){
+      if(c==='e'&&n==='u'&&n2==='o'){out+='에우오';i+=3;continue;}
+      if(c==='e'&&n==='u'){out+='에우';i+=2;continue;}
+      if(c==='a'&&n==='e'){out+='아에';i+=2;continue;}
+      if(c==='o'&&n==='e'){out+='오에';i+=2;continue;}
+      if(c==='a'&&n==='u'){out+='아우';i+=2;continue;}
+      if(c==='i'&&isV(n)&&n!=='i'){out+='이'+_VM[n];i+=2;continue;}
+      out+=_VM[c];i++;continue;
+    }
+    if(c==='g'){out+=isV(n)?_CV.g[_VI[n]]:'그';i+=isV(n)?2:1;continue;}
+    if(_CV[c]&&isV(n)){out+=cv(c,n);i+=2;}else{out+=_AL[c]||'';i++;}
+  }
+  return out||raw;
+}
+function latinReadKr(latin){
+  const qM=latin.match(/^(.*?)\s*['']([^'']+)['']/);
+  if(qM){const b=qM[1].trim().split(/[\s-]+/).filter(w=>w.length>1).map(_wk).join(' ');return b+"'"+qM[2]+"'";}
+  return latin.replace(/['']/g,'').split(/[\s-]+/).filter(w=>w.length>2&&!/^(var|subsp|ssp|f|cv|x)\.?$/.test(w)).map(_wk).join(' ');
 }
 
 // ── Korean parsing helpers ────────────────────────────────────────────────────
@@ -545,28 +643,53 @@ function clearAll() {
 async function loadPlant(p) {
   p.fetching = true;
 
-  // 1. iNaturalist (direct, CORS-OK)
+  // 1. iNaturalist: 학명/국명/taxonId 확보
   const inat = await inatFetch(p.name);
   if (inat?.results?.length) {
     const r = inat.results[0];
     if (!p.latName && /^[A-Z]/.test(r.name)) p.latName = r.name;
-    // iNaturalist 한국어 common name (locale=ko 시 preferred_common_name 반환)
     if (!p.korName && r.preferred_common_name && /[가-힣]/.test(r.preferred_common_name))
       p.korName = r.preferred_common_name;
     if (r.default_photo?.medium_url) p.imageUrl = r.default_photo.medium_url;
     if (r.wikipedia_url) p.wikiUrl = r.wikipedia_url;
     p.inatId = r.id;
     p.inatUrl = `https://www.inaturalist.org/taxa/${r.id}`;
-    // 여러 이미지 fetch (research-grade 관찰 사진)
-    try {
-      const obsR = await fetch(`https://api.inaturalist.org/v1/observations?taxon_id=${r.id}&quality_grade=research&per_page=10&order_by=votes&photos=true`);
-      const obsD = await obsR.json();
-      p.images = (obsD.results || [])
-        .flatMap(o => (o.photos || []).map(ph => ph.url?.replace('/square.', '/medium.')))
-        .filter(Boolean).slice(0, 10);
-    } catch { /* 실패시 단일 이미지로 */}
-    if (!p.images.length && p.imageUrl) p.images = [p.imageUrl];
   }
+  // 학명 기반 학명 발음 fallback (국명 없을 때)
+  const latForSearch = p.latName || ((/^[A-Z]/.test(p.name)) ? p.name : '');
+  if (!p.korName && latForSearch) p.korName = latinReadKr(latForSearch);
+
+  renderChips(); renderActiveTab();
+
+  // 2. 이미지 폭포식: Wikimedia Commons → iNaturalist → GBIF
+  const sp = latForSearch.replace(/\s*[''][^'']+['']\s*$/, '').trim() || p.name;
+  const genus = sp.split(' ')[0];
+
+  let photos = [];
+
+  // 2-1. Wikimedia Commons (학명)
+  photos = await fetchWiki(sp);
+  // 속명만으로도 보완
+  if (photos.length < 4 && genus && genus !== sp) {
+    const byGenus = await fetchWiki(genus);
+    for (const ph of byGenus) if (!photos.find(x => x.url === ph.url)) photos.push(ph);
+  }
+
+  // 2-2. iNaturalist observations
+  if (photos.length < 6) {
+    const inatPh = await fetchInatImgs(p.inatId, sp);
+    for (const ph of inatPh) if (!photos.find(x => x.url === ph.url)) photos.push(ph);
+  }
+
+  // 2-3. GBIF
+  if (photos.length < 6 && sp.includes(' ')) {
+    const gbifPh = await fetchGbif(sp);
+    for (const ph of gbifPh) if (!photos.find(x => x.url === ph.url)) photos.push(ph);
+  }
+
+  p.images = photos.map(ph => ph.url).slice(0, 15);
+  if (!p.images.length && p.imageUrl) p.images = [p.imageUrl];
+
   renderChips(); renderActiveTab();
 
   // 2. 산림청 (via Worker)
@@ -689,7 +812,7 @@ function renderImages() {
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📷</div><p>식물을 입력하면 이미지를 불러옵니다.</p></div>'; return; }
   el.innerHTML = `
     <div class="img-section-bar">
-      <span>iNaturalist 이미지 — ${plants.length}종</span>
+      <span>Commons · iNaturalist · GBIF — ${plants.length}종</span>
       <button class="btn btn-primary btn-sm" onclick="openGoogleAll()">🔍 Google 이미지 전체 검색</button>
     </div>` + plants.map(imgRow).join('');
 }
@@ -715,7 +838,10 @@ function imgRow(p) {
 
   const imgs = p.images?.length ? p.images : (p.imageUrl ? [p.imageUrl] : []);
   const gallery = imgs.length
-    ? imgs.map(url => `<img class="gal-img" src="${url}" loading="lazy" onclick="window.open('${url}','_blank')">`).join('')
+    ? imgs.map(url => {
+        const safe = url.replace(/'/g,'%27');
+        return `<img class="gal-img" src="${url}" loading="lazy" onclick="window.open('${safe}','_blank')" onerror="this.parentElement?.remove()">`;
+      }).join('')
     : `<div class="gal-placeholder">🌿</div>`;
 
   return `<div class="img-plant-row">
