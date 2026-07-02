@@ -382,8 +382,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 </div>
 <div id="pane-ai" class="tab-pane">
   <div class="ai-card">
-    <h3 style="font-size:0.88rem;font-weight:700;color:#2d5a1b;margin-bottom:0.4rem;">🎨 AI 식재 시뮬레이션</h3>
-    <p class="ai-desc">생성할 식물을 선택 후 계절을 골라 Gemini로 식재 이미지를 생성합니다.</p>
+    <h3 style="font-size:0.88rem;font-weight:700;color:#2d5a1b;margin-bottom:0.4rem;">🎨 AI 식재 시뮬레이션 <span style="font-size:0.7rem;font-weight:400;color:#8aaa7a;">(FLUX.1-schnell)</span></h3>
+    <p class="ai-desc">식물을 선택 후 계절을 골라 FLUX.1로 식재 이미지를 생성합니다. (<a href="https://huggingface.co/settings/tokens" target="_blank">HF API 키</a> 필요)</p>
     <div id="plantSelector" class="plant-select-area">
       <div class="empty" style="padding:0.8rem;"><p>식물을 추가하면 여기에 표시됩니다.</p></div>
     </div>
@@ -1246,7 +1246,6 @@ function renderAISel() {
 }
 
 async function generateAI() {
-
   const sel = [...document.querySelectorAll('#plantSelector .sel-chip.on')]
     .map(c => {
       const p = plants.find(x => x.name === c.dataset.name);
@@ -1258,48 +1257,41 @@ async function generateAI() {
   const season = document.getElementById('seasonSel').value;
   const style  = document.getElementById('styleSel').value;
   const seaKo  = { spring:'봄', summer:'여름', autumn:'가을', winter:'겨울' }[season];
+  const seaEn  = { spring:'spring', summer:'summer', autumn:'autumn', winter:'winter' }[season];
+
   const styleDesc = {
-    photo: 'professional garden photography, realistic, natural daylight, lush and detailed',
-    illus: 'detailed botanical illustration, scientific style, white background',
-    plan:  'landscape architecture planting cross-section diagram, architectural drawing'
+    photo: 'professional garden photography, natural light, photorealistic, high detail',
+    illus: 'detailed watercolor botanical illustration, artistic, soft colors',
+    plan:  'landscape architecture cross-section planting diagram, technical drawing style',
   }[style];
 
-  const prompt = `Create a ${seaKo}(${season}) season garden scene featuring these plants: ${sel.join(', ')}. Show accurate plant heights, forms, textures and colors in a naturalistic perennial garden. Style: ${styleDesc}. High quality.`;
+  const prompt = `${seaEn} naturalistic perennial garden, featuring ${sel.join(', ')}, accurate plant heights and textures, ${styleDesc}`;
 
   const out = document.getElementById('ai-output');
-  out.innerHTML = `<div class="spin-msg"><div class="spinner">🌀</div><p style="margin-top:0.5rem;font-size:0.8rem;">Gemini로 이미지 생성 중…</p><p style="font-size:0.7rem;color:#aaa">${sel.length}종 · ${seaKo}</p></div>`;
+  out.innerHTML = `<div class="spin-msg"><div class="spinner">🌀</div><p style="margin-top:0.5rem;font-size:0.8rem;">FLUX.1으로 이미지 생성 중… (10~30초)</p><p style="font-size:0.7rem;color:#aaa">${sel.length}종 · ${seaKo}</p></div>`;
 
   try {
-    const body = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ['IMAGE'] }
-    };
-    const resp = await fetch(CFG.worker + '/api/gemini/image', {
+    const resp = await fetch(CFG.worker + '/api/hf/image', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify({ prompt })
     });
     const data = await resp.json();
 
-    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    if (data.error) throw new Error(data.error);
+    if (!data.image) throw new Error('이미지 데이터 없음');
 
-    const imgPart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-    if (imgPart) {
-      const src = `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
-      out.innerHTML = `<div style="text-align:center;width:100%;">
-        <img src="${src}" style="max-width:100%;border-radius:8px;">
-        <div style="margin-top:0.5rem;font-size:0.72rem;color:#6a8a5a;">${sel.join(' · ')} — ${seaKo}</div>
-        <a href="${src}" download="식재시뮬_${seaKo}.png" class="btn btn-primary btn-sm" style="display:inline-block;margin-top:0.4rem;">💾 저장</a>
-      </div>`;
-    } else {
-      const txt = data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || '';
-      out.innerHTML = `<div style="color:#c05030;padding:1rem;font-size:0.8rem;">이미지 생성 실패.<br>${txt || '응답에 이미지 없음. Gemini API 키 형식을 확인하세요 (AI Studio 재발급 권장).'}</div>`;
-    }
+    const src = data.image;
+    out.innerHTML = `<div style="text-align:center;width:100%;">
+      <img src="${src}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+      <div style="margin-top:0.5rem;font-size:0.72rem;color:#6a8a5a;">${sel.join(' · ')} — ${seaKo}</div>
+      <a href="${src}" download="식재시뮬_${seaKo}.png" class="btn btn-primary btn-sm" style="display:inline-block;margin-top:0.4rem;">💾 저장</a>
+    </div>`;
   } catch (e) {
-    const isKey = e.message?.toLowerCase().includes('api key') || e.message?.toLowerCase().includes('not valid');
+    const isKey = e.message?.includes('HF_API_KEY');
     out.innerHTML = `<div style="color:#c05030;padding:1rem;font-size:0.82rem;">
       <strong>오류: ${e.message}</strong>
-      ${isKey ? `<br><br>🔑 <b>해결법</b>: Cloudflare 대시보드 → Workers → plantlist → Settings → Variables → Secret Variables<br>
-      <code>GEMINI_API_KEY</code> = Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>)에서 발급한 키 붙여넣기` : ''}
+      ${isKey ? `<br><br>🔑 <b>설정법</b>: <a href="https://huggingface.co/settings/tokens" target="_blank">hf.co/settings/tokens</a>에서 Read 토큰 발급 후<br>
+      Cloudflare Workers → plantlist → Settings → Variables → <code>HF_API_KEY</code>로 추가` : ''}
     </div>`;
   }
 }
