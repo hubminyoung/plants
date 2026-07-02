@@ -1107,53 +1107,67 @@ function renderEcology() {
   const el = document.getElementById('eco-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div>'; return; }
 
-  const rows = plants.map(p => {
-    const ld = v => p.fetching ? `<span class="loading-val">…</span>` : (v || '—');
-    const sunTags = p.sunlight.map(s => `<span class="tag tag-sun">${SUN_KO[s] || s}</span>`).join('');
-    const bloomStr = p.bloomMonths.length ? p.bloomMonths.map(m => MO_SHORT[m-1]+'월').join(', ') : (p.fetching ? '<span class="loading-val">…</span>' : '—');
-    const fc = p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${c}</span>`).join('');
+  const ld = (p, v) => p.fetching ? '<span class="loading-val">…</span>' : (v || '—');
+
+  const cards = plants.map(p => {
     const sq = encodeURIComponent(p.latName || p.korName || p.name);
-    const { primary: nameLine, secondary: latLine } = pNames(p);
+    const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
-    // native range: Korean forest service native/귀화 + MBG origin
-    const nativeDisp = [p.native, p.nativeRange].filter(Boolean).join(' / ') || ld('');
-    return `<tr>
-      <td>
-        <div class="eco-name">${nameLine}</div>
-        ${latLine ? `<div class="eco-latin">${latLine}</div>` : ''}
-        ${p.plantType ? `<div style="font-size:0.62rem;color:#888;margin-top:0.1rem">${p.plantType}</div>` : ''}
-        ${eiveHtml(eiveVals)}
-        <div class="eco-ext-links">
-          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId || ''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId ? '' : 'opacity:0.3;pointer-events:none'}">🌺</a>
-          <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="Plants of the World Online (Kew)">🌍</a>
-          <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
+
+    const bloomStr = p.bloomMonths.length
+      ? p.bloomMonths.map(m => MO_SHORT[m-1]+'월').join(', ')
+      : ld(p,'');
+    const fc = p.flowerColors.length
+      ? p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${c}</span>`).join('')
+      : ld(p,'');
+    const sunStr = p.sunlight.map(s => SUN_KO[s]||s).join(' ~ ') || ld(p,'');
+    const origin = [p.native, p.nativeRange].filter(Boolean).join(' / ') || ld(p,'');
+
+    // 표시할 항목 목록 (label, value)
+    const fields = [
+      ['유형',      p.plantType   || ld(p,'')],
+      ['과명',      p.family      || ld(p,'')],
+      ['내한성',    p.hardiness   || ld(p,'')],
+      ['자생/원산지', origin],
+      ['수고',      p.height      || ld(p,'')],
+      ['폭',        p.spreadStr   || (p.spreadM ? p.spreadM+'m' : ld(p,''))],
+      ['개화기',    bloomStr],
+      ['꽃색',      fc],
+      ['일조',      sunStr],
+      ['관수',      WATER_KO[p.watering]  || ld(p, p.watering)],
+      ['관리',      MAINT_KO[p.maintenance] || ld(p, p.maintenance)],
+      ['권장 용도', p.suggestedUse || ld(p,'')],
+      ['꽃 특징',   p.flower       || ld(p,'')],
+      ['잎 특징',   p.leaf         || ld(p,'')],
+      ['유인 생물', p.attracts     || ld(p,'')],
+      ['내성',      p.tolerate     || ld(p,'')],
+    ];
+
+    const fieldHtml = fields.map(([lbl,val]) =>
+      `<div class="eco-f"><span class="eco-lbl">${lbl}</span><span class="eco-val">${val}</span></div>`
+    ).join('');
+
+    return `<div class="eco-card">
+      <div class="eco-card-hd">
+        <div class="eco-card-hd-left">
+          <div class="eco-card-primary">${namePrimary}</div>
+          ${nameSecondary ? `<div class="eco-card-latin">${nameSecondary}</div>` : ''}
         </div>
-      </td>
-      <td>${nativeDisp}</td>
-      <td>${p.family || ld('')}</td>
-      <td>${ld(p.height)}</td>
-      <td>${fc || ld('')}</td>
-      <td>${bloomStr}</td>
-      <td>${sunTags || ld('')}</td>
-      <td>${WATER_KO[p.watering] || ld(p.watering)}</td>
-      <td>${ld(p.hardiness)}</td>
-      <td>${MAINT_KO[p.maintenance] || ld(p.maintenance)}</td>
-    </tr>`;
+        <div class="eco-card-hd-right">
+          ${eiveHtml(eiveVals)}
+          <div class="eco-ext-links">
+            <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
+            <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="Plants of the World Online">🌍</a>
+            <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
+          </div>
+        </div>
+      </div>
+      <div class="eco-card-body">${fieldHtml}</div>
+    </div>`;
   }).join('');
 
-  el.innerHTML = `
-    <div class="tbl-wrap">
-      <table class="eco">
-        <thead><tr>
-          <th>식물명</th><th>자생/원산지</th><th>과명</th>
-          <th>수고</th><th>꽃색</th><th>개화기</th>
-          <th>빛</th><th>관수</th>
-          <th>내한성</th><th>관리난도</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    <p class="src-note">* 자생여부: 산림청 국가표준식물목록 | 생태·형태: Missouri Botanical Garden Plant Finder (feet→m 변환) | Ellenberg 지수: Tichý et al. 2023 (EIVE, L/T/F/R/N) | 이미지: iNaturalist/Wikimedia</p>`;
+  el.innerHTML = `<div class="eco-cards">${cards}</div>
+    <p class="src-note" style="padding:0 1rem 0.5rem">* 자생여부: 산림청 국가표준식물목록 | 생태·형태: Missouri Botanical Garden | Ellenberg 지수: EIVE (L/T/F/R/N) | feet→m 변환</p>`;
 }
 
 function c2css(c) {
@@ -1302,46 +1316,78 @@ function renderCare() {
   const el = document.getElementById('care-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div>'; return; }
 
-  const ld = (p, v) => p.fetching ? '<span class="loading-val">…</span>' : (v || '—');
-  const trunc = (s, n=60) => s && s.length > n ? `<span title="${s.replace(/"/g,'&quot;')}">${s.slice(0,n)}…</span>` : (s || '');
+  const ld = (p,v) => p.fetching ? '<span class="loading-val">…</span>' : (v||'—');
 
-  const rows = plants.map(p => {
-    const sun = p.sunlight.map(s => SUN_KO[s] || s).join(', ');
-    const sq  = encodeURIComponent(p.latName || p.korName || p.name);
+  const cards = plants.map((p, pi) => {
+    const sq = encodeURIComponent(p.latName || p.korName || p.name);
+    const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
 
-    return `<tr>
-      <td>
-        ${(({primary,secondary})=>`<div class="eco-name">${primary}</div>${secondary?`<div class="eco-latin">${secondary}</div>`:''}`)(pNames(p))}
-        <div class="eco-ext-links">
-          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId || ''}&isprofile=0" target="_blank" rel="noopener" title="MBG 상세" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺</a>
-          <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="POWO">🌍</a>
-          <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
+    // 텍스트 섹션만 표시 (생태탭과 중복되는 수치 항목 제외)
+    const sections = [
+      { id:`care-cult-${pi}`,  icon:'🌱', title:'재배법 (Culture)',          text: p.culture    },
+      { id:`care-note-${pi}`,  icon:'✨', title:'주목할 특징 (Noteworthy)',   text: p.noteworthy },
+      { id:`care-prob-${pi}`,  icon:'⚠️', title:'병해충/문제점 (Problems)',   text: p.problems   },
+      { id:`care-uses-${pi}`,  icon:'🎯', title:'활용 (Uses)',                text: p.uses       },
+    ];
+
+    const sectHtml = sections.map(s => {
+      if (!s.text && !p.fetching) return '';
+      const val = p.fetching ? '<span class="loading-val">불러오는 중…</span>' : (s.text || '—');
+      return `<div class="care-section">
+        <div class="care-sec-hd">
+          <span class="care-sec-title">${s.icon} ${s.title}</span>
+          ${s.text ? `<button class="translate-btn" onclick="translateCare('${s.id}','${s.id}-btn')" id="${s.id}-btn">🌐 번역</button>` : ''}
         </div>
-      </td>
-      <td style="max-width:220px">${ld(p, trunc(p.culture, 100))}</td>
-      <td>${ld(p, trunc(p.uses))}</td>
-      <td>${ld(p, p.tolerate)}</td>
-      <td>${sun ? sun : ld(p, '')}</td>
-      <td>${WATER_KO[p.watering] || ld(p, p.watering)}</td>
-      <td>${ld(p, p.hardiness)}</td>
-      <td>${MAINT_KO[p.maintenance] || ld(p, p.maintenance)}</td>
-    </tr>`;
+        <div class="care-text" id="${s.id}" data-orig="${escA(s.text||'')}">${val}</div>
+      </div>`;
+    }).filter(Boolean).join('');
+
+    return `<div class="care-card">
+      <div class="care-card-hd">
+        <div>
+          <span class="care-card-name">${namePrimary}</span>
+          ${nameSecondary ? `<span style="font-style:italic;font-size:0.72rem;color:#6a8a5a;margin-left:0.4rem">${nameSecondary}</span>` : ''}
+        </div>
+        <div class="eco-ext-links">
+          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="MBG 상세" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
+        </div>
+      </div>
+      ${sectHtml || '<div class="care-section"><span style="color:#aaa;font-size:0.8rem">MBG 데이터 없음</span></div>'}
+    </div>`;
   }).join('');
 
-  el.innerHTML = `
-    <div class="tbl-wrap">
-      <table class="eco">
-        <thead><tr>
-          <th>식물명</th><th>재배 방법</th><th>활용</th><th>내성</th>
-          <th>빛</th><th>관수</th><th>내한성</th><th>관리난도</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    <p class="src-note">* 재배 방법·활용: Missouri Botanical Garden Plant Finder. 마우스 올리면 전체 내용 표시. 🌺 = MBG 상세 페이지 직접 링크.</p>`;
+  el.innerHTML = `<div class="care-cards">${cards}</div>
+    <p class="src-note" style="padding:0 1rem 0.5rem">* Missouri Botanical Garden Plant Finder. 🌐 번역 버튼으로 한국어 번역 (HF API 키 필요)</p>`;
 }
 
-// ── PDF Export ────────────────────────────────────────────────────────────────
+async function translateCare(elId, btnId) {
+  const el  = document.getElementById(elId);
+  const btn = document.getElementById(btnId);
+  if (!el) return;
+  const orig = el.dataset.orig || el.textContent.trim();
+  if (!orig || orig === '—') return;
+  btn && (btn.disabled = true, btn.textContent = '번역 중…');
+  try {
+    const resp = await fetch(CFG.worker + '/api/hf/translate', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text: orig })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    el.textContent = data.translation || orig;
+    btn && (btn.textContent = '원문 보기', btn.disabled = false, btn.onclick = () => {
+      el.textContent = orig;
+      btn.textContent = '🌐 번역';
+      btn.onclick = () => translateCare(elId, btnId);
+    });
+  } catch(e) {
+    el.textContent = orig;
+    btn && (btn.disabled = false, btn.textContent = '🌐 번역');
+    showToast && showToast('번역 실패: ' + e.message);
+  }
+}
+
+// ── PDF Export  ────────────────────────────────────────────────────────────────
 async function exportPDF() {
   if (!window.jspdf) { showToast('PDF 라이브러리 로딩 중…'); return; }
   const { jsPDF } = window.jspdf;
@@ -1418,6 +1464,9 @@ function eiveHtml(vals) {
 // ── 식재 구상판 ───────────────────────────────────────────────────────────────
 const boardZones = [];
 
+// HTML attribute 안전 인코딩
+function escA(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 function addBoardZone() {
   boardZones.push({ id: 'z' + Date.now(), name: '새 존', conceptImgs: [], plantItems: [] });
   renderBoardZones();
@@ -1447,7 +1496,6 @@ function boardConceptDrop(ev, zoneId) {
     reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); };
     reader.readAsDataURL(file);
   });
-  // URL 드롭 처리
   const url = ev.dataTransfer.getData('text/uri-list') || ev.dataTransfer.getData('text/plain');
   if (!files.length && url && /^https?:/.test(url.trim())) {
     z.conceptImgs.push(url.trim()); renderBoardZones();
@@ -1471,25 +1519,66 @@ function assignPlantToBoard(zoneId, plantName) {
   const z = boardZones.find(z => z.id === zoneId);
   if (!z || z.plantItems.find(pi => pi.name === plantName)) return;
   z.plantItems.push({ name: plantName, imgIdx: 0 });
+  // 검색창 초기화
+  const inp = document.querySelector(`.board-plant-search[data-bps-zone="${CSS.escape(zoneId)}"]`);
+  if (inp) { inp.value = ''; }
+  const sug = document.getElementById('bps-' + zoneId);
+  if (sug) sug.style.display = 'none';
   renderBoardZones();
 }
 
-function removePlantFromBoard(zoneId, plantName) {
+// 인덱스 기반 (plant 이름 이스케이프 불필요)
+function cycleBoardPlantImg(zoneId, piIdx, dir) {
   const z = boardZones.find(z => z.id === zoneId);
   if (!z) return;
-  const i = z.plantItems.findIndex(pi => pi.name === plantName);
-  if (i >= 0) { z.plantItems.splice(i, 1); renderBoardZones(); }
-}
-
-function cycleBoardPlantImg(zoneId, plantName, dir) {
-  const z = boardZones.find(z => z.id === zoneId);
-  if (!z) return;
-  const pi = z.plantItems.find(pi => pi.name === plantName);
+  const pi = z.plantItems[piIdx];
   if (!pi) return;
-  const p = plants.find(pl => pl.name === plantName);
+  const p = plants.find(pl => pl.name === pi.name);
   const total = p?.images?.length || 1;
   pi.imgIdx = ((pi.imgIdx || 0) + dir + total) % total;
   renderBoardZones();
+}
+
+function removePlantFromBoard(zoneId, piIdx) {
+  const z = boardZones.find(z => z.id === zoneId);
+  if (!z) return;
+  z.plantItems.splice(piIdx, 1);
+  renderBoardZones();
+}
+
+// 식물 검색 자동완성
+function boardPlantSearch(input, zoneId) {
+  const q = input.value.trim().toLowerCase();
+  const z = boardZones.find(z => z.id === zoneId);
+  const inZone = new Set(z?.plantItems.map(pi => pi.name) || []);
+  const sugEl = document.getElementById('bps-' + zoneId);
+  if (!sugEl) return;
+
+  const matches = plants.filter(p => !inZone.has(p.name) && (
+    q === '' ||
+    (p.korName || '').toLowerCase().includes(q) ||
+    (p.latName || '').toLowerCase().includes(q) ||
+    p.name.toLowerCase().includes(q)
+  )).slice(0, 12);
+
+  if (!matches.length) { sugEl.style.display = 'none'; return; }
+
+  sugEl.innerHTML = matches.map(p => {
+    const kor = (p.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
+    const lat = p.latName || p.name;
+    return `<div class="board-sug-item"
+      data-zone-id="${escA(zoneId)}" data-plant-name="${escA(p.name)}">
+      ${kor ? `${kor} <small>${lat}</small>` : `<span>${lat}</span>`}
+    </div>`;
+  }).join('');
+
+  sugEl.querySelectorAll('.board-sug-item').forEach(el => {
+    el.addEventListener('mousedown', ev => {
+      ev.preventDefault(); // blur 방지
+      assignPlantToBoard(el.dataset.zoneId, el.dataset.plantName);
+    });
+  });
+  sugEl.style.display = 'block';
 }
 
 function renderBoardZones() {
@@ -1503,63 +1592,55 @@ function renderBoardZones() {
 }
 
 function renderBoardZoneHtml(z) {
-  const eid = z.id.replace(/[^a-z0-9]/gi,'_');
-
-  // 경관 이미지들
+  // 경관 이미지
   const conceptHtml = z.conceptImgs.map((src, i) =>
     `<div class="board-concept-img-wrap">
-      <img class="board-concept-img" src="${src}" onclick="window.open(this.src,'_blank')" title="클릭: 원본 보기">
-      <button class="board-concept-img-del" onclick="removeConceptImg('${z.id}',${i})">×</button>
+      <img class="board-concept-img" src="${escA(src)}" onclick="window.open(this.src,'_blank')" title="원본 보기">
+      <button class="board-concept-img-del" onclick="removeConceptImg('${escA(z.id)}',${i})">×</button>
     </div>`
   ).join('');
 
-  // 식물 카드들
-  const plantCardsHtml = z.plantItems.map(pi => {
-    const p = plants.find(pl => pl.name === pi.name);
-    const imgs = p?.images || [];
+  // 식물 카드 (이름 대신 piIdx 사용 → 이스케이프 불필요)
+  const plantCardsHtml = z.plantItems.map((pi, piIdx) => {
+    const p     = plants.find(pl => pl.name === pi.name);
+    const imgs  = p?.images || [];
     const total = imgs.length;
-    const idx  = Math.min(pi.imgIdx || 0, Math.max(0, total - 1));
-    const src  = imgs[idx] || '';
-    const kor  = (p?.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
-    const lat  = p?.latName || pi.name;
-    const safeName = pi.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const idx   = Math.min(pi.imgIdx || 0, Math.max(0, total - 1));
+    const src   = imgs[idx] || '';
+    const kor   = (p?.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
+    const lat   = p?.latName || pi.name;
+    const zid   = escA(z.id);
 
-    const imgEl = src
-      ? `<img src="${src}" onerror="this.parentNode.innerHTML='<div class=\"board-no-img\">이미지\n없음</div>'"
-           onclick="cycleBoardPlantImg('${z.id}','${safeName}',1)" title="클릭: 다음 이미지 (${idx+1}/${total})">`
+    const imgContent = src
+      ? `<img class="bpc-img" src="${escA(src)}"
+           data-zone-id="${zid}" data-pi-idx="${piIdx}" data-dir="1"
+           title="클릭: 다음 이미지 (${idx+1}/${total})">`
       : `<div class="board-no-img">이미지<br>없음</div>`;
 
-    const navBtns = total > 1
-      ? `<button class="bpc-btn" onclick="cycleBoardPlantImg('${z.id}','${safeName}',-1)">‹</button>
-         <button class="bpc-btn" onclick="cycleBoardPlantImg('${z.id}','${safeName}',1)">›</button>`
-      : '';
+    const navBtns = total > 1 ? `
+      <button class="bpc-btn" data-zone-id="${zid}" data-pi-idx="${piIdx}" data-dir="-1" title="이전">‹</button>
+      <button class="bpc-btn" data-zone-id="${zid}" data-pi-idx="${piIdx}" data-dir="1"  title="다음">›</button>` : '';
 
     return `<div class="board-plant-card">
-      ${imgEl}
-      ${total > 1 ? `<span class="bpc-idx">${idx+1}/${total}</span>` : ''}
-      <div class="bpc-btns">
-        ${navBtns}
-        <button class="bpc-btn" onclick="removePlantFromBoard('${z.id}','${safeName}')">×</button>
+      <div class="bpc-img-wrap">
+        ${imgContent}
+        ${total > 1 ? `<span class="bpc-idx">${idx+1}/${total}</span>` : ''}
+        <div class="bpc-btns">
+          ${navBtns}
+          <button class="bpc-btn bpc-del" data-zone-id="${zid}" data-pi-idx="${piIdx}" title="제거">×</button>
+        </div>
       </div>
-      <div class="bpc-name">${kor || lat}<br>${kor ? '<i style=\"color:#8aaa7a;font-size:0.6rem\">' + lat + '</i>' : ''}</div>
+      <div class="bpc-name">${kor || lat}${kor ? `<br><i style="color:#8aaa7a;font-size:0.6rem">${lat}</i>` : ''}</div>
     </div>`;
   }).join('');
 
-  // 추가 가능한 식물 목록 (이미 존에 있는 식물 제외)
-  const inZone = new Set(z.plantItems.map(pi => pi.name));
-  const opts = plants.filter(p => !inZone.has(p.name)).map(p => {
-    const lbl = (p.korName && /[가-힣]/.test(p.korName))
-      ? `${p.korName}  ${p.latName || p.name}`
-      : (p.latName || p.name);
-    return `<option value="${p.name.replace(/"/g,'&quot;')}">${lbl}</option>`;
-  }).join('');
-
+  const zid = escA(z.id);
   return `<div class="board-zone-card">
     <div class="board-zone-header">
-      <input class="board-zone-name" value="${z.name.replace(/"/g,'&quot;')}"
-        onchange="renameBoardZone('${z.id}',this.value)">
+      <input class="board-zone-name" value="${escA(z.name)}"
+        onchange="renameBoardZone('${zid}',this.value)">
       <button class="btn btn-sm" style="padding:0.15rem 0.45rem;font-size:0.75rem;color:#c44;"
-        onclick="if(confirm('이 존을 삭제할까요?'))removeBoardZone('${z.id}')">🗑</button>
+        onclick="if(confirm('이 존을 삭제할까요?'))removeBoardZone('${zid}')">🗑</button>
     </div>
     <div class="board-zone-body">
       <div class="board-concept-area">
@@ -1568,11 +1649,11 @@ function renderBoardZoneHtml(z) {
         <div class="board-concept-drop"
           ondragover="boardConceptDragover(event)"
           ondragleave="boardConceptDragleave(event)"
-          ondrop="boardConceptDrop(event,'${z.id}')">
+          ondrop="boardConceptDrop(event,'${zid}')">
           🖼 이미지 드롭<br><span style="font-size:0.65rem;opacity:0.8;">파일 · URL 모두 가능</span>
         </div>
         <button class="btn btn-sm" style="font-size:0.72rem;padding:0.2rem 0.45rem;color:#4a8a5a;border-color:#b0d0a0;"
-          onclick="addConceptUrl('${z.id}')">+ URL 추가</button>
+          onclick="addConceptUrl('${zid}')">+ URL 추가</button>
       </div>
       <div class="board-plant-area">
         ${plantCardsHtml || '<div style="color:#b0c8a0;font-size:0.78rem;padding:1rem 0.5rem;">↓ 아래에서 식물을 추가하세요</div>'}
@@ -1580,14 +1661,38 @@ function renderBoardZoneHtml(z) {
     </div>
     <div class="board-add-row">
       <span style="font-size:0.75rem;color:#6a8a5a;white-space:nowrap;">🌿 식물 추가:</span>
-      <select onchange="assignPlantToBoard('${z.id}',this.value);this.value=''">
-        <option value="">— 식물 선택 —</option>
-        ${opts || '<option disabled>식물 목록에 식물을 먼저 추가하세요</option>'}
-      </select>
+      <div style="position:relative;display:inline-block;">
+        <input type="text" class="board-plant-search" placeholder="🔍 이름 검색…"
+          data-bps-zone="${zid}"
+          oninput="boardPlantSearch(this,'${zid}')"
+          onfocus="boardPlantSearch(this,'${zid}')"
+          onblur="setTimeout(()=>{const e=document.getElementById('bps-${z.id}');if(e)e.style.display='none'},150)">
+        <div class="board-sug-list" id="bps-${z.id}"></div>
+      </div>
     </div>
   </div>`;
 }
 
+// 이벤트 위임: 구상판 클릭 처리 (plant 이름 문자열 불필요)
+document.addEventListener('click', function(ev) {
+  // 식물 이미지 클릭 → 다음 이미지
+  const img = ev.target.closest('.bpc-img');
+  if (img && img.dataset.piIdx !== undefined) {
+    cycleBoardPlantImg(img.dataset.zoneId, +img.dataset.piIdx, +img.dataset.dir || 1);
+    return;
+  }
+  // 이전/다음 버튼
+  const btn = ev.target.closest('.bpc-btn:not(.bpc-del)');
+  if (btn && btn.dataset.dir && btn.dataset.piIdx !== undefined) {
+    cycleBoardPlantImg(btn.dataset.zoneId, +btn.dataset.piIdx, +btn.dataset.dir);
+    return;
+  }
+  // 삭제 버튼
+  const del = ev.target.closest('.bpc-del');
+  if (del && del.dataset.piIdx !== undefined) {
+    removePlantFromBoard(del.dataset.zoneId, +del.dataset.piIdx);
+  }
+});
 </script>
 </body>
 </html>
