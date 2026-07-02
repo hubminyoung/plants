@@ -280,6 +280,35 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .extern-links { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
 .extern-links a { font-size: 0.7rem; padding: 0.18rem 0.5rem; border-radius: 10px;
   border: 1px solid; transition: 0.12s; }
+
+/* ── 식재 구상판 ─────────────────────────────────────────────────────────────── */
+.board-toolbar { display:flex;align-items:center;gap:0.5rem;padding:0.8rem 1rem;border-bottom:1px solid #e8f0e4; }
+.board-zones   { display:flex;flex-direction:column;gap:1.5rem;padding:1rem; }
+.board-zone-card { border:1.5px solid #d0e8c8;border-radius:12px;overflow:hidden;background:#fff; }
+.board-zone-header { display:flex;align-items:center;gap:0.5rem;background:#f0f8ec;padding:0.55rem 1rem;border-bottom:1px solid #d0e8c8; }
+.board-zone-name { flex:1;font-size:0.95rem;font-weight:700;color:#2d5a1b;border:none;background:transparent;outline:none;padding:0.15rem 0; }
+.board-zone-body { display:grid;grid-template-columns:200px 1fr;min-height:150px; }
+.board-concept-area { border-right:1px solid #e8f0e4;padding:0.75rem;display:flex;flex-direction:column;gap:0.45rem;background:#fafdf8; }
+.board-concept-label { font-size:0.7rem;color:#6a8a5a;font-weight:700;letter-spacing:0.02em; }
+.board-concept-img-wrap { position:relative; }
+.board-concept-img { width:100%;max-height:150px;object-fit:cover;border-radius:6px;cursor:zoom-in;display:block; }
+.board-concept-img-del { display:none;position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:4px;width:18px;height:18px;font-size:11px;cursor:pointer;align-items:center;justify-content:center; }
+.board-concept-img-wrap:hover .board-concept-img-del { display:flex; }
+.board-concept-drop { border:2px dashed #b0d0a0;border-radius:8px;padding:1rem 0.5rem;text-align:center;color:#8aaa7a;font-size:0.72rem;cursor:pointer;transition:background 0.15s; }
+.board-concept-drop:hover,.board-concept-drop.drag-over { background:#f0f8ec;border-color:#52b788;color:#2d5a1b; }
+.board-plant-area { padding:0.75rem;display:flex;flex-wrap:wrap;gap:0.55rem;align-content:flex-start; }
+.board-plant-card { width:108px;text-align:center;position:relative; }
+.board-plant-card img { width:108px;height:78px;object-fit:cover;border-radius:6px;display:block;cursor:pointer;transition:opacity 0.1s; }
+.board-plant-card img:hover { opacity:0.88; }
+.board-plant-card .bpc-name { font-size:0.67rem;color:#4a6a3a;margin-top:0.22rem;line-height:1.25; }
+.bpc-btns { display:none;position:absolute;top:2px;right:2px;gap:2px;flex-direction:row; }
+.board-plant-card:hover .bpc-btns { display:flex; }
+.bpc-btn { background:rgba(0,0,0,0.52);color:#fff;border:none;border-radius:3px;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0; }
+.bpc-idx { position:absolute;bottom:3px;right:4px;font-size:0.6rem;color:#fff;background:rgba(0,0,0,0.45);border-radius:3px;padding:0 3px; }
+.board-no-img { width:108px;height:78px;background:#f0f0e8;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.68rem;color:#aaa;border:1px dashed #ddd; }
+.board-add-row { padding:0.5rem 1rem;border-top:1px solid #e8f0e4;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;background:#fafdf8; }
+.board-add-row select { font-size:0.78rem;padding:0.25rem 0.45rem;border:1px solid #c0d8b0;border-radius:6px;background:#fff;color:#4a6a3a; }
+.board-empty { padding:3rem;text-align:center;color:#8aaa7a; }
 </style>
 </head>
 <body>
@@ -329,6 +358,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
   <button class="tab-btn"        data-tab="ai"       onclick="switchTab('ai')">🎨 AI 이미지</button>
   <button class="tab-btn"        data-tab="care"     onclick="switchTab('care')">🔧 유지관리</button>
   <button class="tab-btn"        data-tab="site"     onclick="switchTab('site')">📍 입지분석</button>
+  <button class="tab-btn"        data-tab="board"    onclick="switchTab('board')">🖼️ 구상판</button>
 </nav>
 
 <!-- ── Tab Panes ──────────────────────────────────────────────────────────── -->
@@ -457,6 +487,19 @@ table.dtbl tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<div id="pane-board" class="tab-pane">
+  <div class="board-toolbar">
+    <button class="btn btn-sm btn-primary" onclick="addBoardZone()">+ 존 추가</button>
+    <span style="flex:1"></span>
+    <button class="btn btn-sm" onclick="window.print()" style="font-size:0.8rem;" title="인쇄">🖨️ 인쇄</button>
+  </div>
+  <div class="board-zones" id="board-zones">
+    <div class="board-empty">
+      <div style="font-size:2.5rem;margin-bottom:0.6rem;">🖼️</div>
+      <p style="font-size:0.88rem;">식재 구상판입니다.<br>+ 존 추가로 구역을 만들고<br>경관 이미지와 식물 이미지를 모아보세요.</p>
+    </div>
+  </div>
+</div>
 <!-- ── PDF Library ─────────────────────────────────────────────────────────── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1379,6 +1422,180 @@ function eiveHtml(vals) {
   }).filter(Boolean).join('');
   return chips ? `<div class="eive-row">${chips}</div>` : '';
 }
+
+// ── 식재 구상판 ───────────────────────────────────────────────────────────────
+const boardZones = [];
+
+function addBoardZone() {
+  boardZones.push({ id: 'z' + Date.now(), name: '새 존', conceptImgs: [], plantItems: [] });
+  renderBoardZones();
+}
+
+function removeBoardZone(id) {
+  const i = boardZones.findIndex(z => z.id === id);
+  if (i >= 0) { boardZones.splice(i, 1); renderBoardZones(); }
+}
+
+function renameBoardZone(id, val) {
+  const z = boardZones.find(z => z.id === id);
+  if (z) z.name = val;
+}
+
+function boardConceptDragover(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+function boardConceptDragleave(ev) { ev.currentTarget.classList.remove('drag-over'); }
+
+function boardConceptDrop(ev, zoneId) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('drag-over');
+  const z = boardZones.find(z => z.id === zoneId);
+  if (!z) return;
+  const files = [...(ev.dataTransfer.files || [])].filter(f => f.type.startsWith('image/'));
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); };
+    reader.readAsDataURL(file);
+  });
+  // URL 드롭 처리
+  const url = ev.dataTransfer.getData('text/uri-list') || ev.dataTransfer.getData('text/plain');
+  if (!files.length && url && /^https?:/.test(url.trim())) {
+    z.conceptImgs.push(url.trim()); renderBoardZones();
+  }
+}
+
+function addConceptUrl(zoneId) {
+  const url = prompt('경관 이미지 URL을 입력하세요:');
+  if (!url || !url.trim()) return;
+  const z = boardZones.find(z => z.id === zoneId);
+  if (z) { z.conceptImgs.push(url.trim()); renderBoardZones(); }
+}
+
+function removeConceptImg(zoneId, idx) {
+  const z = boardZones.find(z => z.id === zoneId);
+  if (z) { z.conceptImgs.splice(idx, 1); renderBoardZones(); }
+}
+
+function assignPlantToBoard(zoneId, plantName) {
+  if (!plantName) return;
+  const z = boardZones.find(z => z.id === zoneId);
+  if (!z || z.plantItems.find(pi => pi.name === plantName)) return;
+  z.plantItems.push({ name: plantName, imgIdx: 0 });
+  renderBoardZones();
+}
+
+function removePlantFromBoard(zoneId, plantName) {
+  const z = boardZones.find(z => z.id === zoneId);
+  if (!z) return;
+  const i = z.plantItems.findIndex(pi => pi.name === plantName);
+  if (i >= 0) { z.plantItems.splice(i, 1); renderBoardZones(); }
+}
+
+function cycleBoardPlantImg(zoneId, plantName, dir) {
+  const z = boardZones.find(z => z.id === zoneId);
+  if (!z) return;
+  const pi = z.plantItems.find(pi => pi.name === plantName);
+  if (!pi) return;
+  const p = plants.find(pl => pl.name === plantName);
+  const total = p?.images?.length || 1;
+  pi.imgIdx = ((pi.imgIdx || 0) + dir + total) % total;
+  renderBoardZones();
+}
+
+function renderBoardZones() {
+  const el = document.getElementById('board-zones');
+  if (!el) return;
+  if (!boardZones.length) {
+    el.innerHTML = '<div class="board-empty"><div style="font-size:2.5rem;margin-bottom:0.6rem;">🖼️</div><p style="font-size:0.88rem;">식재 구상판입니다.<br>+ 존 추가로 구역을 만들고<br>경관 이미지와 식물 이미지를 모아보세요.</p></div>';
+    return;
+  }
+  el.innerHTML = boardZones.map(z => renderBoardZoneHtml(z)).join('');
+}
+
+function renderBoardZoneHtml(z) {
+  const eid = z.id.replace(/[^a-z0-9]/gi,'_');
+
+  // 경관 이미지들
+  const conceptHtml = z.conceptImgs.map((src, i) =>
+    `<div class="board-concept-img-wrap">
+      <img class="board-concept-img" src="${src}" onclick="window.open(this.src,'_blank')" title="클릭: 원본 보기">
+      <button class="board-concept-img-del" onclick="removeConceptImg('${z.id}',${i})">×</button>
+    </div>`
+  ).join('');
+
+  // 식물 카드들
+  const plantCardsHtml = z.plantItems.map(pi => {
+    const p = plants.find(pl => pl.name === pi.name);
+    const imgs = p?.images || [];
+    const total = imgs.length;
+    const idx  = Math.min(pi.imgIdx || 0, Math.max(0, total - 1));
+    const src  = imgs[idx] || '';
+    const kor  = (p?.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
+    const lat  = p?.latName || pi.name;
+    const safeName = pi.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+
+    const imgEl = src
+      ? `<img src="${src}" onerror="this.parentNode.innerHTML='<div class=\"board-no-img\">이미지\n없음</div>'"
+           onclick="cycleBoardPlantImg('${z.id}','${safeName}',1)" title="클릭: 다음 이미지 (${idx+1}/${total})">`
+      : `<div class="board-no-img">이미지<br>없음</div>`;
+
+    const navBtns = total > 1
+      ? `<button class="bpc-btn" onclick="cycleBoardPlantImg('${z.id}','${safeName}',-1)">‹</button>
+         <button class="bpc-btn" onclick="cycleBoardPlantImg('${z.id}','${safeName}',1)">›</button>`
+      : '';
+
+    return `<div class="board-plant-card">
+      ${imgEl}
+      ${total > 1 ? `<span class="bpc-idx">${idx+1}/${total}</span>` : ''}
+      <div class="bpc-btns">
+        ${navBtns}
+        <button class="bpc-btn" onclick="removePlantFromBoard('${z.id}','${safeName}')">×</button>
+      </div>
+      <div class="bpc-name">${kor || lat}<br>${kor ? '<i style=\"color:#8aaa7a;font-size:0.6rem\">' + lat + '</i>' : ''}</div>
+    </div>`;
+  }).join('');
+
+  // 추가 가능한 식물 목록 (이미 존에 있는 식물 제외)
+  const inZone = new Set(z.plantItems.map(pi => pi.name));
+  const opts = plants.filter(p => !inZone.has(p.name)).map(p => {
+    const lbl = (p.korName && /[가-힣]/.test(p.korName))
+      ? `${p.korName}  ${p.latName || p.name}`
+      : (p.latName || p.name);
+    return `<option value="${p.name.replace(/"/g,'&quot;')}">${lbl}</option>`;
+  }).join('');
+
+  return `<div class="board-zone-card">
+    <div class="board-zone-header">
+      <input class="board-zone-name" value="${z.name.replace(/"/g,'&quot;')}"
+        onchange="renameBoardZone('${z.id}',this.value)">
+      <button class="btn btn-sm" style="padding:0.15rem 0.45rem;font-size:0.75rem;color:#c44;"
+        onclick="if(confirm('이 존을 삭제할까요?'))removeBoardZone('${z.id}')">🗑</button>
+    </div>
+    <div class="board-zone-body">
+      <div class="board-concept-area">
+        <div class="board-concept-label">📸 경관 이미지</div>
+        ${conceptHtml}
+        <div class="board-concept-drop"
+          ondragover="boardConceptDragover(event)"
+          ondragleave="boardConceptDragleave(event)"
+          ondrop="boardConceptDrop(event,'${z.id}')">
+          🖼 이미지 드롭<br><span style="font-size:0.65rem;opacity:0.8;">파일 · URL 모두 가능</span>
+        </div>
+        <button class="btn btn-sm" style="font-size:0.72rem;padding:0.2rem 0.45rem;color:#4a8a5a;border-color:#b0d0a0;"
+          onclick="addConceptUrl('${z.id}')">+ URL 추가</button>
+      </div>
+      <div class="board-plant-area">
+        ${plantCardsHtml || '<div style="color:#b0c8a0;font-size:0.78rem;padding:1rem 0.5rem;">↓ 아래에서 식물을 추가하세요</div>'}
+      </div>
+    </div>
+    <div class="board-add-row">
+      <span style="font-size:0.75rem;color:#6a8a5a;white-space:nowrap;">🌿 식물 추가:</span>
+      <select onchange="assignPlantToBoard('${z.id}',this.value);this.value=''">
+        <option value="">— 식물 선택 —</option>
+        ${opts || '<option disabled>식물 목록에 식물을 먼저 추가하세요</option>'}
+      </select>
+    </div>
+  </div>`;
+}
+
 </script>
 </body>
 </html>
