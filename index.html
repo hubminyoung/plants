@@ -761,6 +761,7 @@ function clearAll() {
 // ── Data Loading ──────────────────────────────────────────────────────────────
 async function loadPlant(p) {
   p.fetching = true;
+  try {
 
   // 1. iNaturalist: 학명/국명/taxonId 확보
   const inat = await inatFetch(p.name);
@@ -830,9 +831,13 @@ async function loadPlant(p) {
     await loadMbgDetail(p);
   }
 
-  p.fetching = false;
-  p.done = true;
-  renderAll();
+  } catch(err) {
+    console.error('[loadPlant]', p.name, err);
+  } finally {
+    p.fetching = false;
+    p.done = true;
+    renderAll();
+  }
 }
 
 async function loadMbgDetail(p) {
@@ -1010,8 +1015,9 @@ function imgRow(p) {
 function openGoogleAll() {
   const rows = plants.map(p => {
     const kor = p.korName || p.name;
-    const lat = p.latName || '';
-    const url = `https://www.google.com/search?q=${encodeURIComponent(kor + (lat ? ' ' + lat : ''))}&tbm=isch`;
+    const lat = p.latName || p.name;
+    // 검색어는 학명(라틴명) 우선 — 한글은 Google Images에서 결과 부족
+    const url = `https://www.google.com/search?q=${encodeURIComponent(lat)}&tbm=isch`;
     return `<div class="prow"><a href="${url}" target="_blank">
       <span class="ico">🔍</span>
       <span class="kor">${kor}</span>
