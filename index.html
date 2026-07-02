@@ -823,8 +823,14 @@ async function loadPlant(p) {
   }
   renderChips(); renderActiveTab();
 
-  // 3. MBG Plant Finder (via Worker) — search by Latin name, fallback to genus
-  const searchQ = (p.latName || p.name).replace(/\s*[''][^'']+['']\s*$/, '').trim();
+  // 3. MBG Plant Finder (via Worker)
+  // 학명 변경 자동 처리: iNaturalist accepted name의 속명 + 원래 재배종명 조합
+  // 예) Cimicifuga 'Queen of Sheba' -> iNat: Actaea -> searchQ: Actaea 'Queen of Sheba'
+  const cultivarMatch = p.name.match(/([''\u2018\u2019][^''\u2018\u2019]+[''\u2018\u2019])/);
+  const acceptedBase = (p.latName || p.name).replace(/\s*[''][^'']+['']\s*$/, '').trim();
+  const searchQ = (cultivarMatch && p.latName)
+    ? acceptedBase.split(' ')[0] + ' ' + cultivarMatch[1]
+    : acceptedBase;
   const mbg = await wFetch('/api/mbg/search', { q: searchQ });
   if (mbg?.taxonid) {
     p.mbgTaxonId = mbg.taxonid;
