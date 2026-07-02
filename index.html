@@ -22,13 +22,6 @@ header {
   box-shadow: 0 2px 10px rgba(0,0,0,0.25);
 }
 header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
-.worker-row { display: flex; align-items: center; gap: 0.4rem; }
-#workerInput {
-  border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.12);
-  color: white; border-radius: 5px; padding: 0.3rem 0.6rem;
-  font-size: 0.72rem; width: 260px;
-}
-#workerInput::placeholder { color: rgba(255,255,255,0.45); }
 .btn { padding: 0.35rem 0.8rem; border: none; border-radius: 5px;
   cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.15s; }
 .btn-ghost { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
@@ -176,6 +169,9 @@ table.eco tr:last-child td { border-bottom: none; }
 table.eco tr:hover td { background: #f4faf2; }
 .eco-name { font-weight: 700; }
 .eco-latin { font-style: italic; font-size: 0.68rem; color: #6a8a5a; }
+.site-field { display:flex; flex-direction:column; gap:0.3rem; }
+.site-field span { font-size:0.8rem; font-weight:600; color:#4a7a3a; }
+.site-field select { padding:0.4rem 0.6rem; border:1px solid #c0d8b8; border-radius:6px; background:#f8fbf6; color:#666; font-size:0.85rem; cursor:not-allowed; }
 .eive-row { display: flex; gap: 0.2rem; flex-wrap: wrap; margin-top: 0.3rem; }
 .eive-chip { font-size: 0.6rem; padding: 0.05rem 0.28rem; border-radius: 3px; background: #e8f0e3; color: #3a5a2a; border: 1px solid #c5d8b8; cursor: default; white-space: nowrap; }
 .eive-chip[data-k="L"] { background:#fff9c4; border-color:#e6c81a; color:#7a6000; }
@@ -291,10 +287,6 @@ table.dtbl tr:last-child td { border-bottom: none; }
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header>
   <h1>🌿 식재 분석 툴</h1>
-  <div class="worker-row">
-    <input id="workerInput" type="text" placeholder="Worker URL: https://xxx.workers.dev">
-    <button class="btn btn-ghost btn-sm" onclick="saveWorker()">저장</button>
-  </div>
   <button class="btn btn-warn btn-sm" onclick="exportPDF()">📄 PDF</button>
 </header>
 
@@ -306,8 +298,10 @@ table.dtbl tr:last-child td { border-bottom: none; }
       placeholder="식물명 입력 후 Enter (줄바꿈은 Shift+Enter). 학명·국명·혼합 텍스트 모두 인식.&#10;예) Carex albicans, 맥문동, Amsonia 'Blue Ice'"></textarea>
     <div class="input-actions">
       <button class="btn btn-primary" onclick="parsePlants()" style="padding:0.5rem 1.2rem;font-size:0.85rem;">🔍 검색</button>
+      <button class="btn btn-ghost" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #c0d8b8;" onclick="document.getElementById('xlsxInput').click()" title="엑셀 파일에서 식물명 가져오기">📂 엑셀</button>
       <button class="btn btn-ghost" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #c0d8b8;" onclick="clearAll()">초기화</button>
     </div>
+    <input id="xlsxInput" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXlsx(this)">
   </div>
 </section>
 
@@ -334,6 +328,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
   <button class="tab-btn"        data-tab="density"  onclick="switchTab('density')">📐 식재 밀도</button>
   <button class="tab-btn"        data-tab="ai"       onclick="switchTab('ai')">🎨 AI 이미지</button>
   <button class="tab-btn"        data-tab="care"     onclick="switchTab('care')">🔧 유지관리</button>
+  <button class="tab-btn"        data-tab="site"     onclick="switchTab('site')">📍 입지분석</button>
 </nav>
 
 <!-- ── Tab Panes ──────────────────────────────────────────────────────────── -->
@@ -385,9 +380,87 @@ table.dtbl tr:last-child td { border-bottom: none; }
 </div>
 <div id="pane-care" class="tab-pane"><div id="care-content"><div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div></div></div>
 
+<div id="pane-site" class="tab-pane">
+  <div style="max-width:680px;margin:2rem auto;padding:0 1rem;">
+    <h2 style="color:#2d5a1b;margin-bottom:0.3rem;">📍 입지 분석 → 수종 추천</h2>
+    <p style="color:#6a8a5a;font-size:0.85rem;margin-bottom:2rem;">사이트 조건을 입력하면 적합한 수종 리스트를 제안합니다.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+      <label class="site-field">
+        <span>☀️ 빛 조건</span>
+        <select id="site-light" disabled>
+          <option value="">선택</option>
+          <option>양지 (Full sun, 6h+)</option>
+          <option>반양지 (Part sun, 4–6h)</option>
+          <option>반음지 (Part shade, 2–4h)</option>
+          <option>음지 (Full shade, 2h-)</option>
+        </select>
+      </label>
+      <label class="site-field">
+        <span>💧 토양 수분</span>
+        <select id="site-moisture" disabled>
+          <option value="">선택</option>
+          <option>건조 (Dry)</option>
+          <option>보통 (Medium)</option>
+          <option>습윤 (Moist)</option>
+          <option>습지 (Wet)</option>
+        </select>
+      </label>
+      <label class="site-field">
+        <span>🧪 토양 pH</span>
+        <select id="site-ph" disabled>
+          <option value="">선택</option>
+          <option>산성 (Acidic, pH &lt;6)</option>
+          <option>중성 (Neutral, pH 6–7)</option>
+          <option>알칼리 (Alkaline, pH &gt;7)</option>
+        </select>
+      </label>
+      <label class="site-field">
+        <span>❄️ 내한성 Zone</span>
+        <select id="site-zone" disabled>
+          <option value="">선택</option>
+          <option>Zone 5 (−29°C)</option>
+          <option>Zone 6 (−23°C)</option>
+          <option>Zone 7 (−18°C)</option>
+          <option>Zone 8 (−12°C)</option>
+        </select>
+      </label>
+      <label class="site-field">
+        <span>🏙️ 입지 유형</span>
+        <select id="site-type" disabled>
+          <option value="">선택</option>
+          <option>도시 가로</option>
+          <option>옥상·테라스</option>
+          <option>수변·우수정원</option>
+          <option>우드랜드·임연부</option>
+          <option>초지·메도우</option>
+          <option>암석원</option>
+        </select>
+      </label>
+      <label class="site-field">
+        <span>🎨 분위기</span>
+        <select id="site-mood" disabled>
+          <option value="">선택</option>
+          <option>자연주의 (Naturalistic)</option>
+          <option>포멀 (Formal)</option>
+          <option>야생화 (Wildflower)</option>
+          <option>미니멀</option>
+        </select>
+      </label>
+    </div>
+
+    <div style="background:#f8f4ec;border:1.5px dashed #c8b89a;border-radius:8px;padding:1.5rem;text-align:center;color:#9a7a5a;">
+      <div style="font-size:2rem;margin-bottom:0.5rem;">🚧</div>
+      <div style="font-weight:700;margin-bottom:0.3rem;">추천 엔진 준비 중</div>
+      <div style="font-size:0.8rem;">USDA PLANTS DB + 자체 수종 DB 연동 예정<br>입력 필드는 향후 자동 필터링에 사용됩니다.</div>
+    </div>
+  </div>
+</div>
+
 <!-- ── PDF Library ─────────────────────────────────────────────────────────── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
 'use strict';
@@ -397,7 +470,6 @@ const WORKER_DEFAULT = 'https://plantlist.younrake.workers.dev';
 const CFG = {
   get worker() { return localStorage.getItem('workerUrl') || WORKER_DEFAULT; }
 };
-document.getElementById('workerInput').value = CFG.worker;
 
 // Enter = 검색, Shift+Enter = 줄바꿈
 document.getElementById('plantInput').addEventListener('keydown', e => {
@@ -406,11 +478,7 @@ document.getElementById('plantInput').addEventListener('keydown', e => {
     parsePlants();
   }
 });
-function saveWorker() {
-  const v = document.getElementById('workerInput').value.trim().replace(/\/$/, '');
-  localStorage.setItem('workerUrl', v);
-  showToast('Worker URL 저장됨');
-}
+function saveWorker() {}
 
 function showToast(msg) {
   const t = Object.assign(document.createElement('div'), {
@@ -570,6 +638,49 @@ function isKorVerb(s) {
 }
 
 // ── Parsing ───────────────────────────────────────────────────────────────────
+
+// ── Excel Import ──────────────────────────────────────────────────────────────
+function importXlsx(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (!rows.length) { showToast('시트가 비어있습니다.'); return; }
+
+      // 열 헤더 자동 감지: 학명, 국명, 식물명, 수종명, species, name, plant
+      const KW = /학명|국명|식물명|수종|species|scientific|plant|name/i;
+      let colIdx = 0;
+      let startRow = 0;
+      const header = rows[0];
+      for (let i = 0; i < header.length; i++) {
+        if (KW.test(String(header[i]))) { colIdx = i; startRow = 1; break; }
+      }
+
+      // 해당 컬럼 값 추출 (빈 셀 제외)
+      const names = rows.slice(startRow)
+        .map(r => String(r[colIdx] ?? '').trim())
+        .filter(v => v && v.length > 1);
+
+      if (!names.length) { showToast('식물명을 찾을 수 없습니다. A열에 이름이 있는지 확인하세요.'); return; }
+
+      // 텍스트박스에 줄바꿈으로 추가 후 parsePlants 호출
+      const inp = document.getElementById('plantInput');
+      inp.value = names.join('\n');
+      showToast(`엑셀에서 ${names.length}개 항목 로드`);
+      parsePlants();
+    } catch(err) {
+      showToast('엑셀 읽기 오류: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function parsePlants() {
   const raw = document.getElementById('plantInput').value.trim();
   if (!raw) return;
@@ -615,11 +726,12 @@ function parsePlants() {
 function mkPlant(name) {
   return {
     name, korName: '', latName: '', native: '', family: '',
-    perenualId: null, height: '', spreadM: null, flowerColors: [],
-    bloomMonths: [], sunlight: [], soil: [], hardiness: '',
-    watering: '', maintenance: '',
+    mbgTaxonId: null, height: '', spreadM: null, flowerColors: [],
+    bloomMonths: [], sunlight: [], hardiness: '',
+    watering: '', maintenance: '', nativeRange: '', plantType: '',
+    culture: '', uses: '', problems: '', tolerate: '',
     imageUrl: '', images: [], wikiUrl: '', inatId: null, inatUrl: '',
-    care: null, fetching: false, done: false
+    fetching: false, done: false
   };
 }
 
@@ -710,14 +822,12 @@ async function loadPlant(p) {
   }
   renderChips(); renderActiveTab();
 
-  // 3. Perenual (via Worker) — search by Latin name for accuracy
-  const searchQ = p.latName || p.name;
-  const perenual = await wFetch('/api/perenual/search', { q: searchQ });
-  if (perenual?.data?.length) {
-    const pr = perenual.data[0];
-    p.perenualId = pr.id;
-    if (!p.imageUrl && pr.default_image?.medium_url) p.imageUrl = pr.default_image.medium_url;
-    await loadPerenualDetail(p);
+  // 3. MBG Plant Finder (via Worker) — search by Latin name, fallback to genus
+  const searchQ = (p.latName || p.name).replace(/\s*[''][^'']+['']\s*$/, '').trim();
+  const mbg = await wFetch('/api/mbg/search', { q: searchQ });
+  if (mbg?.taxonid) {
+    p.mbgTaxonId = mbg.taxonid;
+    await loadMbgDetail(p);
   }
 
   p.fetching = false;
@@ -725,43 +835,78 @@ async function loadPlant(p) {
   renderAll();
 }
 
-async function loadPerenualDetail(p) {
-  if (!p.perenualId) return;
-  const [det, care] = await Promise.all([
-    wFetch('/api/perenual/details', { id: p.perenualId }),
-    wFetch('/api/perenual/care',    { id: p.perenualId })
-  ]);
+async function loadMbgDetail(p) {
+  if (!p.mbgTaxonId) return;
+  const det = await wFetch('/api/mbg/details', { taxonid: p.mbgTaxonId });
+  if (!det || det.error) return;
 
-  if (det && !det.error) {
-    // Height: Perenual returns feet → convert to metres
-    const ftToM = v => +(v * 0.3048).toFixed(1);
-    if (det.dimensions?.min_value != null) {
-      p.height = `${ftToM(det.dimensions.min_value)}~${ftToM(det.dimensions.max_value)}m`;
-    }
-    if (det.spread?.max_value != null) {
-      p.spreadM = ftToM(det.spread.max_value);
-    }
-    p.sunlight     = det.sunlight  || [];
-    p.soil         = Array.isArray(det.soil) ? det.soil : (det.soil ? [det.soil] : []);
-    p.watering     = det.watering  || '';
-    p.maintenance  = det.maintenance || '';
-    p.hardiness    = det.hardiness ? `Zone ${det.hardiness.min}–${det.hardiness.max}` : '';
-    p.flowerColors = Array.isArray(det.flower_color)
-      ? det.flower_color.filter(Boolean)
-      : (det.flower_color ? [det.flower_color] : []);
-    p.bloomMonths  = seasonToMonths(det.flowering_season);
+  const ftToM = v => +(v * 0.3048).toFixed(1);
+
+  // Height: "0.50 to 1.00 feet"
+  if (det.heightFeet) {
+    const r = parseFeetRange(det.heightFeet);
+    if (r.max != null) p.height = r.min != null ? `${ftToM(r.min)}~${ftToM(r.max)}m` : `${ftToM(r.max)}m`;
   }
-
-  if (care?.data?.length) p.care = care.data[0];
+  // Spread
+  if (det.spreadFeet) {
+    const r = parseFeetRange(det.spreadFeet);
+    if (r.max != null) p.spreadM = ftToM(r.max);
+  }
+  // Zone → hardiness
+  if (det.zone) {
+    const zm = det.zone.match(/(\d+)\s+to\s+(\d+)/);
+    p.hardiness = zm ? `Zone ${zm[1]}–${zm[2]}` : `Zone ${det.zone}`;
+  }
+  // Sun: "Full sun to part shade" → array of values
+  if (det.sun) {
+    p.sunlight = det.sun.toLowerCase().split(/\s+to\s+|,\s*/).map(s => s.trim()).filter(Boolean);
+  }
+  // Water / Maintenance
+  if (det.water)       p.watering    = det.water.toLowerCase();
+  if (det.maintenance) p.maintenance = det.maintenance.toLowerCase();
+  // Flower colors extracted from bloom description
+  if (det.bloomColor)  p.flowerColors = mbgExtractColors(det.bloomColor);
+  // Bloom months: "May to June" → [5, 6]
+  if (det.bloomTime)   p.bloomMonths  = mbgMonthsToNums(det.bloomTime);
+  // Family (if not already from forest service)
+  if (!p.family && det.family) p.family = det.family;
+  // MBG-specific fields
+  p.nativeRange = det.nativeRange || '';
+  p.plantType   = det.plantType   || '';
+  p.culture     = det.culture     || '';
+  p.uses        = det.uses        || '';
+  p.problems    = det.problems    || '';
+  p.tolerate    = det.tolerate    || '';
 }
 
-function seasonToMonths(s) {
-  if (!s) return [];
-  const lo = s.toLowerCase();
-  const map = { spring:[3,4,5], summer:[6,7,8], fall:[9,10,11], autumn:[9,10,11], winter:[12,1,2] };
-  const out = [];
-  Object.entries(map).forEach(([k, v]) => { if (lo.includes(k)) out.push(...v); });
-  return [...new Set(out)].sort((a,b) => a - b);
+function parseFeetRange(str) {
+  const m = str.match(/([\d.]+)\s+to\s+([\d.]+)/);
+  if (m) return { min: +m[1], max: +m[2] };
+  const s = str.match(/([\d.]+)/);
+  return s ? { min: null, max: +s[1] } : { min: null, max: null };
+}
+
+function mbgExtractColors(desc) {
+  const COLORS = ['white','pink','red','blue','purple','yellow','orange','green','lavender','violet','magenta','light blue'];
+  const lo = desc.toLowerCase();
+  return COLORS.filter(c => lo.includes(c));
+}
+
+function mbgMonthsToNums(str) {
+  const MAP = {january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
+  const lo = str.toLowerCase();
+  const parts = lo.split(/\s+to\s+/);
+  if (parts.length >= 2) {
+    const s = MAP[parts[0].trim()], e = MAP[parts[parts.length-1].trim()];
+    if (s && e) {
+      const out = [];
+      if (s <= e) { for (let m = s; m <= e; m++) out.push(m); }
+      else { for (let m = s; m <= 12; m++) out.push(m); for (let m = 1; m <= e; m++) out.push(m); }
+      return out;
+    }
+  }
+  // Comma-separated or single month
+  return lo.split(/[,;]/).map(x => MAP[x.trim()]).filter(Boolean);
 }
 
 // ── Render Helpers ────────────────────────────────────────────────────────────
@@ -896,8 +1041,10 @@ function openGoogleAll() {
 }
 
 // ── Tab 2: Ecology ────────────────────────────────────────────────────────────
-const SUN_KO   = { 'full sun':'양지', 'part shade':'반음지', 'full shade':'음지', 'part_shade':'반음지', 'full_sun':'양지', 'full_shade':'음지', 'part sun/part shade':'반음지' };
-const WATER_KO = { minimum:'건조에 강함', average:'보통', frequent:'습윤 선호' };
+const SUN_KO   = { 'full sun':'양지', 'part shade':'반음지', 'full shade':'음지', 'part_shade':'반음지', 'full_sun':'양지', 'full_shade':'음지', 'part sun/part shade':'반음지', 'part sun':'반양지' };
+const WATER_KO = { minimum:'건조에 강함', average:'보통', frequent:'습윤 선호',
+  'dry':'건조', 'dry to medium':'건조~보통', 'dry to medium, wet':'건조~습윤',
+  'medium':'보통', 'medium to wet':'보통~습윤', 'wet':'습윤', 'average to wet':'보통~습윤' };
 const MAINT_KO = { low:'낮음', medium:'보통', high:'높음', minimum:'최소' };
 const MO_SHORT = ['1','2','3','4','5','6','7','8','9','10','11','12'];
 
@@ -908,33 +1055,34 @@ function renderEcology() {
   const rows = plants.map(p => {
     const ld = v => p.fetching ? `<span class="loading-val">…</span>` : (v || '—');
     const sunTags = p.sunlight.map(s => `<span class="tag tag-sun">${SUN_KO[s] || s}</span>`).join('');
-    const soilTags = p.soil.map(s => `<span class="tag tag-soil">${s}</span>`).join('');
     const bloomStr = p.bloomMonths.length ? p.bloomMonths.map(m => MO_SHORT[m-1]+'월').join(', ') : (p.fetching ? '<span class="loading-val">…</span>' : '—');
     const fc = p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${c}</span>`).join('');
     const sq = encodeURIComponent(p.latName || p.korName || p.name);
     const { primary: nameLine, secondary: latLine } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
+    // native range: Korean forest service native/귀화 + MBG origin
+    const nativeDisp = [p.native, p.nativeRange].filter(Boolean).join(' / ') || ld('');
     return `<tr>
       <td>
         <div class="eco-name">${nameLine}</div>
         ${latLine ? `<div class="eco-latin">${latLine}</div>` : ''}
+        ${p.plantType ? `<div style="font-size:0.62rem;color:#888;margin-top:0.1rem">${p.plantType}</div>` : ''}
         ${eiveHtml(eiveVals)}
         <div class="eco-ext-links">
-          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${sq}" target="_blank" rel="noopener" title="Missouri Botanical Garden">🌺</a>
+          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId || ''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId ? '' : 'opacity:0.3;pointer-events:none'}">🌺</a>
           <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="Plants of the World Online (Kew)">🌍</a>
           <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
         </div>
       </td>
-      <td>${p.native || ld('')}</td>
+      <td>${nativeDisp}</td>
       <td>${p.family || ld('')}</td>
       <td>${ld(p.height)}</td>
       <td>${fc || ld('')}</td>
       <td>${bloomStr}</td>
       <td>${sunTags || ld('')}</td>
-      <td>${soilTags || ld('')}</td>
-      <td>${WATER_KO[p.watering?.toLowerCase()] || ld(p.watering)}</td>
+      <td>${WATER_KO[p.watering] || ld(p.watering)}</td>
       <td>${ld(p.hardiness)}</td>
-      <td>${MAINT_KO[p.maintenance?.toLowerCase()] || ld(p.maintenance)}</td>
+      <td>${MAINT_KO[p.maintenance] || ld(p.maintenance)}</td>
     </tr>`;
   }).join('');
 
@@ -942,15 +1090,15 @@ function renderEcology() {
     <div class="tbl-wrap">
       <table class="eco">
         <thead><tr>
-          <th>식물명</th><th>자생 여부</th><th>과명</th>
+          <th>식물명</th><th>자생/원산지</th><th>과명</th>
           <th>수고</th><th>꽃색</th><th>개화기</th>
-          <th>빛</th><th>토양</th><th>관수</th>
+          <th>빛</th><th>관수</th>
           <th>내한성</th><th>관리난도</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
-    <p class="src-note">* 자생여부: 산림청 국가표준식물목록 | 생태: Perenual API (영국/국제 기준, feet→m 변환) | Ellenberg 지수: Tichý et al. 2023 (EIVE, L/T/F/R/N) | 이미지: iNaturalist</p>`;
+    <p class="src-note">* 자생여부: 산림청 국가표준식물목록 | 생태·형태: Missouri Botanical Garden Plant Finder (feet→m 변환) | Ellenberg 지수: Tichý et al. 2023 (EIVE, L/T/F/R/N) | 이미지: iNaturalist/Wikimedia</p>`;
 }
 
 function c2css(c) {
@@ -993,8 +1141,8 @@ function renderSeasonal() {
       </div>
     </div>
     <div class="season-legend">
-      <span>🌸 = 개화기 (Perenual 계절→월 변환 기준)</span>
-      <span>꽃색은 Perenual 데이터 기준</span>
+      <span>🌸 = 개화기 (MBG 월 기준)</span>
+      <span>꽃색은 MBG Bloom Description 기준</span>
     </div>`;
 }
 
@@ -1028,7 +1176,7 @@ function calcDensity() {
       <tbody>${rows}</tbody>
       <tfoot><tr class="dtbl-total"><td colspan="3">합계</td><td><strong>${total}본</strong></td></tr></tfoot>
     </table>
-    <p class="src-note">* 간격 = Perenual 최대 너비(feet→m 변환). 미제공 시 0.5m 기본값. 삼각형 식재 시 15% 효율 향상.</p>`;
+    <p class="src-note">* 간격 = MBG Spread 최대값(feet→m 변환). 미제공 시 0.5m 기본값. 삼각형 식재 시 15% 효율 향상.</p>`;
 }
 
 // ── Tab 5: AI Image ───────────────────────────────────────────────────────────
@@ -1043,7 +1191,6 @@ function renderAISel() {
 }
 
 async function generateAI() {
-  if (!CFG.worker) { alert('Worker URL을 먼저 설정하고 저장하세요.'); return; }
 
   const sel = [...document.querySelectorAll('#plantSelector .sel-chip.on')]
     .map(c => {
@@ -1103,11 +1250,6 @@ async function generateAI() {
 }
 
 // ── Tab 6: Care ───────────────────────────────────────────────────────────────
-const WATER_GUIDE = {
-  minimum: '건조에 강함',
-  average: '보통',
-  frequent: '습윤 선호'
-};
 
 function renderCare() {
   const el = document.getElementById('care-content');
@@ -1117,30 +1259,25 @@ function renderCare() {
   const trunc = (s, n=60) => s && s.length > n ? `<span title="${s.replace(/"/g,'&quot;')}">${s.slice(0,n)}…</span>` : (s || '');
 
   const rows = plants.map(p => {
-    const secs = p.care?.section || [];
-    const getS = type => secs.find(s => s.type === type)?.description || '';
-    const water = trunc(getS('watering') || WATER_GUIDE[p.watering?.toLowerCase()] || '');
-    const prune = trunc(getS('pruning') || '');
-    const fert  = trunc(getS('fertilization') || '');
-    const sun   = p.sunlight.map(s => SUN_KO[s] || s).join(', ');
-    const sq    = encodeURIComponent(p.latName || p.korName || p.name);
+    const sun = p.sunlight.map(s => SUN_KO[s] || s).join(', ');
+    const sq  = encodeURIComponent(p.latName || p.korName || p.name);
 
     return `<tr>
       <td>
         ${(({primary,secondary})=>`<div class="eco-name">${primary}</div>${secondary?`<div class="eco-latin">${secondary}</div>`:''}`)(pNames(p))}
         <div class="eco-ext-links">
-          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${sq}" target="_blank" rel="noopener" title="MBG">🌺</a>
+          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId || ''}&isprofile=0" target="_blank" rel="noopener" title="MBG 상세" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺</a>
           <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="POWO">🌍</a>
           <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
         </div>
       </td>
-      <td>${ld(p, water)}</td>
-      <td>${ld(p, prune)}</td>
-      <td>${ld(p, fert)}</td>
+      <td style="max-width:220px">${ld(p, trunc(p.culture, 100))}</td>
+      <td>${ld(p, trunc(p.uses))}</td>
+      <td>${ld(p, p.tolerate)}</td>
       <td>${sun ? sun : ld(p, '')}</td>
-      <td>${p.soil.join(', ') || ld(p, '')}</td>
+      <td>${WATER_KO[p.watering] || ld(p, p.watering)}</td>
       <td>${ld(p, p.hardiness)}</td>
-      <td>${MAINT_KO[p.maintenance?.toLowerCase()] || ld(p, p.maintenance)}</td>
+      <td>${MAINT_KO[p.maintenance] || ld(p, p.maintenance)}</td>
     </tr>`;
   }).join('');
 
@@ -1148,13 +1285,13 @@ function renderCare() {
     <div class="tbl-wrap">
       <table class="eco">
         <thead><tr>
-          <th>식물명</th><th>관수</th><th>전정·관리</th><th>시비</th>
-          <th>빛</th><th>토양</th><th>내한성</th><th>관리난도</th>
+          <th>식물명</th><th>재배 방법</th><th>활용</th><th>내성</th>
+          <th>빛</th><th>관수</th><th>내한성</th><th>관리난도</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
-    <p class="src-note">* Perenual API 기준. 마우스 올리면 전체 내용 표시. 상세 관리법: 🌺 MBG · 🌍 POWO · 🌹 RHS 아이콘 클릭.</p>`;
+    <p class="src-note">* 재배 방법·활용: Missouri Botanical Garden Plant Finder. 마우스 올리면 전체 내용 표시. 🌺 = MBG 상세 페이지 직접 링크.</p>`;
 }
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
