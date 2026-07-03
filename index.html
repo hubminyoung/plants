@@ -888,7 +888,7 @@ async function loadPlant(p) {
 
   // 3b. Gaissmayer 식재 정보 (비동기 병렬)
   const gsmQ = p.latName || p.name;
-  fetch(WORKER + '/api/gaissmayer/details?q=' + encodeURIComponent(gsmQ))
+  fetch(CFG.worker + '/api/gaissmayer/details?q=' + encodeURIComponent(gsmQ))
     .then(r => r.json()).then(d => {
       if (d.geselligkeit) p.geselligkeit = d.geselligkeit;
       if (d.pflanzAbstand) p.pflanzAbstand = d.pflanzAbstand;
