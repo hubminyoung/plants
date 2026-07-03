@@ -1126,6 +1126,10 @@ async function loadMbgDetail(p) {
   p.attracts     = det.attracts     || '';
   if (det.commonName && !p.commonName) p.commonName = det.commonName;
   renderChips(); renderActiveTab();
+  // culture / problems 자동 번역 (비동기, 완료 후 재렌더)
+  const toTranslate = [];
+  if (p.culture)  toTranslate.push(translateText(p.culture).then(t  => { if (t !== p.culture)  { p.culture  = t; renderActiveTab(); } }));
+  if (p.problems) toTranslate.push(translateText(p.problems).then(t => { if (t !== p.problems) { p.problems = t; renderActiveTab(); } }));
 }
 
 function parseFeetRange(str) {
@@ -1386,8 +1390,8 @@ function renderEcology() {
 
   const cards = plants.map((p, pi) => {
     const sq = encodeURIComponent(p.latName || p.korName || p.name);
-    const gsmSlug = (p.latName || p.name).replace(/\s*[''''][^'''']+['''']\s*/g,'').trim()
-      .toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+    const gsmBase = (p.latName || p.name).replace(/\s*['\u2018\u2019][^'\u2018\u2019]+['\u2018\u2019]\s*/g,'').trim();
+    const gsmSlug = encodeURIComponent(gsmBase);
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
 
@@ -1438,7 +1442,7 @@ function renderEcology() {
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
             <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
-            <a href="https://www.staudengaertnerei-gaissmayer.de/stauden-shop/${gsmSlug}/" target="_blank" rel="noopener" title="Gaissmayer">🌿 Gsm</a>
+            <a href="https://www.staudengaertnerei-gaissmayer.de/stauden-shop/staudensuche/?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌿 Gsm</a>
             <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
           </div>
         </div>
@@ -1467,13 +1471,13 @@ function renderEcology() {
       <div class="eco-card-text">
         <div class="eco-txt-block">
           <div class="eco-txt-lbl">원산지 / 문화
-            ${p.culture ? `<button class="translate-btn" onclick="translateCare('eco-cult-${pi}','eco-cult-btn-${pi}')" id="eco-cult-btn-${pi}">🌐 번역</button>` : ''}
+
           </div>
           <div class="eco-txt-val" id="eco-cult-${pi}" data-orig="${escA(p.culture)}">${p.culture || (p.fetching ? '<span class=\"loading-val\">…</span>' : '<span style=\"color:#bbb\">—</span>')}</div>
         </div>
         <div class="eco-txt-block">
           <div class="eco-txt-lbl">권장용도 / 문제점
-            ${p.problems ? `<button class="translate-btn" onclick="translateCare('eco-prob-${pi}','eco-prob-btn-${pi}')" id="eco-prob-btn-${pi}">🌐 번역</button>` : ''}
+
           </div>
           <div class="eco-txt-val" id="eco-prob-${pi}" data-orig="${escA(p.problems)}">${
             [translateList(p.suggestedUse, SUGGESTED_KO), p.problems].filter(Boolean).join('<br>') ||
@@ -1676,6 +1680,20 @@ function renderCare() {
 
   el.innerHTML = `<div class="care-cards">${cards}</div>
     <p class="src-note" style="padding:0 1rem 0.5rem">* Missouri Botanical Garden Plant Finder. 🌐 번역 버튼으로 한국어 번역 (HF API 키 필요)</p>`;
+}
+
+async function translateText(text) {
+  if (!text || text === '—') return text;
+  const pw = localStorage.getItem('appPassword') || '';
+  try {
+    const resp = await fetch(CFG.worker + '/api/hf/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(pw ? { 'x-app-password': pw } : {}) },
+      body: JSON.stringify({ text: text.slice(0, 1500) })
+    });
+    const data = await resp.json();
+    return data.translation || text;
+  } catch { return text; }
 }
 
 async function translateCare(elId, btnId) {
