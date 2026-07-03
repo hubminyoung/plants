@@ -2064,4 +2064,37 @@ document.addEventListener('click', function(ev) {
   document.addEventListener('mouseleave', () => { isDown = false; if(activeEl) activeEl.style.cursor='grab'; });
   document.addEventListener('mouseup',    () => { isDown = false; if(activeEl) activeEl.style.cursor='grab'; });
   document.addEventListener('mousemove',  e => {
-    if (
+    if (!isDown || !activeEl) return;
+    e.preventDefault();
+    const x = e.pageX - activeEl.offsetLeft;
+    const walk = (x - startX) * 2;
+    activeEl.scrollLeft = scrollLeft - walk;
+  });
+  // 터치 지원
+  document.addEventListener('touchstart', e => {
+    const g = e.target.closest('.img-gallery');
+    if (!g) return;
+    isDown = true; activeEl = g;
+    startX = e.touches[0].pageX - g.offsetLeft;
+    scrollLeft = g.scrollLeft;
+  }, { passive: true });
+  document.addEventListener('touchend',  () => { isDown = false; });
+  document.addEventListener('touchmove', e => {
+    if (!isDown || !activeEl) return;
+    const x = e.touches[0].pageX - activeEl.offsetLeft;
+    activeEl.scrollLeft = scrollLeft - (x - startX) * 2;
+  }, { passive: true });
+  // 이미지 클릭으로 갤러리 스크롤 (클릭한 이미지를 중앙으로)
+  document.addEventListener('click', e => {
+    const img = e.target.closest('.img-gallery img');
+    if (!img) return;
+    const gallery = img.closest('.img-gallery');
+    if (!gallery) return;
+    const imgCenter = img.offsetLeft + img.offsetWidth / 2;
+    const galleryHalf = gallery.offsetWidth / 2;
+    gallery.scrollTo({ left: imgCenter - galleryHalf, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>
