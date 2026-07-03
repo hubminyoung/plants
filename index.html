@@ -339,6 +339,23 @@ table.dtbl tr:last-child td { border-bottom: none; }
 </head>
 <body>
 
+<!-- 비밀번호 입력 오버레이 -->
+<div id="pw-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="background:white;border-radius:12px;padding:2rem;width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="font-size:1.2rem;font-weight:700;color:#2a5a2a;margin-bottom:1rem">🌿 식물분석툴</div>
+    <div style="font-size:0.85rem;color:#666;margin-bottom:1rem">비밀번호를 입력하세요</div>
+    <input id="pw-input" type="password" placeholder="비밀번호"
+      style="width:100%;padding:0.5rem 0.75rem;border:1px solid #d0e8c8;border-radius:8px;font-size:0.9rem;box-sizing:border-box;margin-bottom:0.75rem"
+      onkeydown="if(event.key==='Enter')submitPassword()">
+    <div id="pw-error" style="color:#c00;font-size:0.78rem;margin-bottom:0.5rem;display:none">비밀번호가 틀렸습니다</div>
+    <button onclick="submitPassword()"
+      style="width:100%;padding:0.5rem;background:#2a5a2a;color:white;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer">
+      확인
+    </button>
+  </div>
+</div>
+
+
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header>
   <h1>🌿 식재 분석 툴</h1>
@@ -529,7 +546,79 @@ table.dtbl tr:last-child td { border-bottom: none; }
 <!-- ── PDF Library ─────────────────────────────────────────────────────────── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+
+// ── 군집도/식재간격 입력 변환 ────────────────────────────────────────────────
+const ROMAN = ['','I','II','III','IV','V'];
+function toRoman(s) {
+  if (!s) return s;
+  // "1-2", "1~2", "1–2" 형태 범위 처리
+  const range = s.match(/^(\d)\s*[-~–]\s*(\d)$/);
+  if (range) {
+    const a = ROMAN[+range[1]], b = ROMAN[+range[2]];
+    return (a && b) ? a + '–' + b : s;
+  }
+  // 단일 숫자
+  const single = s.match(/^(\d)$/);
+  if (single) return ROMAN[+single[1]] || s;
+  // 이미 로마숫자면 그대로
+  return s;
+}
+function formatPflanz(s) {
+  if (!s) return s;
+  // 숫자만 입력하면 "개/m²" 붙임
+  const num = s.match(/^([\d.,]+)$/);
+  if (num) return num[1].replace(',','.') + '개/m²';
+  return s;
+}
+function onGesChange(pIdx, val, inputEl) {
+  const converted = toRoman(val.trim());
+  inputEl.value = converted;
+  saveKvField(pIdx, 'geselligkeit', converted);
+}
+function onPflanzChange(pIdx, val, inputEl) {
+  const formatted = formatPflanz(val.trim());
+  inputEl.value = formatted;
+  saveKvField(pIdx, 'pflanzAbstand', formatted);
+}
+async function saveKvField(pIdx, field, value) {
+  const p = plants[pIdx];
+  if (!p) return;
+  p[field] = value;
+  const key = (p.latName || p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  const pw = localStorage.getItem('appPassword') || '';
+  try {
+    await fetch(CFG.worker + '/api/kv/set', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', ...(pw?{'x-app-password':pw}:{}) },
+      body: JSON.stringify({ key, [field]: value }),
+    });
+  } catch(e) { console.warn('KV 저장 실패', e); }
+}
+
+function showPasswordPrompt() {
+  document.getElementById('pw-overlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('pw-input').focus(), 100);
+}
+async function submitPassword() {
+  const pw = document.getElementById('pw-input').value;
+  if (!pw) return;
+  const r = await fetch(CFG.worker + '/api/mbg/search?q=test',
+    { headers: {'x-app-password': pw} }).catch(()=>null);
+  if (!r || r.status === 401) {
+    document.getElementById('pw-error').style.display = 'block'; return;
+  }
+  localStorage.setItem('appPassword', pw);
+  document.getElementById('pw-overlay').style.display = 'none';
+}
+(async function() {
+  const pw = localStorage.getItem('appPassword');
+  if (!pw) { showPasswordPrompt(); return; }
+  const r = await fetch(CFG.worker + '/api/mbg/search?q=test',
+    { headers: {'x-app-password': pw} }).catch(()=>null);
+  if (!r || r.status === 401) { localStorage.removeItem('appPassword'); showPasswordPrompt(); }
+})();
+</script>
 
 <script>
 'use strict';
@@ -572,7 +661,12 @@ async function wFetch(path, params = {}) {
   if (!CFG.worker) { console.warn('Worker URL 미설정'); return null; }
   const u = new URL(CFG.worker + path);
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
-  try { const r = await fetch(u); return r.json(); } catch { return null; }
+  const pw = localStorage.getItem('appPassword') || '';
+  try {
+    const r = await fetch(u, { headers: pw ? { 'x-app-password': pw } : {} });
+    if (r.status === 401) { showPasswordPrompt(); return null; }
+    return r.json();
+  } catch { return null; }
 }
 
 async function inatFetch(q) {
@@ -897,7 +991,9 @@ async function loadPlant(p) {
 
   // 3b. KV에서 식재 추가 데이터 조회
   const kvKey = (p.latName || p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-  fetch(CFG.worker + '/api/kv/get?key=' + encodeURIComponent(kvKey))
+  const _pw = localStorage.getItem('appPassword') || '';
+  fetch(CFG.worker + '/api/kv/get?key=' + encodeURIComponent(kvKey),
+    { headers: _pw ? {'x-app-password': _pw} : {} })
     .then(r => r.json()).then(d => {
       if (d.geselligkeit) p.geselligkeit = d.geselligkeit;
       if (d.pflanzAbstand) p.pflanzAbstand = d.pflanzAbstand;
@@ -1147,6 +1243,34 @@ function openGoogleAll() {
 }
 
 // ── Tab 2: Ecology ────────────────────────────────────────────────────────────
+const NATIVE_RANGE_KO = {
+  'Northern temperate regions':'북부 온대 지역',
+  'Temperate regions':'온대 지역',
+  'Europe':'유럽','Asia':'아시아','North America':'북아메리카',
+  'South America':'남아메리카','Central America':'중앙아메리카',
+  'East Asia':'동아시아','Southeast Asia':'동남아시아',
+  'South Asia':'남아시아','West Asia':'서아시아',
+  'Central Asia':'중앙아시아','Eastern Asia':'동아시아',
+  'China':'중국','Japan':'일본','Korea':'한국',
+  'Mediterranean':'지중해','Middle East':'중동',
+  'Africa':'아프리카','South Africa':'남아프리카',
+  'Australia':'호주','New Zealand':'뉴질랜드',
+  'Pacific Islands':'태평양 제도','Caribbean':'카리브해',
+  'Himalayas':'히말라야','Caucasus':'코카서스',
+  'Eastern Europe':'동유럽','Western Europe':'서유럽',
+  'Tropical regions':'열대 지역','Subtropical regions':'아열대 지역',
+  'Arctic regions':'북극 지역','Alpine regions':'고산 지역',
+  'Wetlands':'습지','Meadows':'초원',
+};
+function translateNativeRange(s) {
+  if (!s) return '';
+  // 통째로 매칭 먼저, 없으면 단어별 치환
+  if (NATIVE_RANGE_KO[s]) return NATIVE_RANGE_KO[s];
+  return s.split(/,\s*/).map(part => {
+    const t = part.trim();
+    return NATIVE_RANGE_KO[t] || t;
+  }).join(', ');
+}
 const PLANT_TYPE_KO = {
   'herbaceous perennial':'다년생 초본', 'annual':'일년생 초본', 'biennial':'이년생 초본',
   'deciduous shrub':'낙엽 관목', 'evergreen shrub':'상록 관목',
@@ -1183,6 +1307,8 @@ const SUGGESTED_KO = {
   'Butterfly Garden':'나비 정원','Pollinator Garden':'수분 정원',
   'Cut Flower Garden':'절화 정원','Shade Garden':'음지 정원',
   'Erosion Control':'침식 방지','Street Trees':'가로수',
+  'Water Plant':'수생식물','Naturalize':'자연화','Rain Garden':'빗물 정원',
+  'Native Gardens':'자생식물 정원','Reclamation':'복원지','Dried Flower Garden':'건조화 정원',
 };
 const FLOWER_KO = {
   'Showy':'화려함','Fragrant':'향기 있음','Good cut':'절화 적합',
@@ -1207,8 +1333,10 @@ function renderEcology() {
 
   const ld = (p, v) => p.fetching ? '<span class="loading-val">…</span>' : (v || '—');
 
-  const cards = plants.map(p => {
+  const cards = plants.map((p, pi) => {
     const sq = encodeURIComponent(p.latName || p.korName || p.name);
+    const gsmSlug = (p.latName || p.name).replace(/\s*[''''][^'''']+['''']\s*/g,'').trim()
+      .toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
 
@@ -1219,7 +1347,7 @@ function renderEcology() {
       ? p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${c}</span>`).join('')
       : ld(p,'');
     const sunStr = p.sunlight.map(s => SUN_KO[s]||s).join(' ~ ') || ld(p,'');
-    const origin = [p.native, p.nativeRange].filter(Boolean).join(' / ') || ld(p,'');
+    const origin = [p.native, translateNativeRange(p.nativeRange)].filter(Boolean).join(' / ') || ld(p,'');
 
     // 표시할 항목 목록 (label, value)
     const fields = [
@@ -1259,7 +1387,7 @@ function renderEcology() {
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
             <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
-            <a href="https://www.staudengaertnerei-gaissmayer.de/stauden-shop/staudensuche/?suche=${sq}" target="_blank" rel="noopener" title="Gaissmayer">🌿 Gsm</a>
+            <a href="https://www.staudengaertnerei-gaissmayer.de/stauden-shop/${gsmSlug}/" target="_blank" rel="noopener" title="Gaissmayer">🌿 Gsm</a>
             <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
           </div>
         </div>
@@ -1268,20 +1396,26 @@ function renderEcology() {
       <div class="eco-kv-edit">
         <div class="eco-kv-row">
           <label>군집도</label>
-          <input type="text" class="eco-kv-input" placeholder="예: I–II"
+          <input type="text" class="eco-kv-input" placeholder="예: 1-2 → I–II"
             value="${p.geselligkeit||''}"
-            onchange="saveKvField(${plants.indexOf(p)},'geselligkeit',this.value)">
+            onchange="onGesChange(${plants.indexOf(p)},this.value,this)">
         </div>
         <div class="eco-kv-row">
-          <label>식재간격</label>
-          <input type="text" class="eco-kv-input" placeholder="예: 30cm · 11개/m²"
+          <label>식재간격 (개/m²)</label>
+          <input type="text" class="eco-kv-input" placeholder="예: 11"
             value="${p.pflanzAbstand||''}"
-            onchange="saveKvField(${plants.indexOf(p)},'pflanzAbstand',this.value)">
+            onchange="onPflanzChange(${plants.indexOf(p)},this.value,this)">
         </div>
       </div>
       ${(p.culture||p.problems) ? `<div class="eco-card-text">
-        ${p.culture  ? `<div class="eco-txt-block"><div class="eco-txt-lbl">문화</div><div class="eco-txt-val">${p.culture}</div></div>` : ''}
-        ${p.problems ? `<div class="eco-txt-block"><div class="eco-txt-lbl">문제점</div><div class="eco-txt-val">${p.problems}</div></div>` : ''}
+        ${p.culture  ? `<div class="eco-txt-block">
+          <div class="eco-txt-lbl">문화 <button class="translate-btn" onclick="translateCare('eco-cult-${pi}','eco-cult-btn-${pi}')" id="eco-cult-btn-${pi}">🌐 번역</button></div>
+          <div class="eco-txt-val" id="eco-cult-${pi}" data-orig="${escA(p.culture)}">${p.culture}</div>
+        </div>` : ''}
+        ${p.problems ? `<div class="eco-txt-block">
+          <div class="eco-txt-lbl">문제점 <button class="translate-btn" onclick="translateCare('eco-prob-${pi}','eco-prob-btn-${pi}')" id="eco-prob-btn-${pi}">🌐 번역</button></div>
+          <div class="eco-txt-val" id="eco-prob-${pi}" data-orig="${escA(p.problems)}">${p.problems}</div>
+        </div>` : ''}
       </div>` : ''}
     </div>`;
   }).join('');
@@ -1866,11 +2000,4 @@ document.addEventListener('click', function(ev) {
   document.addEventListener('mouseleave', () => { isDown = false; if(activeEl) activeEl.style.cursor='grab'; });
   document.addEventListener('mouseup',    () => { isDown = false; if(activeEl) activeEl.style.cursor='grab'; });
   document.addEventListener('mousemove',  e => {
-    if (!isDown || !activeEl) return;
-    const x = e.pageX - activeEl.offsetLeft;
-    activeEl.scrollLeft = scrollLeft - (x - startX) * 1.5;
-  });
-})();
-</script>
-</body>
-</html>
+    if (
