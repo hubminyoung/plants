@@ -340,19 +340,18 @@ table.dtbl tr:last-child td { border-bottom: none; }
 <body>
 
 <!-- 비밀번호 입력 오버레이 -->
-<div id="pw-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:white;border-radius:12px;padding:2rem;width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+<div id="pw-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center">
+  <form id="pw-form" style="background:white;border-radius:12px;padding:2rem;width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.2)"
+    onsubmit="event.preventDefault();var v=document.getElementById('pw-input').value.trim();if(v){localStorage.setItem('appPassword',v);document.getElementById('pw-overlay').style.display='none';}">
     <div style="font-size:1.2rem;font-weight:700;color:#2a5a2a;margin-bottom:1rem">🌿 식물분석툴</div>
     <div style="font-size:0.85rem;color:#666;margin-bottom:1rem">비밀번호를 입력하세요</div>
-    <input id="pw-input" type="password" placeholder="비밀번호"
-      style="width:100%;padding:0.5rem 0.75rem;border:1px solid #d0e8c8;border-radius:8px;font-size:0.9rem;box-sizing:border-box;margin-bottom:0.75rem"
-      onkeydown="if(event.key==='Enter'){var pw=this.value.trim();if(!pw)return;localStorage.setItem('appPassword',pw);document.getElementById('pw-overlay').style.display='none';}">
-    <div id="pw-error" style="color:#c00;font-size:0.78rem;margin-bottom:0.5rem;display:none">비밀번호가 틀렸습니다</div>
-    <button onclick="(function(){var pw=document.getElementById('pw-input').value.trim();if(!pw)return;localStorage.setItem('appPassword',pw);document.getElementById('pw-overlay').style.display='none';})()"
+    <input id="pw-input" type="password" placeholder="비밀번호" autocomplete="current-password"
+      style="width:100%;padding:0.5rem 0.75rem;border:1px solid #d0e8c8;border-radius:8px;font-size:0.9rem;box-sizing:border-box;margin-bottom:0.75rem">
+    <button type="submit"
       style="width:100%;padding:0.5rem;background:#2a5a2a;color:white;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer">
       확인
     </button>
-  </div>
+  </form>
 </div>
 
 
