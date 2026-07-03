@@ -577,9 +577,15 @@ function onGesChange(pIdx, val, inputEl) {
   saveKvField(pIdx, 'geselligkeit', converted);
 }
 function onPflanzChange(pIdx, val, inputEl) {
-  const formatted = formatPflanz(val.trim());
+  // 식재간격 (cm 단위 텍스트)
+  saveKvField(pIdx, 'pflanzAbstand', val.trim());
+}
+function onPflanzCountChange(pIdx, val, inputEl) {
+  // m²당 주수 — 숫자만 입력 시 "주/m²" 붙임
+  let formatted = val.trim();
+  if (/^[\d.,]+$/.test(formatted)) formatted = formatted.replace(',','.') + '주/m²';
   inputEl.value = formatted;
-  saveKvField(pIdx, 'pflanzAbstand', formatted);
+  saveKvField(pIdx, 'pflanzCount', formatted);
 }
 async function saveKvField(pIdx, field, value) {
   const p = plants[pIdx];
@@ -895,7 +901,7 @@ function mkPlant(name) {
     culture: '', noteworthy: '', uses: '', problems: '', tolerate: '',
     suggestedUse: '', flower: '', leaf: '', attracts: '',
     imageUrl: '', images: [], wikiUrl: '', inatId: null, inatUrl: '',
-    geselligkeit: '', pflanzAbstand: '',
+    geselligkeit: '', pflanzAbstand: '', pflanzCount: '',
     fetching: false, done: false
   };
 }
@@ -995,8 +1001,9 @@ async function loadPlant(p) {
   fetch(CFG.worker + '/api/kv/get?key=' + encodeURIComponent(kvKey),
     { headers: _pw ? {'x-app-password': _pw} : {} })
     .then(r => r.json()).then(d => {
-      if (d.geselligkeit) p.geselligkeit = d.geselligkeit;
+      if (d.geselligkeit)  p.geselligkeit  = d.geselligkeit;
       if (d.pflanzAbstand) p.pflanzAbstand = d.pflanzAbstand;
+      if (d.pflanzCount)   p.pflanzCount   = d.pflanzCount;
       renderActiveTab();
     }).catch(() => {});
 
@@ -1012,6 +1019,9 @@ async function loadPlant(p) {
   if (mbg?.taxonid) {
     p.mbgTaxonId = mbg.taxonid;
     await loadMbgDetail(p);
+  } else {
+    // MBG에 없으면 gardenia.net 시도
+    await loadGardeniaDetail(p);
   }
 
   } catch(err) {
@@ -1021,6 +1031,54 @@ async function loadPlant(p) {
     p.done = true;
     renderAll();
   }
+}
+
+async function loadGardeniaDetail(p) {
+  const q = p.latName || p.name;
+  const det = await wFetch('/api/gardenia/details', { q });
+  if (!det || det.error) return;
+
+  const parseM = s => {
+    if (!s) return null;
+    // "24-36 inches" → cm → m, "1-2 feet" → m
+    const inch = s.match(/([\d.]+)\s*[-–]\s*([\d.]+)\s*inch/i);
+    if (inch) return { min: +(+inch[1]*2.54/100).toFixed(2), max: +(+inch[2]*2.54/100).toFixed(2) };
+    const ft   = s.match(/([\d.]+)\s*[-–]\s*([\d.]+)\s*f(?:ee)?t/i);
+    if (ft)   return { min: +(+ft[1]*0.3048).toFixed(1), max: +(+ft[2]*0.3048).toFixed(1) };
+    const si   = s.match(/([\d.]+)\s*inch/i);
+    if (si)   return { max: +(+si[1]*2.54/100).toFixed(2) };
+    const sf   = s.match(/([\d.]+)\s*f(?:ee)?t/i);
+    if (sf)   return { max: +(+sf[1]*0.3048).toFixed(1) };
+    return null;
+  };
+
+  if (det.height) {
+    const r = parseM(det.height);
+    if (r?.max != null) p.height = r.min != null ? `${r.min}~${r.max}m` : `${r.max}m`;
+  }
+  if (det.spread) {
+    const r = parseM(det.spread);
+    if (r?.max != null) {
+      p.spreadM   = r.max;
+      p.spreadStr = r.min != null ? `${r.min}~${r.max}m` : `${r.max}m`;
+    }
+  }
+  if (det.hardiness && !p.hardiness) {
+    // "3 - 9" or "Zone 3-9"
+    const zh = det.hardiness.match(/(\d+)\s*[-–]\s*(\d+)/);
+    p.hardiness = zh ? `${zh[1]}–${zh[2]}` : det.hardiness.replace(/zone\s*/i,'').trim();
+  }
+  if (det.sun && !p.sunlight?.length) {
+    p.sunlight = det.sun.toLowerCase().split(/[,\/]|to/).map(s => s.trim()).filter(Boolean);
+  }
+  if (det.water && !p.watering)      p.watering     = det.water.toLowerCase();
+  if (det.maintenance && !p.maintenance) p.maintenance = det.maintenance.toLowerCase();
+  if (det.bloomTime && !p.bloomMonths?.length) p.bloomMonths = mbgMonthsToNums(det.bloomTime);
+  if (det.plantType && !p.plantType) p.plantType    = translatePlantType(det.plantType);
+  if (det.nativeRange && !p.nativeRange) p.nativeRange = det.nativeRange;
+  if (det.attracts && !p.attracts)   p.attracts     = det.attracts;
+  p.gardeniaUrl = det.url || '';
+  renderChips(); renderActiveTab();
 }
 
 async function loadMbgDetail(p) {
@@ -1363,12 +1421,12 @@ function renderEcology() {
       ['일조',      sunStr],
       ['수분요구',   WATER_KO[p.watering]  || ld(p, p.watering)],
       ['관리요구',   MAINT_KO[p.maintenance] || ld(p, p.maintenance)],
-      ['권장 용도', translateList(p.suggestedUse, SUGGESTED_KO) || ld(p,'')],
       ['꽃 특징',   translateList(p.flower, FLOWER_KO) || ld(p,'')],
       ['유인 생물', translateList(p.attracts, ATTRACTS_KO) || ld(p,'')],
       ['내성',      translateList(p.tolerate, TOLERATE_KO) || ld(p,'')],
-      ['군집도',    p.geselligkeit  || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
+      ['사교성',    p.geselligkeit  || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
       ['식재간격',  p.pflanzAbstand || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
+      ['m²당 주수', p.pflanzCount   || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
     ];
 
     const fieldHtml = fields.map(([lbl,val]) =>
@@ -1395,28 +1453,41 @@ function renderEcology() {
       <div class="eco-card-body">${fieldHtml}</div>
       <div class="eco-kv-edit">
         <div class="eco-kv-row">
-          <label>군집도</label>
+          <label>사교성</label>
           <input type="text" class="eco-kv-input" placeholder="예: 1-2 → I–II"
             value="${p.geselligkeit||''}"
             onchange="onGesChange(${plants.indexOf(p)},this.value,this)">
         </div>
         <div class="eco-kv-row">
-          <label>식재간격 (개/m²)</label>
-          <input type="text" class="eco-kv-input" placeholder="예: 11"
+          <label>식재간격</label>
+          <input type="text" class="eco-kv-input" placeholder="예: 30cm"
             value="${p.pflanzAbstand||''}"
             onchange="onPflanzChange(${plants.indexOf(p)},this.value,this)">
         </div>
+        <div class="eco-kv-row">
+          <label>m²당 주수</label>
+          <input type="text" class="eco-kv-input" placeholder="예: 11"
+            value="${p.pflanzCount||''}"
+            onchange="onPflanzCountChange(${plants.indexOf(p)},this.value,this)">
+        </div>
       </div>
-      ${(p.culture||p.problems) ? `<div class="eco-card-text">
-        ${p.culture  ? `<div class="eco-txt-block">
-          <div class="eco-txt-lbl">문화 <button class="translate-btn" onclick="translateCare('eco-cult-${pi}','eco-cult-btn-${pi}')" id="eco-cult-btn-${pi}">🌐 번역</button></div>
-          <div class="eco-txt-val" id="eco-cult-${pi}" data-orig="${escA(p.culture)}">${p.culture}</div>
-        </div>` : ''}
-        ${p.problems ? `<div class="eco-txt-block">
-          <div class="eco-txt-lbl">문제점 <button class="translate-btn" onclick="translateCare('eco-prob-${pi}','eco-prob-btn-${pi}')" id="eco-prob-btn-${pi}">🌐 번역</button></div>
-          <div class="eco-txt-val" id="eco-prob-${pi}" data-orig="${escA(p.problems)}">${p.problems}</div>
-        </div>` : ''}
-      </div>` : ''}
+      <div class="eco-card-text">
+        <div class="eco-txt-block">
+          <div class="eco-txt-lbl">원산지 / 문화
+            ${p.culture ? `<button class="translate-btn" onclick="translateCare('eco-cult-${pi}','eco-cult-btn-${pi}')" id="eco-cult-btn-${pi}">🌐 번역</button>` : ''}
+          </div>
+          <div class="eco-txt-val" id="eco-cult-${pi}" data-orig="${escA(p.culture)}">${p.culture || (p.fetching ? '<span class=\"loading-val\">…</span>' : '<span style=\"color:#bbb\">—</span>')}</div>
+        </div>
+        <div class="eco-txt-block">
+          <div class="eco-txt-lbl">권장용도 / 문제점
+            ${p.problems ? `<button class="translate-btn" onclick="translateCare('eco-prob-${pi}','eco-prob-btn-${pi}')" id="eco-prob-btn-${pi}">🌐 번역</button>` : ''}
+          </div>
+          <div class="eco-txt-val" id="eco-prob-${pi}" data-orig="${escA(p.problems)}">${
+            [translateList(p.suggestedUse, SUGGESTED_KO), p.problems].filter(Boolean).join('<br>') ||
+            (p.fetching ? '<span class=\"loading-val\">…</span>' : '<span style=\"color:#bbb\">—</span>')
+          }</div>
+        </div>
+      </div>
     </div>`;
   }).join('');
 
