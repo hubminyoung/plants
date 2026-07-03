@@ -148,6 +148,22 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .nat-자생 { background: #d4f4e4; color: #1a6040; }
 .nat-귀화 { background: #fff3c8; color: #7a5a10; }
 .nat-재배 { background: #e0eaf8; color: #3a508a; }
+
+/* ── Ecology Card Layout ─────────────────────────────── */
+.eco-cards { display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem 1rem; }
+.eco-card { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
+.eco-card-hd { display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 0.75rem 1rem 0.5rem; background: #f7fbf4; border-bottom: 1px solid #e0eed8; }
+.eco-card-hd-left { display: flex; flex-direction: column; gap: 0.1rem; }
+.eco-card-primary { font-size: 1rem; font-weight: 700; color: #2a5a2a; }
+.eco-card-latin   { font-size: 0.8rem; color: #666; font-style: italic; }
+.eco-card-hd-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+.eco-card-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0; padding: 0.25rem 0; }
+.eco-f { display: flex; flex-direction: column; padding: 0.35rem 1rem;
+  border-bottom: 1px solid #f0f0f0; }
+.eco-lbl { font-size: 0.65rem; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.eco-val { font-size: 0.82rem; color: #333; margin-top: 0.1rem; }
 /* ecology ext links */
 .eco-ext-links { display: flex; gap: 0.3rem; margin-top: 0.25rem; }
 .eco-ext-links a { font-size: 0.75rem; text-decoration: none; opacity: 0.7; transition: 0.1s; }
@@ -1478,7 +1494,7 @@ let _nativeDB = null;
 async function loadNativePlantDB() {
   if (_nativeDB) return _nativeDB;
   try {
-    const CACHE_KEY = 'nativeDB_v1';
+    const CACHE_KEY = 'nativeDB_v2';
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) { _nativeDB = JSON.parse(cached); return _nativeDB; }
     const resp = await fetch('./data/native_plants.json');
