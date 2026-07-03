@@ -127,6 +127,7 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .img-plant-name:hover { color: #2d5a1b; text-decoration: underline; }
 .img-plant-lat { font-style: italic; font-size: 0.76rem; color: #5a8050; }
 .img-gallery {
+  cursor: grab;
   display: flex; gap: 0.5rem;
   overflow-x: auto; padding: 0.65rem 0.9rem;
   scrollbar-width: thin; scrollbar-color: #c0d8b8 transparent;
@@ -163,6 +164,9 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-f { display: flex; flex-direction: column; padding: 0.35rem 1rem;
   border-bottom: 1px solid #f0f0f0; }
 .eco-lbl { font-size: 0.65rem; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.eco-card-text { padding: 0.5rem 1rem 0.75rem; border-top: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 0.5rem; }
+.eco-txt-lbl { font-size: 0.68rem; font-weight: 700; color: #5a8a5a; margin-bottom: 0.15rem; }
+.eco-txt-val { font-size: 0.78rem; color: #444; line-height: 1.5; }
 .eco-val { font-size: 0.82rem; color: #333; margin-top: 0.1rem; }
 /* ecology ext links */
 .eco-ext-links { display: flex; gap: 0.3rem; margin-top: 0.25rem; }
@@ -933,12 +937,15 @@ async function loadMbgDetail(p) {
   // Spread
   if (det.spreadFeet) {
     const r = parseFeetRange(det.spreadFeet);
-    if (r.max != null) p.spreadM = ftToM(r.max);
+    if (r.max != null) {
+      p.spreadM   = ftToM(r.max);
+      p.spreadStr = r.min != null ? `${ftToM(r.min)}~${ftToM(r.max)}m` : `${ftToM(r.max)}m`;
+    }
   }
   // Zone → hardiness
   if (det.zone) {
     const zm = det.zone.match(/(\d+)\s+to\s+(\d+)/);
-    p.hardiness = zm ? `Zone ${zm[1]}–${zm[2]}` : `Zone ${det.zone}`;
+    p.hardiness = zm ? `${zm[1]}–${zm[2]}` : det.zone.replace(/zone\s*/i,'').trim();
   }
   // Sun: "Full sun to part shade" → array of values
   if (det.sun) {
@@ -1172,6 +1179,12 @@ const SUGGESTED_KO = {
   'Cut Flower Garden':'절화 정원','Shade Garden':'음지 정원',
   'Erosion Control':'침식 방지','Street Trees':'가로수',
 };
+const FLOWER_KO = {
+  'Showy':'화려함','Fragrant':'향기 있음','Good cut':'절화 적합',
+  'Insignificant':'눈에 띄지 않음','Showy, Fragrant':'화려하고 향기 있음',
+  'Colorful':'다채로운 색상','Double':'겹꽃','Single':'홑꽃',
+  'Nodding':'고개 숙인 형태','Persistent':'지속적 개화',
+};
 function translateList(str, map) {
   if (!str) return '';
   return str.split(/[,;]+/).map(s => { const t=s.trim(); return map[t]||t; }).join(', ');
@@ -1215,11 +1228,10 @@ function renderEcology() {
       ['개화기',    bloomStr],
       ['꽃색',      fc],
       ['일조',      sunStr],
-      ['관수',      WATER_KO[p.watering]  || ld(p, p.watering)],
-      ['관리',      MAINT_KO[p.maintenance] || ld(p, p.maintenance)],
+      ['수분요구',   WATER_KO[p.watering]  || ld(p, p.watering)],
+      ['관리요구',   MAINT_KO[p.maintenance] || ld(p, p.maintenance)],
       ['권장 용도', translateList(p.suggestedUse, SUGGESTED_KO) || ld(p,'')],
-      ['꽃 특징',   p.flower       || ld(p,'')],
-      ['잎 특징',   p.leaf         || ld(p,'')],
+      ['꽃 특징',   translateList(p.flower, FLOWER_KO) || ld(p,'')],
       ['유인 생물', translateList(p.attracts, ATTRACTS_KO) || ld(p,'')],
       ['내성',      translateList(p.tolerate, TOLERATE_KO) || ld(p,'')],
       ['군집도',    p.geselligkeit  || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
@@ -1248,6 +1260,10 @@ function renderEcology() {
         </div>
       </div>
       <div class="eco-card-body">${fieldHtml}</div>
+      ${(p.culture||p.problems) ? `<div class="eco-card-text">
+        ${p.culture  ? `<div class="eco-txt-block"><div class="eco-txt-lbl">문화</div><div class="eco-txt-val">${p.culture}</div></div>` : ''}
+        ${p.problems ? `<div class="eco-txt-block"><div class="eco-txt-lbl">문제점</div><div class="eco-txt-val">${p.problems}</div></div>` : ''}
+      </div>` : ''}
     </div>`;
   }).join('');
 
@@ -1815,6 +1831,27 @@ document.addEventListener('click', function(ev) {
 });
 
 
+
+// ── 이미지 갤러리 드래그 스크롤 ──────────────────────────────
+(function() {
+  let isDown = false, startX, scrollLeft, activeEl = null;
+  document.addEventListener('mousedown', e => {
+    const g = e.target.closest('.img-gallery');
+    if (!g) return;
+    isDown = true; activeEl = g;
+    startX = e.pageX - g.offsetLeft;
+    scrollLeft = g.scrollLeft;
+    g.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  document.addEventListener('mouseleave', () => { isDown = false; if(activeEl) activeEl.style.cursor='grab'; });
+  document.addEventListener('mouseup',    () => { isDown = false; if(activeEl) activeEl.style.cursor='grab'; });
+  document.addEventListener('mousemove',  e => {
+    if (!isDown || !activeEl) return;
+    const x = e.pageX - activeEl.offsetLeft;
+    activeEl.scrollLeft = scrollLeft - (x - startX) * 1.5;
+  });
+})();
 </script>
 </body>
 </html>
