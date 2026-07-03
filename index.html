@@ -164,6 +164,11 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-f { display: flex; flex-direction: column; padding: 0.35rem 1rem;
   border-bottom: 1px solid #f0f0f0; }
 .eco-lbl { font-size: 0.65rem; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.eco-kv-edit { padding: 0.4rem 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; background: #fafff8; border-top: 1px solid #eef5ea; }
+.eco-kv-row { display: flex; align-items: center; gap: 0.4rem; }
+.eco-kv-row label { font-size: 0.68rem; color: #888; font-weight: 600; white-space: nowrap; }
+.eco-kv-input { font-size: 0.78rem; border: 1px solid #d0e8c8; border-radius: 5px; padding: 0.15rem 0.4rem; width: 130px; background: white; }
+.eco-kv-input:focus { outline: none; border-color: #5a8a5a; }
 .eco-card-text { padding: 0.5rem 1rem 0.75rem; border-top: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 0.5rem; }
 .eco-txt-lbl { font-size: 0.68rem; font-weight: 700; color: #5a8a5a; margin-bottom: 0.15rem; }
 .eco-txt-val { font-size: 0.78rem; color: #444; line-height: 1.5; }
@@ -890,9 +895,9 @@ async function loadPlant(p) {
   }
   renderChips(); renderActiveTab();
 
-  // 3b. Gaissmayer 식재 정보 (비동기 병렬)
-  const gsmQ = p.latName || p.name;
-  fetch(CFG.worker + '/api/gaissmayer/details?q=' + encodeURIComponent(gsmQ))
+  // 3b. KV에서 식재 추가 데이터 조회
+  const kvKey = (p.latName || p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  fetch(CFG.worker + '/api/kv/get?key=' + encodeURIComponent(kvKey))
     .then(r => r.json()).then(d => {
       if (d.geselligkeit) p.geselligkeit = d.geselligkeit;
       if (d.pflanzAbstand) p.pflanzAbstand = d.pflanzAbstand;
@@ -1254,12 +1259,26 @@ function renderEcology() {
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
             <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
-            <a href="https://powo.science.kew.org/results?q=${sq}" target="_blank" rel="noopener" title="Plants of the World Online">🌍</a>
+            <a href="https://www.staudengaertnerei-gaissmayer.de/stauden-shop/staudensuche/?suche=${sq}" target="_blank" rel="noopener" title="Gaissmayer">🌿 Gsm</a>
             <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
           </div>
         </div>
       </div>
       <div class="eco-card-body">${fieldHtml}</div>
+      <div class="eco-kv-edit">
+        <div class="eco-kv-row">
+          <label>군집도</label>
+          <input type="text" class="eco-kv-input" placeholder="예: I–II"
+            value="${p.geselligkeit||''}"
+            onchange="saveKvField(${plants.indexOf(p)},'geselligkeit',this.value)">
+        </div>
+        <div class="eco-kv-row">
+          <label>식재간격</label>
+          <input type="text" class="eco-kv-input" placeholder="예: 30cm · 11개/m²"
+            value="${p.pflanzAbstand||''}"
+            onchange="saveKvField(${plants.indexOf(p)},'pflanzAbstand',this.value)">
+        </div>
+      </div>
       ${(p.culture||p.problems) ? `<div class="eco-card-text">
         ${p.culture  ? `<div class="eco-txt-block"><div class="eco-txt-lbl">문화</div><div class="eco-txt-val">${p.culture}</div></div>` : ''}
         ${p.problems ? `<div class="eco-txt-block"><div class="eco-txt-lbl">문제점</div><div class="eco-txt-val">${p.problems}</div></div>` : ''}
