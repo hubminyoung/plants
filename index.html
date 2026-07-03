@@ -606,14 +606,9 @@ function showPasswordPrompt() {
   document.getElementById('pw-overlay').style.display = 'flex';
   setTimeout(() => document.getElementById('pw-input').focus(), 100);
 }
-async function submitPassword() {
-  const pw = document.getElementById('pw-input').value;
+function submitPassword() {
+  const pw = document.getElementById('pw-input').value.trim();
   if (!pw) return;
-  const r = await fetch(CFG.worker + '/api/mbg/search?q=test',
-    { headers: {'x-app-password': pw} }).catch(()=>null);
-  if (!r || r.status === 401) {
-    document.getElementById('pw-error').style.display = 'block'; return;
-  }
   localStorage.setItem('appPassword', pw);
   document.getElementById('pw-overlay').style.display = 'none';
 }
@@ -629,12 +624,9 @@ const CFG = {
 };
 
 // ── 비밀번호 자동 확인 (CFG 정의 이후 실행) ──────────────────────────────────
-(async function() {
+(function() {
   const pw = localStorage.getItem('appPassword');
-  if (!pw) { showPasswordPrompt(); return; }
-  const r = await fetch(CFG.worker + '/api/mbg/search?q=test',
-    { headers: {'x-app-password': pw} }).catch(()=>null);
-  if (!r || r.status === 401) { localStorage.removeItem('appPassword'); showPasswordPrompt(); }
+  if (!pw) showPasswordPrompt();
 })();
 
 // Enter = 검색, Shift+Enter = 줄바꿈
