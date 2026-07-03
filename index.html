@@ -617,13 +617,6 @@ async function submitPassword() {
   localStorage.setItem('appPassword', pw);
   document.getElementById('pw-overlay').style.display = 'none';
 }
-(async function() {
-  const pw = localStorage.getItem('appPassword');
-  if (!pw) { showPasswordPrompt(); return; }
-  const r = await fetch(CFG.worker + '/api/mbg/search?q=test',
-    { headers: {'x-app-password': pw} }).catch(()=>null);
-  if (!r || r.status === 401) { localStorage.removeItem('appPassword'); showPasswordPrompt(); }
-})();
 </script>
 
 <script>
@@ -634,6 +627,15 @@ const WORKER_DEFAULT = 'https://plantlist.younrake.workers.dev';
 const CFG = {
   get worker() { return localStorage.getItem('workerUrl') || WORKER_DEFAULT; }
 };
+
+// ── 비밀번호 자동 확인 (CFG 정의 이후 실행) ──────────────────────────────────
+(async function() {
+  const pw = localStorage.getItem('appPassword');
+  if (!pw) { showPasswordPrompt(); return; }
+  const r = await fetch(CFG.worker + '/api/mbg/search?q=test',
+    { headers: {'x-app-password': pw} }).catch(()=>null);
+  if (!r || r.status === 401) { localStorage.removeItem('appPassword'); showPasswordPrompt(); }
+})();
 
 // Enter = 검색, Shift+Enter = 줄바꿈
 document.getElementById('plantInput').addEventListener('keydown', e => {
