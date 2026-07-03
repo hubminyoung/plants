@@ -1,0 +1,7 @@
+name = "plantlist"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "PLANT_DATA"
+id = "e33acd06d74244a08f7590b91a51c8ce"
