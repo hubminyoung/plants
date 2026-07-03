@@ -792,6 +792,7 @@ function mkPlant(name) {
     culture: '', noteworthy: '', uses: '', problems: '', tolerate: '',
     suggestedUse: '', flower: '', leaf: '', attracts: '',
     imageUrl: '', images: [], wikiUrl: '', inatId: null, inatUrl: '',
+    geselligkeit: '', pflanzAbstand: '',
     fetching: false, done: false
   };
 }
@@ -885,6 +886,15 @@ async function loadPlant(p) {
   }
   renderChips(); renderActiveTab();
 
+  // 3b. Gaissmayer 식재 정보 (비동기 병렬)
+  const gsmQ = p.latName || p.name;
+  fetch(WORKER + '/api/gaissmayer/details?q=' + encodeURIComponent(gsmQ))
+    .then(r => r.json()).then(d => {
+      if (d.geselligkeit) p.geselligkeit = d.geselligkeit;
+      if (d.pflanzAbstand) p.pflanzAbstand = d.pflanzAbstand;
+      renderActiveTab();
+    }).catch(() => {});
+
   // 3. MBG Plant Finder (via Worker)
   // 학명 변경 자동 처리: iNaturalist accepted name의 속명 + 원래 재배종명 조합
   // 예) Cimicifuga 'Queen of Sheba' -> iNat: Actaea -> searchQ: Actaea 'Queen of Sheba'
@@ -945,7 +955,8 @@ async function loadMbgDetail(p) {
   if (!p.family && det.family) p.family = det.family;
   // MBG-specific fields
   p.nativeRange = det.nativeRange || '';
-  p.plantType   = det.plantType   || '';
+  // plantType: DB 한글이 있으면 유지, 없으면 MBG 번역값 사용
+  if (!p.plantType) p.plantType = translatePlantType(det.plantType || '');
   p.culture     = det.culture     || '';
   p.uses        = det.uses        || '';
   p.problems    = det.problems    || '';
@@ -1118,6 +1129,47 @@ function openGoogleAll() {
 }
 
 // ── Tab 2: Ecology ────────────────────────────────────────────────────────────
+const PLANT_TYPE_KO = {
+  'herbaceous perennial':'다년생 초본', 'annual':'일년생 초본', 'biennial':'이년생 초본',
+  'deciduous shrub':'낙엽 관목', 'evergreen shrub':'상록 관목',
+  'semi-evergreen shrub':'반상록 관목', 'deciduous tree':'낙엽 교목',
+  'evergreen tree':'상록 교목', 'ornamental grass':'관상용 그래스',
+  'vine':'덩굴식물', 'annual vine':'일년생 덩굴', 'perennial vine':'다년생 덩굴',
+  'bulb':'구근', 'fern':'양치류', 'ground cover':'지피식물',
+  'cactus/succulent':'선인장/다육', 'aquatic':'수생식물', 'moss':'이끼',
+};
+function translatePlantType(s) {
+  if (!s) return '';
+  return PLANT_TYPE_KO[s.toLowerCase()] || s;
+}
+const TOLERATE_KO = {
+  'Deer':'사슴','Rabbits':'토끼','Black Walnut':'호두나무 독성',
+  'Air Pollution':'대기오염','Wet Soil':'습한 토양','Dry Soil':'건조한 토양',
+  'Drought':'건조','Clay Soil':'점토질 토양','Sandy Soil':'사질 토양',
+  'Erosion':'침식','Flooding':'침수','Salt':'염분',
+  'Poor Soil':'척박한 토양','Compaction':'답압','Heat':'고온',
+  'Heavy Shade':'짙은 그늘','Slope':'경사지',
+};
+const ATTRACTS_KO = {
+  'Butterflies':'나비','Hummingbirds':'벌새','Bees':'꿀벌',
+  'Songbirds':'명금류','Birds':'조류','Pollinators':'수분 곤충',
+  'Moths':'나방','Beneficial Insects':'익충',
+  'Native Bees':'재래꿀벌',
+};
+const SUGGESTED_KO = {
+  'Mass Plantings':'군식','Ground Covers':'지피','Naturalized Areas':'자연풍 지역',
+  'Woodland Gardens':'숲 정원','Rain Gardens':'빗물 정원','Borders':'화단 경계',
+  'Hedges/Screening':'생울타리','Slopes':'경사지','Containers':'화분',
+  'Rock Gardens':'암석 정원','Cottage Gardens':'코티지 정원',
+  'Prairie/Meadow':'초원','Wetlands':'습지','Ponds and Streams':'연못·수변',
+  'Butterfly Garden':'나비 정원','Pollinator Garden':'수분 정원',
+  'Cut Flower Garden':'절화 정원','Shade Garden':'음지 정원',
+  'Erosion Control':'침식 방지','Street Trees':'가로수',
+};
+function translateList(str, map) {
+  if (!str) return '';
+  return str.split(/[,;]+/).map(s => { const t=s.trim(); return map[t]||t; }).join(', ');
+}
 const SUN_KO   = { 'full sun':'양지', 'part shade':'반음지', 'full shade':'음지', 'part_shade':'반음지', 'full_sun':'양지', 'full_shade':'음지', 'part sun/part shade':'반음지', 'part sun':'반양지' };
 const WATER_KO = { minimum:'건조에 강함', average:'보통', frequent:'습윤 선호',
   'dry':'건조', 'dry to medium':'건조~보통', 'dry to medium, wet':'건조~습윤',
@@ -1158,11 +1210,13 @@ function renderEcology() {
       ['일조',      sunStr],
       ['관수',      WATER_KO[p.watering]  || ld(p, p.watering)],
       ['관리',      MAINT_KO[p.maintenance] || ld(p, p.maintenance)],
-      ['권장 용도', p.suggestedUse || ld(p,'')],
+      ['권장 용도', translateList(p.suggestedUse, SUGGESTED_KO) || ld(p,'')],
       ['꽃 특징',   p.flower       || ld(p,'')],
       ['잎 특징',   p.leaf         || ld(p,'')],
-      ['유인 생물', p.attracts     || ld(p,'')],
-      ['내성',      p.tolerate     || ld(p,'')],
+      ['유인 생물', translateList(p.attracts, ATTRACTS_KO) || ld(p,'')],
+      ['내성',      translateList(p.tolerate, TOLERATE_KO) || ld(p,'')],
+      ['군집도',    p.geselligkeit  || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
+      ['식재간격',  p.pflanzAbstand || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
     ];
 
     const fieldHtml = fields.map(([lbl,val]) =>
