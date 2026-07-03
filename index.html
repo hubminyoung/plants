@@ -957,10 +957,16 @@ async function loadMbgDetail(p) {
   p.nativeRange = det.nativeRange || '';
   // plantType: DB 한글이 있으면 유지, 없으면 MBG 번역값 사용
   if (!p.plantType) p.plantType = translatePlantType(det.plantType || '');
-  p.culture     = det.culture     || '';
-  p.uses        = det.uses        || '';
-  p.problems    = det.problems    || '';
-  p.tolerate    = det.tolerate    || '';
+  p.culture      = det.culture      || '';
+  p.uses         = det.uses         || '';
+  p.problems     = det.problems     || '';
+  p.tolerate     = det.tolerate     || '';
+  p.suggestedUse = det.suggestedUse || '';
+  p.flower       = det.flower       || '';
+  p.leaf         = det.leaf         || '';
+  p.attracts     = det.attracts     || '';
+  if (det.commonName && !p.commonName) p.commonName = det.commonName;
+  renderChips(); renderActiveTab();
 }
 
 function parseFeetRange(str) {
@@ -1199,6 +1205,7 @@ function renderEcology() {
 
     // 표시할 항목 목록 (label, value)
     const fields = [
+      ['일반명',    p.commonName  || ld(p,'')],
       ['유형',      p.plantType   || ld(p,'')],
       ['과명',      p.family      || ld(p,'')],
       ['내한성',    p.hardiness   || ld(p,'')],
