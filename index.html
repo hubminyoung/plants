@@ -593,12 +593,22 @@ async function saveKvField(pIdx, field, value) {
   const key = (p.latName || p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   const pw = localStorage.getItem('appPassword') || '';
   try {
-    await fetch(CFG.worker + '/api/kv/set', {
+    const resp = await fetch(CFG.worker + '/api/kv/set', {
       method: 'POST',
       headers: { 'Content-Type':'application/json', ...(pw?{'x-app-password':pw}:{}) },
       body: JSON.stringify({ key, [field]: value }),
     });
-  } catch(e) { console.warn('KV 저장 실패', e); }
+    const data = await resp.json();
+    if (data.error) {
+      showToast && showToast('저장 실패: ' + data.error);
+      console.warn('KV 저장 실패', data.error);
+    } else {
+      showToast && showToast('저장됨 ✓');
+    }
+  } catch(e) {
+    showToast && showToast('저장 실패 (네트워크)');
+    console.warn('KV 저장 실패', e);
+  }
 }
 
 function showPasswordPrompt() {
@@ -1442,7 +1452,7 @@ function renderEcology() {
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
             <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
-            <a href="https://www.staudengaertnerei-gaissmayer.de/stauden-shop/staudensuche/?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌿 Gsm</a>
+            <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌿 Gsm</a>
             <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
           </div>
         </div>
@@ -1682,18 +1692,28 @@ function renderCare() {
     <p class="src-note" style="padding:0 1rem 0.5rem">* Missouri Botanical Garden Plant Finder. 🌐 번역 버튼으로 한국어 번역 (HF API 키 필요)</p>`;
 }
 
-async function translateText(text) {
+async function translateText(text, retries = 3) {
   if (!text || text === '—') return text;
   const pw = localStorage.getItem('appPassword') || '';
-  try {
-    const resp = await fetch(CFG.worker + '/api/hf/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(pw ? { 'x-app-password': pw } : {}) },
-      body: JSON.stringify({ text: text.slice(0, 1500) })
-    });
-    const data = await resp.json();
-    return data.translation || text;
-  } catch { return text; }
+  for (let i = 0; i < retries; i++) {
+    try {
+      const resp = await fetch(CFG.worker + '/api/hf/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(pw ? { 'x-app-password': pw } : {}) },
+        body: JSON.stringify({ text: text.slice(0, 1500) })
+      });
+      const data = await resp.json();
+      if (data.translation) return data.translation;
+      // 모델 로딩 중이면 대기 후 재시도
+      if (data.error && data.error.includes('loading')) {
+        const wait = (data.estimated_time || 20) * 1000;
+        await new Promise(r => setTimeout(r, Math.min(wait, 25000)));
+        continue;
+      }
+    } catch {}
+    if (i < retries - 1) await new Promise(r => setTimeout(r, 3000));
+  }
+  return text;
 }
 
 async function translateCare(elId, btnId) {
