@@ -169,6 +169,7 @@ table.eco tr:last-child td { border-bottom: none; }
 table.eco tr:hover td { background: #f4faf2; }
 .eco-name { font-weight: 700; }
 .eco-latin { font-style: italic; font-size: 0.68rem; color: #6a8a5a; }
+.chip-common { font-size: 0.6rem; color: #8aaa7a; display:block; }
 .site-field { display:flex; flex-direction:column; gap:0.3rem; }
 .site-field span { font-size:0.8rem; font-weight:600; color:#4a7a3a; }
 .site-field select { padding:0.4rem 0.6rem; border:1px solid #c0d8b8; border-radius:6px; background:#f8fbf6; color:#666; font-size:0.85rem; cursor:not-allowed; }
@@ -768,11 +769,12 @@ function parsePlants() {
 
 function mkPlant(name) {
   return {
-    name, korName: '', latName: '', native: '', family: '',
-    mbgTaxonId: null, height: '', spreadM: null, flowerColors: [],
+    name, korName: '', latName: '', commonName: '', native: '', family: '',
+    mbgTaxonId: null, height: '', spreadStr: '', spreadM: null, flowerColors: [],
     bloomMonths: [], sunlight: [], hardiness: '',
     watering: '', maintenance: '', nativeRange: '', plantType: '',
-    culture: '', uses: '', problems: '', tolerate: '',
+    culture: '', noteworthy: '', uses: '', problems: '', tolerate: '',
+    suggestedUse: '', flower: '', leaf: '', attracts: '',
     imageUrl: '', images: [], wikiUrl: '', inatId: null, inatUrl: '',
     fetching: false, done: false
   };
@@ -855,14 +857,15 @@ async function loadPlant(p) {
 
   renderChips(); renderActiveTab();
 
-  // 2. 산림청 (via Worker)
-  const forest = await wFetch('/api/forest/search', { q: p.name });
-  if (forest?.length) {
-    const f = forest[0];
-    if (!p.korName && f.korNm && /[가-힣]/.test(f.korNm)) p.korName = f.korNm;
-    if (!p.latName && f.sn) p.latName = f.sn;
-    p.native  = f.natrlDvsnNm || '';
-    p.family  = f.familyNm || '';
+  // 2. 자생종 조회 (로컬 JSON DB — 공식 추천국명 우선)
+  await loadNativePlantDB();
+  const nativeInfo = lookupNativePlant(p.latName || p.name);
+  if (nativeInfo) {
+    if (nativeInfo.kor)    p.korName    = nativeInfo.kor;    // DB 국명 우선 (공식 추천국명)
+    if (!p.commonName  && nativeInfo.common) p.commonName = nativeInfo.common;
+    if (!p.family      && nativeInfo.family) p.family     = nativeInfo.family;
+    p.native    = nativeInfo.native || '';
+    p.plantType = p.plantType || [nativeInfo.type, nativeInfo.shape].filter(Boolean).join(' · ') || '';
   }
   renderChips(); renderActiveTab();
 
@@ -976,11 +979,14 @@ function renderChips() {
   if (!plants.length) { sec.style.display = 'none'; return; }
   sec.style.display = 'block';
   area.innerHTML = plants.map((p, i) => {
-    const { primary, secondary } = pNames(p);
+    const kor = p.korName && /[가-힣]/.test(p.korName) ? p.korName : '';
+    const lat = p.latName || p.name;
+    const com = p.commonName || '';
     return `<span class="chip">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
-      <span>${primary}</span>
-      ${secondary ? `<span class="chip-latin">${secondary}</span>` : ''}
+      <span>${kor || lat}</span>
+      ${kor ? `<span class="chip-latin">${lat}</span>` : ''}
+      ${com ? `<span class="chip-common">${com}</span>` : ''}
       <button class="chip-rm" data-idx="${i}">✕</button>
     </span>`;
   }).join('');
@@ -1150,8 +1156,10 @@ function renderEcology() {
     return `<div class="eco-card">
       <div class="eco-card-hd">
         <div class="eco-card-hd-left">
-          <div class="eco-card-primary">${namePrimary}</div>
-          ${nameSecondary ? `<div class="eco-card-latin">${nameSecondary}</div>` : ''}
+          ${p.korName && /[가-힣]/.test(p.korName) ? `<div class="eco-card-primary">${p.korName}</div>` : ''}
+          ${(p.latName||p.name) ? `<div class="eco-card-latin">${p.latName||p.name}</div>` : ''}
+          ${p.commonName ? `<div style="font-size:0.68rem;color:#888;margin-top:0.05rem">${p.commonName}</div>` : ''}
+          ${!p.korName && !p.latName ? `<div class="eco-card-primary">${p.name}</div>` : ''}
         </div>
         <div class="eco-card-hd-right">
           ${eiveHtml(eiveVals)}
@@ -1461,6 +1469,41 @@ function eiveHtml(vals) {
   return chips ? `<div class="eive-row">${chips}</div>` : '';
 }
 
+
+// ── 자생종 로컬 DB ────────────────────────────────────────────────────────────
+// data/native_plants.json 형식:
+// {"lilium lancifolium": {"kor":"참나리","family":"백합과","native":"자생식물","type":"다년생초본"}, ...}
+let _nativeDB = null;
+
+async function loadNativePlantDB() {
+  if (_nativeDB) return _nativeDB;
+  try {
+    const CACHE_KEY = 'nativeDB_v1';
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) { _nativeDB = JSON.parse(cached); return _nativeDB; }
+    const resp = await fetch('./data/native_plants.json');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    _nativeDB = await resp.json();
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(_nativeDB)); } catch(e) {}
+    console.log('[NativeDB] ' + Object.keys(_nativeDB).length + '종 로드 완료');
+  } catch(e) {
+    console.warn('[NativeDB] 로드 실패:', e.message);
+    _nativeDB = {};
+  }
+  return _nativeDB;
+}
+
+function lookupNativePlant(latName) {
+  if (!_nativeDB || !latName) return null;
+  const clean = latName.replace(/[\u2018\u2019''][^\u2018\u2019'']+[\u2018\u2019'']/g, '').trim().toLowerCase();
+  if (_nativeDB[clean]) return _nativeDB[clean];
+  const twoWord = clean.split(/\s+/).slice(0,2).join(' ').trim();
+  if (twoWord && _nativeDB[twoWord]) return _nativeDB[twoWord];
+  return null;
+}
+
+loadNativePlantDB();
+
 // ── 식재 구상판 ───────────────────────────────────────────────────────────────
 const boardZones = [];
 
@@ -1693,6 +1736,8 @@ document.addEventListener('click', function(ev) {
     removePlantFromBoard(del.dataset.zoneId, +del.dataset.piIdx);
   }
 });
+
+
 </script>
 </body>
 </html>
