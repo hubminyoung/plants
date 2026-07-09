@@ -1581,19 +1581,7 @@ function renderEcology() {
         </div>
       </div>
 
-      <div class="eco-card-text">
-        <div class="eco-txt-block">
-          <div class="eco-txt-lbl">원산지 / 문화</div>
-          <div class="eco-txt-val" id="eco-cult-${pi}" data-orig="${escA(p.culture)}">${p.culture || (p.fetching ? '<span class=\"loading-val\">…</span>' : '<span style=\"color:#bbb\">—</span>')}</div>
-        </div>
-        <div class="eco-txt-block">
-          <div class="eco-txt-lbl">권장용도 / 문제점</div>
-          <div class="eco-txt-val" id="eco-prob-${pi}" data-orig="${escA(p.problems)}">${
-            [translateList(p.suggestedUse, SUGGESTED_KO), p.problems].filter(Boolean).join('<br>') ||
-            (p.fetching ? '<span class=\"loading-val\">…</span>' : '<span style=\"color:#bbb\">—</span>')
-          }</div>
-        </div>
-      </div>
+
     </div>`;
   }).join('');
 
