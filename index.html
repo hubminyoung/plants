@@ -1824,29 +1824,34 @@ function renderCare() {
     <p class="src-note" style="padding:0 1rem 0.5rem">* Missouri Botanical Garden Plant Finder. 🌐 번역 버튼으로 한국어 번역 (HF API 키 필요)</p>`;
 }
 
-async function translateText(text, retries = 4) {
-  if (!text || text === '—') return text;
+// 배치 번역 큐 — 150ms 내 요청을 모아 Gemini 1번 호출
+const _txQueue = [];
+let _txTimer = null;
+async function _flushTxQueue() {
+  if (!_txQueue.length) return;
+  const batch = _txQueue.splice(0);
   const pw = localStorage.getItem('appPassword') || '';
-  for (let i = 0; i < retries; i++) {
-    try {
-      const resp = await fetch(CFG.worker + '/api/hf/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(pw ? { 'x-app-password': pw } : {}) },
-        body: JSON.stringify({ text: text.slice(0, 1500) })
-      });
-      const data = await resp.json();
-      if (data.translation) return data.translation;
-      // 모델 로딩 중 (한국어/영어 메시지 모두 처리)
-      if (data.error) {
-        const secMatch = data.error.match(/약\s*(\d+)초/);
-        const waitSec = secMatch ? +secMatch[1] : 25;
-        await new Promise(r => setTimeout(r, Math.min(waitSec * 1000, 30000)));
-        continue;
-      }
-    } catch {}
-    if (i < retries - 1) await new Promise(r => setTimeout(r, 5000));
-  }
-  return text;
+  try {
+    const resp = await fetch(CFG.worker + '/api/hf/translate/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(pw ? { 'x-app-password': pw } : {}) },
+      body: JSON.stringify({ texts: batch.map(b => b.text) })
+    });
+    const data = await resp.json();
+    if (data.translations) {
+      data.translations.forEach((t, i) => batch[i].resolve(t || batch[i].text));
+      return;
+    }
+  } catch {}
+  batch.forEach(b => b.resolve(b.text));
+}
+function translateText(text) {
+  if (!text || text === '\u2014') return Promise.resolve(text);
+  return new Promise(resolve => {
+    _txQueue.push({ text: text.slice(0, 800), resolve });
+    clearTimeout(_txTimer);
+    _txTimer = setTimeout(_flushTxQueue, 150);
+  });
 }
 
 async function translateCare(elId, btnId) {
