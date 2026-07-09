@@ -161,6 +161,10 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-card-hd-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
 .eco-card-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 0; padding: 0.25rem 0; }
+.eco-sec-title { grid-column: 1 / -1; font-size: 0.66rem; font-weight: 700; color: #52b788;
+  letter-spacing: 0.05em; text-transform: uppercase; padding: 0.55rem 1rem 0.1rem;
+  border-top: 1px solid #eaf0e6; margin-top: 0.2rem; }
+.eco-sec-title:first-child { border-top: none; margin-top: 0; }
 .eco-f { display: flex; flex-direction: column; padding: 0.35rem 1rem;
   border-bottom: 1px solid #f0f0f0; }
 .eco-lbl { font-size: 0.65rem; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
@@ -905,6 +909,12 @@ function mkPlant(name) {
     suggestedUse: '', flower: '', leaf: '', attracts: '',
     imageUrl: '', images: [], wikiUrl: '', inatId: null, inatUrl: '',
     geselligkeit: '', pflanzAbstand: '', pflanzCount: '',
+    ndbBoden: '', ndbNaehrstoffe: '', ndbPH: '', ndbKuebel: '',
+    ndbStandort: '', ndbPflanzenart: '', ndbWuchs: '', ndbWurzel: '',
+    ndbBlutenform: '', ndbBlattfarbe: '', ndbBlattphase: '', ndbBlattform: '',
+    ndbSchnecken: '', ndbOekologie: '', ndbVerwendung: '',
+    ndbSchnitt: '', ndbVermehrung: '', ndbSchaedlinge: '', ndbInteressantes: '',
+    naturadbUrl: '',
     fetching: false, done: false
   };
 }
@@ -1027,6 +1037,9 @@ async function loadPlant(p) {
     await loadGardeniaDetail(p);
   }
 
+  // NaturaDB는 MBG와 별개로 항상 병렬 시도 (독일어 DB, 다른 필드 제공)
+  loadNaturadbDetail(p);
+
   } catch(err) {
     console.error('[loadPlant]', p.name, err);
   } finally {
@@ -1081,6 +1094,46 @@ async function loadGardeniaDetail(p) {
   if (det.nativeRange && !p.nativeRange) p.nativeRange = det.nativeRange;
   if (det.attracts && !p.attracts)   p.attracts     = det.attracts;
   p.gardeniaUrl = det.url || '';
+  renderChips(); renderActiveTab();
+}
+
+async function loadNaturadbDetail(p) {
+  const q = p.latName || p.name;
+  if (!q) return;
+  const det = await wFetch('/api/naturadb/details', { q });
+  if (!det || det.error) return;
+
+  const t = det.table   || {};
+  const s = det.sections || {};
+
+  if (t['Boden'])                p.ndbBoden       = t['Boden'];
+  if (t['Nährstoffe'])           p.ndbNaehrstoffe  = t['Nährstoffe'];
+  if (t['PH-Wert'])              p.ndbPH           = t['PH-Wert'];
+  if (t['Kübel/Balkon geeignet']) p.ndbKuebel     = t['Kübel/Balkon geeignet'];
+  if (t['Pflanzenart'])          p.ndbPflanzenart  = t['Pflanzenart'];
+  if (t['Wuchs'])                p.ndbWuchs        = t['Wuchs'];
+  if (t['Wurzelsystem'])         p.ndbWurzel       = t['Wurzelsystem'];
+  if (t['Blütenform'])           p.ndbBlutenform   = t['Blütenform'];
+  if (t['Blattfarbe'])           p.ndbBlattfarbe   = t['Blattfarbe'];
+  if (t['Blattphase'])           p.ndbBlattphase   = t['Blattphase'];
+  if (t['Blattform'])            p.ndbBlattform    = t['Blattform'];
+  if (t['schneckenresistent'] || t['Schnecken'])
+    p.ndbSchnecken = t['schneckenresistent'] || t['Schnecken'];
+
+  if (s['Standort'])    p.ndbStandort    = s['Standort'];
+  if (s['Ökologie'])    p.ndbOekologie   = s['Ökologie'];
+  if (s['Verwendung'])  p.ndbVerwendung  = s['Verwendung'];
+  if (s['Schnitt'])     p.ndbSchnitt     = s['Schnitt'];
+  if (s['Vermehrung'])  p.ndbVermehrung  = s['Vermehrung'];
+  if (s['Schädlinge'])  p.ndbSchaedlinge = s['Schädlinge'];
+  if (s['Interessantes'] || s['Wissenswertes'])
+    p.ndbInteressantes = s['Interessantes'] || s['Wissenswertes'];
+
+  // NaturaDB 개화기가 있고 현재 없으면 보완
+  if (det.bloomMonths?.length && !p.bloomMonths.length)
+    p.bloomMonths = det.bloomMonths;
+
+  p.naturadbUrl = det.url || '';
   renderChips(); renderActiveTab();
 }
 
@@ -1396,11 +1449,12 @@ function renderEcology() {
   const el = document.getElementById('eco-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div>'; return; }
 
-  const ld = (p, v) => p.fetching ? '<span class="loading-val">…</span>' : (v || '—');
+  const ld  = (p, v) => p.fetching ? '<span class="loading-val">…</span>' : (v || '—');
+  const nld = (p, v) => p.ndbFetching ? '<span class="loading-val">…</span>' : (v || '—');
 
   const cards = plants.map((p, pi) => {
-    const sq = encodeURIComponent(p.latName || p.korName || p.name);
-    const gsmBase = (p.latName || p.name).replace(/\s*['\u2018\u2019][^'\u2018\u2019]+['\u2018\u2019]\s*/g,'').trim();
+    const sq      = encodeURIComponent(p.latName || p.korName || p.name);
+    const gsmBase = (p.latName || p.name).replace(/\s*['‘’][^'‘’]+['‘’]\s*/g,'').trim();
     const gsmSlug = encodeURIComponent(gsmBase);
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
@@ -1414,31 +1468,68 @@ function renderEcology() {
     const sunStr = p.sunlight.map(s => SUN_KO[s]||s).join(' ~ ') || ld(p,'');
     const origin = [p.native, translateNativeRange(p.nativeRange)].filter(Boolean).join(' / ') || ld(p,'');
 
-    // 표시할 항목 목록 (label, value)
-    const fields = [
-      ['일반명',    p.commonName  || ld(p,'')],
-      ['유형',      p.plantType   || ld(p,'')],
-      ['과명',      p.family      || ld(p,'')],
-      ['내한성',    p.hardiness   || ld(p,'')],
-      ['자생/원산지', origin],
-      ['수고',      p.height      || ld(p,'')],
-      ['폭',        p.spreadStr   || (p.spreadM ? p.spreadM+'m' : ld(p,''))],
-      ['개화기',    bloomStr],
-      ['꽃색',      fc],
-      ['일조',      sunStr],
-      ['수분요구',   WATER_KO[p.watering]  || ld(p, p.watering)],
-      ['관리요구',   MAINT_KO[p.maintenance] || ld(p, p.maintenance)],
-      ['꽃 특징',   translateList(p.flower, FLOWER_KO) || ld(p,'')],
-      ['유인 생물', translateList(p.attracts, ATTRACTS_KO) || ld(p,'')],
-      ['내성',      translateList(p.tolerate, TOLERATE_KO) || ld(p,'')],
-      ['사교성',    p.geselligkeit  || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
-      ['식재간격',  p.pflanzAbstand || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
-      ['m²당 주수', p.pflanzCount   || (p.fetching ? '<span class="loading-val">…</span>' : '—')],
-    ];
+    const f = (lbl, val) => `<div class="eco-f"><span class="eco-lbl">${lbl}</span><span class="eco-val">${val}</span></div>`;
+    const sec = (title, content) => content
+      ? `<div class="eco-sec-hd">${title}</div><div class="eco-sec-body">${content}</div>`
+      : '';
 
-    const fieldHtml = fields.map(([lbl,val]) =>
-      `<div class="eco-f"><span class="eco-lbl">${lbl}</span><span class="eco-val">${val}</span></div>`
-    ).join('');
+    // ── 기본정보
+    const s1 = [
+      f('일반명',      p.commonName  || ld(p,'')),
+      f('유형',        p.plantType   || nld(p, p.ndbPflanzenart)),
+      f('과명',        p.family      || ld(p,'')),
+      f('자생/원산지', origin),
+    ].join('');
+
+    // ── 서식처
+    const s2 = [
+      f('일조',     sunStr),
+      f('수분요구', WATER_KO[p.watering] || ld(p, p.watering)),
+      f('바닥',     nld(p, p.ndbBoden)),
+      f('영양소',   nld(p, p.ndbNaehrstoffe)),
+      f('pH 값',    nld(p, p.ndbPH)),
+      f('컨테이너', nld(p, p.ndbKuebel)),
+    ].join('');
+    const standortTxt = p.ndbStandort
+      ? `<div class="eco-txt-val" style="font-size:0.78rem;margin-top:0.4rem;color:#444">${p.ndbStandort}</div>` : '';
+
+    // ── 성장형태
+    const s3 = [
+      f('식물 종',    nld(p, p.ndbPflanzenart)),
+      f('성장',       nld(p, p.ndbWuchs)),
+      f('수고',       p.height     || ld(p,'')),
+      f('폭',         p.spreadStr  || (p.spreadM ? p.spreadM+'m' : ld(p,''))),
+      f('내한성',     p.hardiness  || ld(p,'')),
+      f('루트 시스템',nld(p, p.ndbWurzel)),
+    ].join('');
+
+    // ── 꽃/잎
+    const s4 = [
+      f('개화기',    bloomStr),
+      f('꽃색',      fc),
+      f('꽃 특징',   translateList(p.flower, FLOWER_KO) || ld(p,'')),
+      f('꽃 모양',   nld(p, p.ndbBlutenform)),
+      f('잎 색깔',   nld(p, p.ndbBlattfarbe)),
+      f('잎 단계',   nld(p, p.ndbBlattphase)),
+      f('잎 모양',   nld(p, p.ndbBlattform)),
+      f('달팽이 방지',nld(p, p.ndbSchnecken)),
+    ].join('');
+
+    // ── 생태
+    const oekologieTxt = p.ndbOekologie
+      ? `<div class="eco-txt-val" style="font-size:0.78rem;margin-top:0.4rem;color:#444">${p.ndbOekologie}</div>` : '';
+    const s5 = [
+      f('유인 생물', translateList(p.attracts, ATTRACTS_KO) || ld(p,'')),
+      f('내성',      translateList(p.tolerate, TOLERATE_KO) || ld(p,'')),
+    ].join('');
+
+    // ── 관리/용도
+    const verwendungTxt = p.ndbVerwendung
+      ? `<div class="eco-txt-val" style="font-size:0.78rem;margin-top:0.4rem;color:#444">${p.ndbVerwendung}</div>` : '';
+    const s6 = f('관리요구', MAINT_KO[p.maintenance] || ld(p, p.maintenance));
+
+    // ── 식재적용 (KV 입력)
+    const pflanzIdx = plants.indexOf(p);
 
     return `<div class="eco-card">
       <div class="eco-card-hd">
@@ -1452,43 +1543,51 @@ function renderEcology() {
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
             <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
-            <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌿 Gsm</a>
+            <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${encodeURIComponent((p.latName||p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
+            <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
             <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
           </div>
         </div>
       </div>
-      <div class="eco-card-body">${fieldHtml}</div>
+
+      <div class="eco-card-body">
+        <div class="eco-sec-title">기본정보</div>${s1}
+        <div class="eco-sec-title">서식처</div>${s2}${standortTxt}
+        <div class="eco-sec-title">성장형태</div>${s3}
+        <div class="eco-sec-title">꽃 / 잎</div>${s4}
+        <div class="eco-sec-title">생태</div>${oekologieTxt}${s5}
+        <div class="eco-sec-title">관리 / 용도</div>${s6}${verwendungTxt}
+        <div class="eco-sec-title">식재적용</div>
+        ${f('사교성',    p.geselligkeit  || '—')}
+        ${f('식재간격', p.pflanzAbstand || '—')}
+        ${f('m²당 주수',p.pflanzCount   || '—')}
+      </div>
+
       <div class="eco-kv-edit">
-        <div class="eco-kv-row">
-          <label>사교성</label>
+        <div class="eco-kv-row"><label>사교성</label>
           <input type="text" class="eco-kv-input" placeholder="예: 1-2 → I–II"
             value="${p.geselligkeit||''}"
-            onchange="onGesChange(${plants.indexOf(p)},this.value,this)">
+            onchange="onGesChange(${pflanzIdx},this.value,this)">
         </div>
-        <div class="eco-kv-row">
-          <label>식재간격</label>
+        <div class="eco-kv-row"><label>식재간격</label>
           <input type="text" class="eco-kv-input" placeholder="예: 30cm"
             value="${p.pflanzAbstand||''}"
-            onchange="onPflanzChange(${plants.indexOf(p)},this.value,this)">
+            onchange="onPflanzChange(${pflanzIdx},this.value,this)">
         </div>
-        <div class="eco-kv-row">
-          <label>m²당 주수</label>
+        <div class="eco-kv-row"><label>m²당 주수</label>
           <input type="text" class="eco-kv-input" placeholder="예: 11"
             value="${p.pflanzCount||''}"
-            onchange="onPflanzCountChange(${plants.indexOf(p)},this.value,this)">
+            onchange="onPflanzCountChange(${pflanzIdx},this.value,this)">
         </div>
       </div>
+
       <div class="eco-card-text">
         <div class="eco-txt-block">
-          <div class="eco-txt-lbl">원산지 / 문화
-
-          </div>
+          <div class="eco-txt-lbl">원산지 / 문화</div>
           <div class="eco-txt-val" id="eco-cult-${pi}" data-orig="${escA(p.culture)}">${p.culture || (p.fetching ? '<span class=\"loading-val\">…</span>' : '<span style=\"color:#bbb\">—</span>')}</div>
         </div>
         <div class="eco-txt-block">
-          <div class="eco-txt-lbl">권장용도 / 문제점
-
-          </div>
+          <div class="eco-txt-lbl">권장용도 / 문제점</div>
           <div class="eco-txt-val" id="eco-prob-${pi}" data-orig="${escA(p.problems)}">${
             [translateList(p.suggestedUse, SUGGESTED_KO), p.problems].filter(Boolean).join('<br>') ||
             (p.fetching ? '<span class=\"loading-val\">…</span>' : '<span style=\"color:#bbb\">—</span>')
@@ -1499,9 +1598,8 @@ function renderEcology() {
   }).join('');
 
   el.innerHTML = `<div class="eco-cards">${cards}</div>
-    <p class="src-note" style="padding:0 1rem 0.5rem">* 자생여부: 산림청 국가표준식물목록 | 생태·형태: Missouri Botanical Garden | Ellenberg 지수: EIVE (L/T/F/R/N) | feet→m 변환</p>`;
+    <p class="src-note" style="padding:0 1rem 0.5rem">* 자생여부: 산림청 | 생태·형태: MBG + NaturaDB(🌿) | Ellenberg: EIVE</p>`;
 }
-
 function c2css(c) {
   const m = { red:'#e85050', pink:'#e891b0', purple:'#9b59b6', blue:'#3498db', white:'#e8e8e8',
     yellow:'#f1c40f', orange:'#e67e22', green:'#27ae60', lavender:'#967bb6', magenta:'#c0306a', violet:'#7f4fbe', 'light blue':'#87ceeb' };
@@ -1674,6 +1772,25 @@ function renderCare() {
       </div>`;
     }).filter(Boolean).join('');
 
+    // NaturaDB 섹션 (독일어 원문)
+    const ndbSections = [
+      { id:`ndb-schnitt-${pi}`,  icon:'✂️',  title:'가지치기',        text: p.ndbSchnitt     },
+      { id:`ndb-verm-${pi}`,     icon:'🌱',  title:'번식',            text: p.ndbVermehrung  },
+      { id:`ndb-pest-${pi}`,     icon:'🐛',  title:'병해충',          text: p.ndbSchaedlinge },
+      { id:`ndb-fact-${pi}`,     icon:'💡',  title:'흥미로운 사실들', text: p.ndbInteressantes },
+    ];
+    const ndbHtml = ndbSections.map(s => {
+      if (!s.text) return '';
+      return `<div class="care-section">
+        <div class="care-sec-hd">
+          <span class="care-sec-title">${s.icon} ${s.title}</span>
+          <span style="font-size:0.65rem;color:#aaa;margin-left:0.3rem">NaturaDB(DE)</span>
+          <button class="translate-btn" onclick="translateCare('${s.id}','${s.id}-btn')" id="${s.id}-btn">🌐 번역</button>
+        </div>
+        <div class="care-text" id="${s.id}" data-orig="${escA(s.text)}">${s.text}</div>
+      </div>`;
+    }).filter(Boolean).join('');
+
     return `<div class="care-card">
       <div class="care-card-hd">
         <div>
@@ -1682,9 +1799,12 @@ function renderCare() {
         </div>
         <div class="eco-ext-links">
           <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="MBG 상세" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
+          <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
         </div>
       </div>
-      ${sectHtml || '<div class="care-section"><span style="color:#aaa;font-size:0.8rem">MBG 데이터 없음</span></div>'}
+      ${sectHtml || ''}
+      ${ndbHtml}
+      ${!sectHtml && !ndbHtml ? '<div class="care-section"><span style="color:#aaa;font-size:0.8rem">데이터 없음 (MBG · NaturaDB)</span></div>' : ''}
     </div>`;
   }).join('');
 
@@ -1692,7 +1812,7 @@ function renderCare() {
     <p class="src-note" style="padding:0 1rem 0.5rem">* Missouri Botanical Garden Plant Finder. 🌐 번역 버튼으로 한국어 번역 (HF API 키 필요)</p>`;
 }
 
-async function translateText(text, retries = 3) {
+async function translateText(text, retries = 4) {
   if (!text || text === '—') return text;
   const pw = localStorage.getItem('appPassword') || '';
   for (let i = 0; i < retries; i++) {
@@ -1704,14 +1824,15 @@ async function translateText(text, retries = 3) {
       });
       const data = await resp.json();
       if (data.translation) return data.translation;
-      // 모델 로딩 중이면 대기 후 재시도
-      if (data.error && data.error.includes('loading')) {
-        const wait = (data.estimated_time || 20) * 1000;
-        await new Promise(r => setTimeout(r, Math.min(wait, 25000)));
+      // 모델 로딩 중 (한국어/영어 메시지 모두 처리)
+      if (data.error) {
+        const secMatch = data.error.match(/약\s*(\d+)초/);
+        const waitSec = secMatch ? +secMatch[1] : 25;
+        await new Promise(r => setTimeout(r, Math.min(waitSec * 1000, 30000)));
         continue;
       }
     } catch {}
-    if (i < retries - 1) await new Promise(r => setTimeout(r, 3000));
+    if (i < retries - 1) await new Promise(r => setTimeout(r, 5000));
   }
   return text;
 }
