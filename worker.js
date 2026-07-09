@@ -37,6 +37,7 @@ export default {
       else if (pathname === '/api/mbg/details')      data = await mbgDetails(searchParams);
       else if (pathname === '/api/hf/image')         data = await hfImage(req, env);
       else if (pathname === '/api/hf/translate')     data = await hfTranslate(req, env);
+      else if (pathname === '/api/hf/translate/batch') data = await hfTranslateBatch(req, env);
       else if (pathname === '/api/gaissmayer/details') data = await gaissmayerDetails(searchParams);
       else if (pathname === '/api/gardenia/test')    data = await gardeniaTest(searchParams);
       else if (pathname === '/api/gardenia/details') data = await gardeniaDetails(searchParams);
@@ -262,6 +263,31 @@ async function hfTranslate(req, env) {
 }
 
 // ── Gemini Key Test ───────────────────────────────────────────────────────────
+
+// ── 배치 번역 ─────────────────────────────────────────────────────────────────
+async function hfTranslateBatch(req, env) {
+  const { texts } = await req.json();
+  if (!texts || !texts.length) return { translations: [] };
+  const key = env.GEMINI_API_KEY || '';
+  if (!key) throw new Error('GEMINI_API_KEY not set');
+  const numbered = texts.map((t, i) => `[${i}] ${String(t).slice(0, 800)}`).join('\n\n');
+  const prompt = `다음 텍스트들을 각각 한국어로 번역하세요. [숫자] 태그를 그대로 유지하고 번역문만 출력하세요.\n\n${numbered}`;
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 4096 } })
+  });
+  if (!resp.ok) { const t = await resp.text(); throw new Error(`Gemini batch ${resp.status}: ${t.slice(0,200)}`); }
+  const data = await resp.json();
+  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const translations = texts.map((orig, i) => {
+    const re = new RegExp(`\\[${i}\\]\\s*([\\s\\S]*?)(?=\\[${i+1}\\]|$)`);
+    const m = raw.match(re);
+    return m ? m[1].trim() : orig;
+  });
+  return { translations };
+}
 
 async function geminiTest(env) {
   const key = env.GEMINI_API_KEY || '';
