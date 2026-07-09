@@ -483,8 +483,7 @@ async function geminiTranslateDE(prompt, apiKey) {
   });
   if (!resp.ok) {
     const errText = await resp.text().catch(() => '');
-    console.error('[Gemini] HTTP', resp.status, errText.slice(0, 200));
-    return null;
+    throw new Error(`Gemini HTTP ${resp.status}: ${errText.slice(0, 300)}`);
   }
   const data = await resp.json();
   const result = data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
