@@ -481,9 +481,15 @@ async function geminiTranslateDE(prompt, apiKey) {
       generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
     })
   });
-  if (!resp.ok) return null;
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    console.error('[Gemini] HTTP', resp.status, errText.slice(0, 200));
+    return null;
+  }
   const data = await resp.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  const result = data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  if (!result) console.error('[Gemini] empty response:', JSON.stringify(data).slice(0, 200));
+  return result;
 }
 
 // ── NaturaDB 연결 테스트 ───────────────────────────────────────────────────────
