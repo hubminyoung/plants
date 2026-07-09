@@ -44,7 +44,7 @@ export default {
       else if (pathname === '/api/kv/set')  data = await kvSet(req, env);
       else if (pathname === '/api/gemini/image')     data = await geminiImage(req, env);
       else if (pathname === '/api/gemini/test')      data = await geminiTest(env);
-      else if (pathname === '/api/naturadb/details') data = await naturadbDetails(searchParams);
+      else if (pathname === '/api/naturadb/details') data = await naturadbDetails(searchParams, env);
       else if (pathname === '/api/naturadb/test')    data = await naturadbTest(searchParams);
       else return new Response('Not found', { status: 404, headers: CORS });
 
@@ -470,6 +470,22 @@ async function gaissmayerDetails(params) {
   };
 }
 
+// ── Gemini 독일어→한국어 번역 헬퍼 ──────────────────────────────────────────────
+async function geminiTranslateDE(prompt, apiKey) {
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+    })
+  });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
 // ── NaturaDB 연결 테스트 ───────────────────────────────────────────────────────
 async function naturadbTest(params) {
   const q = params.get('q') || 'caltha-palustris';
@@ -499,7 +515,7 @@ async function naturadbTest(params) {
 }
 
 // ── NaturaDB 식물 정보 ─────────────────────────────────────────────────────────
-async function naturadbDetails(params) {
+async function naturadbDetails(params, env) {
   const q = (params.get('q') ?? '').trim();
   if (!q) return { error: 'q required' };
 
@@ -565,6 +581,27 @@ async function naturadbDetails(params) {
         .trim()
         .slice(0, 2000);
     }
+  }
+
+  // ── Gemini로 독일어 텍스트 → 한국어 번역 ────────────────────────────────
+  const toTranslate = Object.entries(sections).filter(([,v]) => v);
+  if (toTranslate.length && env?.GEMINI_API_KEY) {
+    try {
+      const prompt = toTranslate.map(([k,v]) =>
+        `[${k}]\n${v.slice(0, 800)}`
+      ).join('\n\n');
+      const translated = await geminiTranslateDE(
+        `다음 독일어 원예 텍스트를 각 섹션별로 한국어로 번역하세요. 섹션 구분 태그 [SectionName]은 그대로 유지하세요:\n\n${prompt}`,
+        env.GEMINI_API_KEY
+      );
+      if (translated) {
+        for (const [key] of toTranslate) {
+          const re = new RegExp(`\\[${key}\\]\\n([\\s\\S]*?)(?=\\n\\n\\[|$)`);
+          const m = translated.match(re);
+          if (m) sections[key] = m[1].trim();
+        }
+      }
+    } catch(e) { /* 번역 실패 시 독일어 원문 유지 */ }
   }
 
   return { url, table, bloomMonths, sections };
