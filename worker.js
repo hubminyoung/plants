@@ -44,6 +44,8 @@ export default {
       else if (pathname === '/api/kv/set')  data = await kvSet(req, env);
       else if (pathname === '/api/gemini/image')     data = await geminiImage(req, env);
       else if (pathname === '/api/gemini/test')      data = await geminiTest(env);
+      else if (pathname === '/api/naturadb/details') data = await naturadbDetails(searchParams);
+      else if (pathname === '/api/naturadb/test')    data = await naturadbTest(searchParams);
       else return new Response('Not found', { status: 404, headers: CORS });
 
       return new Response(JSON.stringify(data), {
@@ -466,4 +468,104 @@ async function gaissmayerDetails(params) {
     debug: hasGes ? 'found_but_no_parse' : 'no_field_in_page',
     preview: detailHtml.slice(detailHtml.indexOf('product') > 0 ? detailHtml.indexOf('product') : 0, 500),
   };
+}
+
+// ── NaturaDB 연결 테스트 ───────────────────────────────────────────────────────
+async function naturadbTest(params) {
+  const q = params.get('q') || 'caltha-palustris';
+  const slug = q.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  const url = `https://www.naturadb.de/pflanzen/${slug}/`;
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept-Language': 'de-DE,de;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml',
+      }
+    });
+    const text = await resp.text();
+    return {
+      ok: resp.ok,
+      status: resp.status,
+      url,
+      htmlLength: text.length,
+      hasHöhe: text.includes('Höhe'),
+      hasBlick: text.includes('Wichtigste'),
+      preview: text.slice(0, 300),
+    };
+  } catch(e) {
+    return { error: e.message, url };
+  }
+}
+
+// ── NaturaDB 식물 정보 ─────────────────────────────────────────────────────────
+async function naturadbDetails(params) {
+  const q = (params.get('q') ?? '').trim();
+  if (!q) return { error: 'q required' };
+
+  const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
+  const slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const url  = `https://www.naturadb.de/pflanzen/${slug}/`;
+
+  let html;
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept-Language': 'de-DE,de;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml',
+      }
+    });
+    if (!resp.ok) return { error: `HTTP ${resp.status}`, url };
+    html = await resp.text();
+  } catch (e) {
+    return { error: e.message, url };
+  }
+
+  if (html.includes('Pflanze nicht gefunden') || html.length < 3000) {
+    return { error: 'not_found', url };
+  }
+
+  // ── tr/td 테이블 (Das Wichtigste auf einen Blick 섹션) ────────────────────
+  const table = {};
+  const blickStart = html.indexOf('Das Wichtigste auf einen Blick');
+  const blickSlice = blickStart >= 0 ? html.slice(blickStart, blickStart + 12000) : html;
+
+  const trRe = /<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi;
+  let m;
+  while ((m = trRe.exec(blickSlice)) !== null) {
+    const key = m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().replace(/:$/, '');
+    const val = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (key && val && key.length < 50) table[key] = val;
+  }
+
+  // ── 개화기: month-indicator[data-active] 위치 (1~12) ─────────────────────
+  const bloomMonths = [];
+  const indRe = /<div class="month-indicator"([^>]*)>/gi;
+  let idx = 0;
+  while ((m = indRe.exec(html)) !== null) {
+    idx++;
+    if (idx > 12) break;
+    if (m[1].includes('data-active="true"')) bloomMonths.push(idx);
+  }
+
+  // ── 텍스트 섹션 ──────────────────────────────────────────────────────────
+  const SEC_NAMES = ['Standort','Schnitt','Vermehrung','Verwendung',
+                     'Schädlinge','Ökologie','Interessantes','Wissenswertes'];
+  const sections = {};
+  for (const name of SEC_NAMES) {
+    const re = new RegExp(
+      `<h[23][^>]*>\\s*${name}\\s*<\\/h[23]>([\\s\\S]*?)(?=<h[23]|<footer|$)`, 'i'
+    );
+    const match = html.match(re);
+    if (match) {
+      sections[name] = match[1]
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 2000);
+    }
+  }
+
+  return { url, table, bloomMonths, sections };
 }
