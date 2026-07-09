@@ -260,6 +260,9 @@ async function hfTranslate(req, env) {
   const translation = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   return { translation: translation.trim() };
 }
+
+// ── Gemini Key Test ───────────────────────────────────────────────────────────
+
 async function geminiTest(env) {
   const key = env.GEMINI_API_KEY || '';
   if (!key) return { ok: false, error: 'GEMINI_API_KEY secret not set', keyPrefix: '' };
