@@ -243,26 +243,23 @@ async function hfImage(req, env) {
 async function hfTranslate(req, env) {
   const { text } = await req.json();
   if (!text) return { translation: '' };
-  const key = env.HF_API_KEY || '';
-  if (!key) throw new Error('HF_API_KEY not set');
-  const resp = await fetch(
-    'https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-tc-big-en-ko',
-    { method: 'POST',
-      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inputs: text.slice(0, 1500) }) }   // 모델 토큰 한계
-  );
+  const key = env.GEMINI_API_KEY || '';
+  if (!key) throw new Error('GEMINI_API_KEY not set');
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  const prompt = `다음 텍스트를 한국어로 번역하세요. 번역문만 출력하세요.\n\n${text.slice(0, 1500)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 1024 } })
+  });
   if (!resp.ok) {
     const t = await resp.text();
-    try { const j = JSON.parse(t); if (j.estimated_time) throw new Error(`모델 로딩 중 (약 ${Math.round(j.estimated_time)}초). 잠시 후 재시도.`); } catch(e2) { if (e2.message.includes('로딩')) throw e2; }
-    throw new Error(`HF translate ${resp.status}: ${t.slice(0,200)}`);
+    throw new Error(`Gemini translate ${resp.status}: ${t.slice(0, 200)}`);
   }
   const data = await resp.json();
-  const translation = Array.isArray(data) ? data[0]?.translation_text : data?.translation_text;
-  return { translation: translation || '' };
+  const translation = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return { translation: translation.trim() };
 }
-
-// ── Gemini Key Test ───────────────────────────────────────────────────────────
-
 async function geminiTest(env) {
   const key = env.GEMINI_API_KEY || '';
   if (!key) return { ok: false, error: 'GEMINI_API_KEY secret not set', keyPrefix: '' };
