@@ -540,6 +540,11 @@ async function naturadbDetails(params, env) {
     });
     if (!resp.ok) return { error: `HTTP ${resp.status}`, url };
     html = await resp.text();
+    // HTML 엔티티 디코딩 (독일어 움라우트)
+    html = html.replace(/&Ouml;/g, 'Ö').replace(/&ouml;/g, 'ö')
+               .replace(/&Auml;/g, 'Ä').replace(/&auml;/g, 'ä')
+               .replace(/&Uuml;/g, 'Ü').replace(/&uuml;/g, 'ü')
+               .replace(/&szlig;/g, 'ß');
   } catch (e) {
     return { error: e.message, url };
   }
@@ -577,7 +582,7 @@ async function naturadbDetails(params, env) {
   const sections = {};
   for (const name of SEC_NAMES) {
     const re = new RegExp(
-      `<h[2-4][^>]*>\\s*${name}\\s*<\\/h[2-4]>([\\s\\S]*?)(?=<h[2-4]|<footer|$)`, 'i'
+      `<h[2-4][^>]*>[^<]*${name}[^<]*<\\/h[2-4]>([\\s\\S]*?)(?=<h[2-4]|<footer|$)`, 'i'
     );
     const match = html.match(re);
     if (match) {
@@ -621,4 +626,16 @@ ${secEntries.join('\n\n')}`;
           }
           // 섹션 텍스트 파싱
           for (const key of Object.keys(sections)) {
-            const re = new RegExp(`\\[${key}\\]\\n([\\s\\
+            const re = new RegExp(`\\[${key}\\]\\n([\\s\\S]*?)(?=\\[|$)`, 'm');
+            const tm = translated.match(re);
+            if (tm) sections[key] = tm[1].trim();
+          }
+        }
+      }
+    } catch(e) {
+      console.error('[Gemini] error:', e.message);
+    }
+  }
+
+  return { table, sections, bloomMonths, url };
+}
