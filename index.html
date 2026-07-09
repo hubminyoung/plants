@@ -159,11 +159,14 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-card-primary { font-size: 1rem; font-weight: 700; color: #2a5a2a; }
 .eco-card-latin   { font-size: 0.8rem; color: #666; font-style: italic; }
 .eco-card-hd-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
-.eco-card-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0; padding: 0.25rem 0; }
-.eco-sec-title { grid-column: 1 / -1; font-size: 0.66rem; font-weight: 700; color: #52b788;
-  letter-spacing: 0.05em; text-transform: uppercase; padding: 0.55rem 1rem 0.1rem;
-  border-top: 1px solid #eaf0e6; margin-top: 0.2rem; }
+.eco-card-body { display: flex; min-height: 200px; }
+.eco-left { width: 42%; border-right: 1px solid #eef3ec; overflow: hidden; }
+.eco-right { flex: 1; padding: 0.65rem 0.8rem; overflow: hidden; }
+.eco-right-sec { margin-bottom: 0.7rem; }
+.eco-right-lbl { font-size: 0.66rem; font-weight: 700; color: #52b788; letter-spacing: 0.05em; text-transform: uppercase; padding-bottom: 0.2rem; border-bottom: 1px solid #eaf0e6; margin-bottom: 0.3rem; }
+.eco-sec-title { font-size: 0.66rem; font-weight: 700; color: #52b788;
+  letter-spacing: 0.05em; text-transform: uppercase; padding: 0.5rem 1rem 0.1rem;
+  border-top: 1px solid #eaf0e6; margin-top: 0.1rem; }
 .eco-sec-title:first-child { border-top: none; margin-top: 0; }
 .eco-f { display: flex; flex-direction: column; padding: 0.35rem 1rem;
   border-bottom: 1px solid #f0f0f0; }
@@ -1551,16 +1554,24 @@ function renderEcology() {
       </div>
 
       <div class="eco-card-body">
-        <div class="eco-sec-title">기본정보</div>${s1}
-        <div class="eco-sec-title">서식처</div>${s2}${standortTxt}
-        <div class="eco-sec-title">성장형태</div>${s3}
-        <div class="eco-sec-title">꽃 / 잎</div>${s4}
-        <div class="eco-sec-title">생태</div>${oekologieTxt}${s5}
-        <div class="eco-sec-title">관리 / 용도</div>${s6}${verwendungTxt}
-        <div class="eco-sec-title">식재적용</div>
-        ${f('사교성',    p.geselligkeit  || '—')}
-        ${f('식재간격', p.pflanzAbstand || '—')}
-        ${f('m²당 주수',p.pflanzCount   || '—')}
+        <div class="eco-left">
+          <div class="eco-sec-title">기본정보</div>${s1}
+          <div class="eco-sec-title">서식처</div>${s2}
+          <div class="eco-sec-title">성장형태</div>${s3}
+          <div class="eco-sec-title">꽃 / 잎</div>${s4}
+          <div class="eco-sec-title">생태</div>${s5}
+          <div class="eco-sec-title">관리 / 용도</div>${s6}
+          <div class="eco-sec-title">식재적용</div>
+          ${f('사교성',    p.geselligkeit  || '—')}
+          ${f('식재간격', p.pflanzAbstand || '—')}
+          ${f('m²당 주수',p.pflanzCount   || '—')}
+        </div>
+        <div class="eco-right">
+          ${standortTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">서식처 상세</div>${standortTxt}</div>` : ''}
+          ${oekologieTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">생태</div>${oekologieTxt}</div>` : ''}
+          ${verwendungTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">용도</div>${verwendungTxt}</div>` : ''}
+          ${!standortTxt && !oekologieTxt && !verwendungTxt ? '<div style="padding:1rem;font-size:0.78rem;color:#bbb;text-align:center">NaturaDB 텍스트 없음</div>' : ''}
+        </div>
       </div>
 
       <div class="eco-kv-edit">
