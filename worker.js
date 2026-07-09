@@ -577,7 +577,7 @@ async function naturadbDetails(params, env) {
   const sections = {};
   for (const name of SEC_NAMES) {
     const re = new RegExp(
-      `<h[23][^>]*>\\s*${name}\\s*<\\/h[23]>([\\s\\S]*?)(?=<h[23]|<footer|$)`, 'i'
+      `<h[2-4][^>]*>\\s*${name}\\s*<\\/h[2-4]>([\\s\\S]*?)(?=<h[2-4]|<footer|$)`, 'i'
     );
     const match = html.match(re);
     if (match) {
