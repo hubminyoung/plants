@@ -245,7 +245,7 @@ async function hfTranslate(req, env) {
   if (!text) return { translation: '' };
   const key = env.GEMINI_API_KEY || '';
   if (!key) throw new Error('GEMINI_API_KEY not set');
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   const prompt = `다음 텍스트를 한국어로 번역하세요. 번역문만 출력하세요.\n\n${text.slice(0, 1500)}`;
   const resp = await fetch(url, {
     method: 'POST',
@@ -268,7 +268,7 @@ async function geminiTest(env) {
   if (!key) return { ok: false, error: 'GEMINI_API_KEY secret not set', keyPrefix: '' };
 
   const body = JSON.stringify({ contents: [{ parts: [{ text: 'Say hi' }] }] });
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
   // AQ. 형식 키 → Bearer 토큰, AIza 형식 → x-goog-api-key 헤더
   const isOAuth = key.startsWith('AQ.') || key.startsWith('ya29.');
@@ -472,7 +472,7 @@ async function gaissmayerDetails(params) {
 
 // ── Gemini 독일어→한국어 번역 헬퍼 ──────────────────────────────────────────────
 async function geminiTranslateDE(prompt, apiKey) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
