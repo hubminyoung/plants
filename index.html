@@ -160,12 +160,16 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-card-latin   { font-size: 0.8rem; color: #666; font-style: italic; }
 .eco-card-hd-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
 .eco-card-body { display: flex; }
-.eco-left { flex: 0 0 60%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-right: 1px solid #eef3ec; overflow: hidden; min-width: 0; }
+.eco-left { flex: 0 0 60%; display: flex; flex-direction: column; border-right: 1px solid #eef3ec; overflow: hidden; min-width: 0; }
+.eco-sec-body { display: grid; }
+.eco-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.eco-cols-4 { grid-template-columns: repeat(4, 1fr); }
+.eco-cols-4 .eco-f { padding: 0.28rem 0.6rem; }
 .eco-right { flex: 1; padding: 0.6rem 0.85rem; overflow: hidden; min-width: 0; }
 .eco-right-sec { margin-bottom: 0.7rem; }
 .eco-right-body { font-size: 0.78rem; color: #444; line-height: 1.55; margin-top: 0.2rem; }
 .eco-right-lbl { font-size: 0.66rem; font-weight: 700; color: #52b788; letter-spacing: 0.05em; text-transform: uppercase; padding-bottom: 0.2rem; border-bottom: 1px solid #eaf0e6; margin-bottom: 0.3rem; }
-.eco-sec-title { grid-column: 1 / -1; font-size: 0.66rem; font-weight: 700; color: #52b788;
+.eco-sec-title { font-size: 0.66rem; font-weight: 700; color: #52b788;
   letter-spacing: 0.05em; text-transform: uppercase; padding: 0.5rem 1rem 0.1rem;
   border-top: 1px solid #eaf0e6; margin-top: 0.1rem; }
 .eco-full-txt { grid-column: 1 / -1; padding: 0.3rem 1rem 0.5rem; font-size: 0.78rem; color: #444; line-height: 1.55; border-bottom: 1px solid #f0f0f0; background: #fdfdf9; }
@@ -1554,21 +1558,27 @@ function renderEcology() {
 
       <div class="eco-card-body">
         <div class="eco-left">
-          <div class="eco-sec-title">기본정보</div>${s1}
-          <div class="eco-sec-title">서식처</div>${s2}
-          <div class="eco-sec-title">성장형태</div>${s3}
-          <div class="eco-sec-title">꽃 / 잎</div>${s4}
-          <div class="eco-sec-title">생태</div>${s5}
-          <div class="eco-sec-title">관리 / 용도</div>${s6}
+          <div class="eco-sec-title">기본정보</div>
+          <div class="eco-sec-body eco-cols-4">${s1}</div>
+          <div class="eco-sec-title">서식처</div>
+          <div class="eco-sec-body eco-cols-3">${s2}</div>
+          <div class="eco-sec-title">성장형태</div>
+          <div class="eco-sec-body eco-cols-3">${s3}</div>
+          <div class="eco-sec-title">꽃 / 잎</div>
+          <div class="eco-sec-body eco-cols-4">${s4}</div>
+          <div class="eco-sec-title">생태 / 관리</div>
+          <div class="eco-sec-body eco-cols-3">${s5}${s6}</div>
           <div class="eco-sec-title">식재적용</div>
-          ${f('사교성',    p.geselligkeit  || '—')}
-          ${f('식재간격', p.pflanzAbstand || '—')}
-          ${f('m²당 주수',p.pflanzCount   || '—')}
+          <div class="eco-sec-body eco-cols-3">
+            ${f('사교성',    p.geselligkeit  || '—')}
+            ${f('식재간격', p.pflanzAbstand || '—')}
+            ${f('m²당 주수',p.pflanzCount   || '—')}
+          </div>
         </div>
         <div class="eco-right">
-          ${standortTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">위치 / 서식처</div><div class="eco-right-body">${standortTxt}</div></div>` : ''}
-          ${oekologieTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">생태</div><div class="eco-right-body">${oekologieTxt}</div></div>` : ''}
+          ${standortTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">위치</div><div class="eco-right-body">${standortTxt}</div></div>` : ''}
           ${verwendungTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">용도</div><div class="eco-right-body">${verwendungTxt}</div></div>` : ''}
+          ${oekologieTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">생태</div><div class="eco-right-body">${oekologieTxt}</div></div>` : ''}
           ${!standortTxt && !oekologieTxt && !verwendungTxt ? '<div style="padding:0.5rem 0;font-size:0.75rem;color:#bbb">NaturaDB 텍스트 없음</div>' : ''}
         </div>
       </div>
