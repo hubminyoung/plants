@@ -608,7 +608,7 @@ async function naturadbDetails(params, env) {
         .map(([k,v]) => `[${k}]\n${v.slice(0,800)}`);
 
       if (tableEntries.length || secEntries.length) {
-        const prompt = `다음 독일어 원예 정보를 한국어로 번역하세요.
+        const prompt = `다음 원예 정보를 모두 한국어로 번역하세요. 독일어, 영어 등 언어에 상관없이 모두 한국어로 번역하세요.
 테이블 항목은 "키: 값" 형식 그대로 유지하고, 섹션은 [섹션명] 태그 그대로 유지하세요.
 
 ${tableEntries.length ? '[TABLE]\n' + tableEntries.join('\n') : ''}
@@ -634,6 +634,7 @@ ${secEntries.join('\n\n')}`;
       }
     } catch(e) {
       console.error('[Gemini] error:', e.message);
+      sections['_geminiError'] = e.message;
     }
   }
 
