@@ -6,7 +6,6 @@ const DEFAULT_PERENUAL_KEY = 'sk-Zu5O6a3c9480bae9818402';
 // GEMINI_API_KEY는 secrets에서만 사용 (기본값 없음)
 // ─────────────────────────────────────────────────────────────────────────────
 
-
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
