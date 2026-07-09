@@ -583,22 +583,42 @@ async function naturadbDetails(params, env) {
     }
   }
 
-  // ── Gemini로 독일어 텍스트 → 한국어 번역 ────────────────────────────────
-  const toTranslate = Object.entries(sections).filter(([,v]) => v);
-  if (toTranslate.length && env?.GEMINI_API_KEY) {
+  // ── Gemini로 독일어 전체 → 한국어 번역 ─────────────────────────────────
+  if (env?.GEMINI_API_KEY) {
     try {
-      const prompt = toTranslate.map(([k,v]) =>
-        `[${k}]\n${v.slice(0, 800)}`
-      ).join('\n\n');
-      const translated = await geminiTranslateDE(
-        `다음 독일어 원예 텍스트를 각 섹션별로 한국어로 번역하세요. 섹션 구분 태그 [SectionName]은 그대로 유지하세요:\n\n${prompt}`,
-        env.GEMINI_API_KEY
-      );
-      if (translated) {
-        for (const [key] of toTranslate) {
-          const re = new RegExp(`\\[${key}\\]\\n([\\s\\S]*?)(?=\\n\\n\\[|$)`);
-          const m = translated.match(re);
-          if (m) sections[key] = m[1].trim();
+      // 번역할 테이블 키 목록
+      const TABLE_KEYS = ['Boden','Nährstoffe','PH-Wert','Kübel/Balkon geeignet',
+        'Pflanzenart','Wuchs','Wurzelsystem','Blütenform','Blütenduft',
+        'Blattfarbe','Blattphase','Blattform','schneckenresistent','Schnecken',
+        'windverträglich','schnittverträglich'];
+      const tableEntries = TABLE_KEYS.filter(k => table[k]).map(k => `${k}: ${table[k]}`);
+
+      const secEntries = Object.entries(sections).filter(([,v]) => v)
+        .map(([k,v]) => `[${k}]\n${v.slice(0,800)}`);
+
+      if (tableEntries.length || secEntries.length) {
+        const prompt = `다음 독일어 원예 정보를 한국어로 번역하세요.
+테이블 항목은 "키: 값" 형식 그대로 유지하고, 섹션은 [섹션명] 태그 그대로 유지하세요.
+
+${tableEntries.length ? '[TABLE]\n' + tableEntries.join('\n') : ''}
+
+${secEntries.join('\n\n')}`;
+
+        const translated = await geminiTranslateDE(prompt, env.GEMINI_API_KEY);
+        if (translated) {
+          // 테이블 값 파싱
+          for (const k of TABLE_KEYS) {
+            if (!table[k]) continue;
+            const re = new RegExp(`^${k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}:\s*(.+)$`, 'm');
+            const m = translated.match(re);
+            if (m) table[k] = m[1].trim();
+          }
+          // 섹션 텍스트 파싱
+          for (const key of Object.keys(sections)) {
+            const re = new RegExp(`\\[${key}\\]\\n([\\s\\S]*?)(?=\\n\\n\\[|$)`);
+            const m = translated.match(re);
+            if (m) sections[key] = m[1].trim();
+          }
         }
       }
     } catch(e) { /* 번역 실패 시 독일어 원문 유지 */ }
