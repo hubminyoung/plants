@@ -886,7 +886,9 @@ function parsePlants() {
     .replace(/\bsubsp\./g, 'subsp')
     .replace(/\bssp\./g, 'ssp')
     .replace(/\bf\.(?=\s)/g, 'f')
-    .replace(/^\s*\*+\s*/gm, '');
+    .replace(/^\s*\*+\s*/gm, '')
+    .replace(/\bsp\./g, 'sp')
+    .replace(/\bcv\./g, 'cv');
 const segs = raw.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
 
   const latins = new Set();
