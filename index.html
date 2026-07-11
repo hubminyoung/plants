@@ -875,33 +875,33 @@ function parsePlants() {
   const raw = document.getElementById('plantInput').value.trim();
   if (!raw) return;
 
-  // 1. 학명 패턴: 반드시 이명법(속명+종명) 또는 속명+'품종명' 구조 필요
-  //    → East, Shade, Garden 같은 일반 영단어 단독은 제외
-  const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+×?\s*[a-z][a-z-]{1,})+(?:\s+'[^']*(?:'s[^']*)*')?|\s+'[^']*(?:'s[^']*)*')/g;
-
-  // 2. 구분자로 세그먼트 분리 (줄바꿈·탭·콤마·슬래시·기호)
-    // 전처리: 분류 계급 마침표 제거, * 접두사 제거
+  // 전처리: 분류계급 마침표 제거, * 제거
   const normalized = raw
     .replace(/\bvar\./g, 'var')
     .replace(/\bsubsp\./g, 'subsp')
     .replace(/\bssp\./g, 'ssp')
-    .replace(/\bf\.(?=\s)/g, 'f')
-    .replace(/^\s*\*+\s*/gm, '')
     .replace(/\bsp\./g, 'sp')
-    .replace(/\bcv\./g, 'cv');
-const segs = normalized.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
+    .replace(/\bcv\./g, 'cv')
+    .replace(/^\s*\*+\s*/gm, '');
+
+  // 1. 학명 패턴
+  const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+[a-z][a-z-]{1,})+(?:\s+'[^']*')?|\s+'[^']*')/g;
+
+  // 2. 구분자로 세그먼트 분리
+  const segs = normalized.split(/[\n\t,;/+|(\)[\]:·]+/).map(s => s.trim()).filter(Boolean);
 
   const latins = new Set();
   const koreans = new Set();
 
   for (const seg of segs) {
-    // 학명 추출
-    const lm = [...(seg.match(latinRe) || [= seg;
+    const lm = [...(seg.match(latinRe) || [])];
+    lm.forEach(l => latins.add(l.trim()));
+
+    let rest = seg;
     lm.forEach(l => rest = rest.replace(new RegExp(l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' '));
     rest = rest.replace(/[^가-힣\s]/g, ' ').trim();
     if (!rest) continue;
 
-    // 공백으로 쪼개 각 단어: 조사 제거 → 동사형 필터
     rest.split(/\s+/).forEach(w => {
       w = w.trim();
       if (!w) return;
@@ -917,7 +917,6 @@ const segs = normalized.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter
   renderAll();
   plants.filter(p => !p.fetching && !p.done).forEach(loadPlant);
 }
-
 function mkPlant(name) {
   return {
     name, korName: '', latName: '', commonName: '', native: '', family: '',
