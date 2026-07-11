@@ -889,15 +889,14 @@ function parsePlants() {
     .replace(/^\s*\*+\s*/gm, '')
     .replace(/\bsp\./g, 'sp')
     .replace(/\bcv\./g, 'cv');
-const segs = raw.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
+const segs = normalized.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
 
   const latins = new Set();
   const koreans = new Set();
 
   for (const seg of segs) {
     // 학명 추출
-    const lm = [...(seg.match(latinRe) || [const segs = normalized.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
-= seg;
+    const lm = [...(seg.match(latinRe) || [= seg;
     lm.forEach(l => rest = rest.replace(new RegExp(l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' '));
     rest = rest.replace(/[^가-힣\s]/g, ' ').trim();
     if (!rest) continue;
