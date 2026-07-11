@@ -1834,8 +1834,29 @@ function renderCare() {
 }
 
 // MyMemory 직접 번역 (브라우저→MyMemory, 서버 우회)
-async function myMemoryDirect(text, langpair = 'en|ko') {
+const DE_KO = {
+  'Flachwurzler':'천근성 뿌리','Tiefwurzler':'심근성 뿌리','Pfahlwurzler':'직근성 뿌리',
+  'Staude':'숙근초','Strauch':'관목','Baum':'교목','Kletterpflanze':'덩굴식물','Bodendecker':'지피식물',
+  'aufrecht':'직립형','horstbildend':'포기형','kriechend':'포복형','niederliegend':'와복형','kompakt':'밀집형',
+  'sommergrün':'여름녹엽성','immergrün':'상록성','wintergrün':'겨울녹엽성',
+  'grün':'녹색','dunkelgrün':'진녹색','hellgrün':'연녹색','blaugrün':'청록색',
+  'rund':'원형','rundlich':'원형에 가까운','herzförmig':'심장형','nierenförmig':'신장형','lanzettlich':'피침형',
+  'schalenförmig':'컵형','glockig':'종형','radiärsymmetrisch':'방사대칭','gefüllt':'겹꽃',
+  'sauer':'산성','neutral':'중성','basisch':'알칼리성','kalk':'석회질',
+  'sandig':'사질','lehmig':'양토질','humos':'부식토','nährstoffreich':'비옥',
+  'ja':'예','nein':'아니오',
+};
+function deKoDict(t) {
+  if (!t) return null;
+  const trimmed = t.trim();
+  if (DE_KO[trimmed]) return DE_KO[trimmed];
+  return null;
+}
+
+async function myMemoryDirect(text, langpair) {
+  langpair = langpair || 'en|ko';
   if (!text) return text;
+  if (langpair === 'de|ko') { const d = deKoDict(text); if (d) return d; }
   try {
     const resp = await fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text.slice(0, 500)) + '&langpair=' + langpair);
     const data = await resp.json();
