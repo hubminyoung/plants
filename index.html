@@ -1836,16 +1836,16 @@ function renderCare() {
 // Google Translate 비공식 API (무료, 한도 없음)
 // 독일어 원예 전문용어 사전
 const DE_KO = {
-  'Flachwurzler':'천근성 루트','Tiefwurzler':'심근성 루트','Pfahlwurzler':'직근성 루트',
-  'Staude':'숙근초','Strauch':'관목','Baum':'교목','Bodendecker':'지피식물',
+  'Flachwurzler':'천근성 뿌리','Tiefwurzler':'심근성 뿌리','Pfahlwurzler':'직근성 뿌리','Herzwurzler':'심장형 뿌리',
+  'Staude':'숙근초','Strauch':'관목','Baum':'교목','Kletterpflanze':'덩굴식물','Bodendecker':'지피식물',
   'einjährig':'일년생','zweijährig':'이년생','Halbstrauch':'아관목',
-  'aufrecht':'직립 성장형','horstbildend':'군생(클럽프)형','kriechend':'포복형','niederliegend':'누움',
-  'kompakt':'밀집형','locker':'산개형','hängend':'현수형','leicht':'약간','spreizend':'개장형',
+  'aufrecht':'직립 성장형','horstbildend':'군생(클럼프)형','kriechend':'포복형','niederliegend':'누움',
+  'kompakt':'밀집형','locker':'산개형','hängend':'현수형','kletternd':'덩굴형','leicht':'약간','spreizend':'개장형',
   'sandig':'사질','lehmig':'양토질','tonig':'점토질','humos':'부식토','durchlässig':'배수성',
-  'feucht':'습윤','trocken':'건조','nährstoffreich':'비옥','nährstoffarm':'철박',
+  'feucht':'습윤','trocken':'건조','nährstoffreich':'비옥','nährstoffarm':'척박',
   'sauer':'산성','neutral':'중성','basisch':'알칼리성','kalk':'석회질',
   'schalenförmig':'컵형','trichterförmig':'나팔형','röhrenförmig':'관상형','glockig':'종형',
-  'radiärsymmetrisch':'방사대칭','zygomorph':'좌우대칭','gefüllt':'격꽃','einfach':'폰꽃',
+  'radiärsymmetrisch':'방사대칭','zygomorph':'좌우대칭','gefüllt':'겹꽃','einfach':'혻꽃',
   'sommergrün':'여름녹엽성','immergrün':'상록성','wintergrün':'겨울녹엽성','halbimmergrün':'반상록성',
   'grün':'녹색','dunkelgrün':'진녹색','hellgrün':'연녹색','blaugrün':'청록색','rotbraun':'적갈색','purpur':'자주색',
   'rund':'원형','herzförmig':'심장형','lanzettlich':'피침형','oval':'타원형','gefiedert':'우상형','gezähnt':'거치형',
@@ -1855,7 +1855,7 @@ function deKoDict(text) {
   if (!text) return null;
   const t = text.trim();
   if (DE_KO[t]) return DE_KO[t];
-  const words = t.split(/([\s,~.]+)/);
+  const words = t.split(/([ ,~.]+)/);
   const out = words.map(w => DE_KO[w] || w).join('');
   return out !== t ? out : null;
 }
