@@ -1143,11 +1143,13 @@ async function loadNaturadbDetail(p) {
   if (s['Interessantes'] || s['Wissenswertes'])
     p.ndbInteressantes = s['Interessantes'] || s['Wissenswertes'];
 
-  // 독일어 섹션 브라우저에서 MyMemory로 직접 번역
-  const ndbSecs = ['ndbStandort','ndbOekologie','ndbVerwendung','ndbSchnitt','ndbVermehrung','ndbSchaedlinge','ndbInteressantes'];
-  Promise.all(ndbSecs.filter(k => p[k]).map(async k => {
-    const t = await myMemoryDirect(p[k], 'de|ko');
-    if (t && t !== p[k]) { p[k] = t; renderActiveTab(); }
+  // 독일어 테이블값 + 섹션 브라우저에서 MyMemory로 직접 번역
+  const ndbFields = ['ndbBoden','ndbNaehrstoffe','ndbPH','ndbKuebel','ndbPflanzenart',
+    'ndbWuchs','ndbWurzel','ndbBlutenform','ndbBlattfarbe','ndbBlattphase','ndbBlattform','ndbSchnecken',
+    'ndbStandort','ndbOekologie','ndbVerwendung','ndbSchnitt','ndbVermehrung','ndbSchaedlinge','ndbInteressantes'];
+  Promise.all(ndbFields.filter(k => p[k]).map(async k => {
+    const translated = await myMemoryDirect(p[k], 'de|ko');
+    if (translated && translated !== p[k]) { p[k] = translated; renderActiveTab(); }
   }));
 
   // NaturaDB 개화기가 있고 현재 없으면 보완
