@@ -1849,7 +1849,7 @@ const DE_KO = {
   'feucht':'습윤','trocken':'건조','nährstoffreich':'비옥','nährstoffarm':'척박',
   'sauer':'산성','neutral':'중성','basisch':'알칼리성','kalk':'석회질',
   'schalenförmig':'컵형','trichterförmig':'나팔형','röhrenförmig':'관상형','glockig':'종형',
-  'radiärsymmetrisch':'방사대칭','zygomorph':'좌우대칭','gefüllt':'겹꽃','einfach':'혻꽃',
+  'radiärsymmetrisch':'방사대칭','zygomorph':'좌우대칭','gefüllt':'겹꽃','einfach':'홑꽃',
   'sommergrün':'여름녹엽성','immergrün':'상록성','wintergrün':'겨울녹엽성','halbimmergrün':'반상록성',
   'grün':'녹색','dunkelgrün':'진녹색','hellgrün':'연녹색','blaugrün':'청록색','rotbraun':'적갈색','purpur':'자주색',
   'rund':'원형','rundlich':'원형에 가까운','herzförmig':'심장형','nierenförmig':'신장형','lanzettlich':'피침형','oval':'타원형','gefiedert':'우상형','gelappt':'결각형','gezähnt':'거치형',
@@ -1863,18 +1863,20 @@ function deKoDict(text) {
   const out = words.map(w => DE_KO[w] || w).join('');
   return out !== t ? out : null;
 }
-async function myMemoryDirect(text, langpair) {
-  langpair = langpair || 'en|ko';
+async function myMemoryDirect(text, langpair = 'en|ko') {
   if (!text) return text;
-  if (langpair === 'de|ko') { const d = deKoDict(text); if (d) return d; }
+  if (langpair === 'de|ko' && DE_KO[text.trim()]) return DE_KO[text.trim()];
   try {
     const parts = langpair.split('|');
-    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' + parts[0] + '&tl=' + parts[1] + '&dt=t&q=' + encodeURIComponent(text.slice(0, 1000));
-    const resp = await fetch(url);
+    const base = 'https://translate.googleapis.com/translate_a/single';
+    const qs = '?client=gtx&sl=' + parts[0] + '&tl=' + parts[1] + '&dt=t&q=' + encodeURIComponent(text.slice(0, 1000));
+    const resp = await fetch(base + qs);
     const data = await resp.json();
     const translated = data[0]?.map(s => s[0]).join('') || '';
-    return translated || text;
-  } catch { return text; }
+    return translated || (langpair === 'de|ko' ? (deKoDict(text) || text) : text);
+  } catch {
+    return langpair === 'de|ko' ? (deKoDict(text) || text) : text;
+  }
 }
 
 // 배치 번역 큐 — 150ms 내 요청을 병렬 처리
