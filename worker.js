@@ -241,54 +241,32 @@ async function hfImage(req, env) {
 }
 
 // ── Hugging Face 번역 (en→ko) ─────────────────────────────────────────────────
+async function myMemoryTranslate(text, langpair = 'en|ko') {
+  if (!text) return null;
+  try {
+    const encoded = encodeURIComponent(text.slice(0, 500));
+    const resp = await fetch('https://api.mymemory.translated.net/get?q=' + encoded + '&langpair=' + langpair);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const result = data.responseData?.translatedText;
+    return (result && result !== text) ? result : null;
+  } catch { return null; }
+}
+
 async function hfTranslate(req, env) {
   const { text } = await req.json();
   if (!text) return { translation: '' };
-  const key = env.GEMINI_API_KEY || '';
-  if (!key) throw new Error('GEMINI_API_KEY not set');
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-  const prompt = `다음 텍스트를 한국어로 번역하세요. 번역문만 출력하세요.\n\n${text.slice(0, 1500)}`;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 1024 } })
-  });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Gemini translate ${resp.status}: ${t.slice(0, 200)}`);
-  }
-  const data = await resp.json();
-  const translation = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  return { translation: translation.trim() };
+  const translation = await myMemoryTranslate(text, 'en|ko');
+  return { translation: translation || '' };
 }
-
-// ── Gemini Key Test ───────────────────────────────────────────────────────────
-
-// ── 배치 번역 ─────────────────────────────────────────────────────────────────
 async function hfTranslateBatch(req, env) {
   const { texts } = await req.json();
-  if (!texts || !texts.length) return { translations: [] };
-  const key = env.GEMINI_API_KEY || '';
-  if (!key) throw new Error('GEMINI_API_KEY not set');
-  const numbered = texts.map((t, i) => `[${i}] ${String(t).slice(0, 800)}`).join('\n\n');
-  const prompt = `다음 텍스트들을 각각 한국어로 번역하세요. [숫자] 태그를 그대로 유지하고 번역문만 출력하세요.\n\n${numbered}`;
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 4096 } })
-  });
-  if (!resp.ok) { const t = await resp.text(); throw new Error(`Gemini batch ${resp.status}: ${t.slice(0,200)}`); }
-  const data = await resp.json();
-  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  const translations = texts.map((orig, i) => {
-    const re = new RegExp(`\\[${i}\\]\\s*([\\s\\S]*?)(?=\\[${i+1}\\]|$)`);
-    const m = raw.match(re);
-    return m ? m[1].trim() : orig;
-  });
+  if (!texts?.length) return { translations: [] };
+  const translations = await Promise.all(
+    texts.map(async t => (await myMemoryTranslate(String(t), 'en|ko')) || t)
+  );
   return { translations };
 }
-
 async function geminiTest(env) {
   const key = env.GEMINI_API_KEY || '';
   if (!key) return { ok: false, error: 'GEMINI_API_KEY secret not set', keyPrefix: '' };
@@ -619,49 +597,20 @@ async function naturadbDetails(params, env) {
     }
   }
 
-  // ── Gemini로 독일어 전체 → 한국어 번역 ─────────────────────────────────
-  if (env?.GEMINI_API_KEY) {
-    try {
-      // 번역할 테이블 키 목록
-      const TABLE_KEYS = ['Boden','Nährstoffe','PH-Wert','Kübel/Balkon geeignet',
-        'Pflanzenart','Wuchs','Wurzelsystem','Blütenform','Blütenduft',
-        'Blattfarbe','Blattphase','Blattform','schneckenresistent','Schnecken',
-        'windverträglich','schnittverträglich'];
-      const tableEntries = TABLE_KEYS.filter(k => table[k]).map(k => `${k}: ${table[k]}`);
-
-      const secEntries = Object.entries(sections).filter(([,v]) => v)
-        .map(([k,v]) => `[${k}]\n${v.slice(0,800)}`);
-
-      if (tableEntries.length || secEntries.length) {
-        const prompt = `다음 원예 정보를 모두 한국어로 번역하세요. 독일어, 영어 등 언어에 상관없이 모두 한국어로 번역하세요.
-테이블 항목은 "키: 값" 형식 그대로 유지하고, 섹션은 [섹션명] 태그 그대로 유지하세요.
-
-${tableEntries.length ? '[TABLE]\n' + tableEntries.join('\n') : ''}
-
-${secEntries.join('\n\n')}`;
-
-        const translated = await geminiTranslateDE(prompt, env.GEMINI_API_KEY);
-        if (translated) {
-          // 테이블 값 파싱
-          for (const k of TABLE_KEYS) {
-            if (!table[k]) continue;
-            const re = new RegExp(`^${k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}:\s*(.+)$`, 'm');
-            const m = translated.match(re);
-            if (m) table[k] = m[1].trim();
-          }
-          // 섹션 텍스트 파싱
-          for (const key of Object.keys(sections)) {
-            const re = new RegExp(`\\[${key}\\]\\n([\\s\\S]*?)(?=\\[|$)`, 'm');
-            const tm = translated.match(re);
-            if (tm) sections[key] = tm[1].trim();
-          }
-        }
-      }
-    } catch(e) {
-      console.error('[Gemini] error:', e.message);
-      sections['_geminiError'] = e.message;
-    }
-  }
-
+  // ── MyMemory로 독일어 → 한국어 번역 (병렬) ─────────────────────────────
+  const TABLE_KEYS = ['Boden','Nährstoffe','PH-Wert','Kübel/Balkon geeignet',
+    'Pflanzenart','Wuchs','Wurzelsystem','Blütenform','Blütenduft',
+    'Blattfarbe','Blattphase','Blattform','schneckenresistent','Schnecken',
+    'windverträglich','schnittverträglich'];
+  await Promise.all([
+    ...TABLE_KEYS.filter(k => table[k]).map(async k => {
+      const t = await myMemoryTranslate(table[k], 'de|ko');
+      if (t) table[k] = t;
+    }),
+    ...Object.keys(sections).filter(k => !k.startsWith('_') && sections[k]).map(async k => {
+      const t = await myMemoryTranslate(sections[k], 'de|ko');
+      if (t) sections[k] = t;
+    })
+  ]);
   return { table, sections, bloomMonths, url };
 }
