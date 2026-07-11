@@ -1426,7 +1426,7 @@ function translatePlantType(s) {
   return PLANT_TYPE_KO[s.toLowerCase()] || s;
 }
 const TOLERATE_KO = {
-  'Deer':'사슴','Rabbits':'토끼','Black Walnut':'호두나무 독성',
+  'Deer':'사슴','Rabbit':'토끼','Rabbits':'토끼','Black Walnut':'호두나무 독성','Urban Conditions':'도심 환경','Poor Drainage':'배수 불량',
   'Air Pollution':'대기오염','Wet Soil':'습한 토양','Dry Soil':'건조한 토양',
   'Drought':'건조','Clay Soil':'점토질 토양','Sandy Soil':'사질 토양',
   'Erosion':'침식','Flooding':'침수','Salt':'염분',
@@ -1839,7 +1839,7 @@ const DE_KO = {
   'Flachwurzler':'천근성 뿌리','Tiefwurzler':'심근성 뿌리','Pfahlwurzler':'직근성 뿌리','Herzwurzler':'심장형 뿌리',
   'Staude':'숙근초','Strauch':'관목','Baum':'교목','Kletterpflanze':'덩굴식물','Bodendecker':'지피식물',
   'einjährig':'일년생','zweijährig':'이년생','Halbstrauch':'아관목',
-  'aufrecht':'직립 성장형','horstbildend':'군생(클럼프)형','kriechend':'포복형','niederliegend':'누움',
+  'aufrecht':'직립 성장형','horstbildend':'군생(클럼프)형','buschig':'덤불형','überhängend':'늘어지는형','kriechend':'포복형','niederliegend':'누움',
   'kompakt':'밀집형','locker':'산개형','hängend':'현수형','kletternd':'덩굴형','leicht':'약간','spreizend':'개장형',
   'sandig':'사질','lehmig':'양토질','tonig':'점토질','humos':'부식토','durchlässig':'배수성',
   'feucht':'습윤','trocken':'건조','nährstoffreich':'비옥','nährstoffarm':'척박',
@@ -1848,7 +1848,7 @@ const DE_KO = {
   'radiärsymmetrisch':'방사대칭','zygomorph':'좌우대칭','gefüllt':'겹꽃','einfach':'혻꽃',
   'sommergrün':'여름녹엽성','immergrün':'상록성','wintergrün':'겨울녹엽성','halbimmergrün':'반상록성',
   'grün':'녹색','dunkelgrün':'진녹색','hellgrün':'연녹색','blaugrün':'청록색','rotbraun':'적갈색','purpur':'자주색',
-  'rund':'원형','herzförmig':'심장형','lanzettlich':'피침형','oval':'타원형','gefiedert':'우상형','gezähnt':'거치형',
+  'rund':'원형','rundlich':'원형에 가까운','herzförmig':'심장형','nierenförmig':'신장형','lanzettlich':'피침형','oval':'타원형','gefiedert':'우상형','gelappt':'결각형','gezähnt':'거치형',
   'ja':'예','nein':'아니오','bis':'~',
 };
 function deKoDict(text) {
