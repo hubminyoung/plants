@@ -1143,6 +1143,13 @@ async function loadNaturadbDetail(p) {
   if (s['Interessantes'] || s['Wissenswertes'])
     p.ndbInteressantes = s['Interessantes'] || s['Wissenswertes'];
 
+  // 독일어 섹션 브라우저에서 MyMemory로 직접 번역
+  const ndbSecs = ['ndbStandort','ndbOekologie','ndbVerwendung','ndbSchnitt','ndbVermehrung','ndbSchaedlinge','ndbInteressantes'];
+  Promise.all(ndbSecs.filter(k => p[k]).map(async k => {
+    const t = await myMemoryDirect(p[k], 'de|ko');
+    if (t && t !== p[k]) { p[k] = t; renderActiveTab(); }
+  }));
+
   // NaturaDB 개화기가 있고 현재 없으면 보완
   if (det.bloomMonths?.length && !p.bloomMonths.length)
     p.bloomMonths = det.bloomMonths;
@@ -1824,36 +1831,34 @@ function renderCare() {
     <p class="src-note" style="padding:0 1rem 0.5rem">* Missouri Botanical Garden Plant Finder. 🌐 번역 버튼으로 한국어 번역 (HF API 키 필요)</p>`;
 }
 
-// 배치 번역 큐 — 150ms 내 요청을 모아 Gemini 1번 호출
+// MyMemory 직접 번역 (브라우저→MyMemory, 서버 우회)
+async function myMemoryDirect(text, langpair = 'en|ko') {
+  if (!text) return text;
+  try {
+    const resp = await fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text.slice(0, 500)) + '&langpair=' + langpair);
+    const data = await resp.json();
+    return data.responseData?.translatedText || text;
+  } catch { return text; }
+}
+
+// 배치 번역 큐 — 150ms 내 요청을 병렬 처리
 const _txQueue = [];
 let _txTimer = null;
 async function _flushTxQueue() {
   if (!_txQueue.length) return;
   const batch = _txQueue.splice(0);
-  const pw = localStorage.getItem('appPassword') || '';
-  try {
-    const resp = await fetch(CFG.worker + '/api/hf/translate/batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(pw ? { 'x-app-password': pw } : {}) },
-      body: JSON.stringify({ texts: batch.map(b => b.text) })
-    });
-    const data = await resp.json();
-    if (data.translations) {
-      data.translations.forEach((t, i) => batch[i].resolve(t || batch[i].text));
-      return;
-    }
-  } catch {}
-  batch.forEach(b => b.resolve(b.text));
+  await Promise.all(batch.map(async b => {
+    b.resolve(await myMemoryDirect(b.text, 'en|ko'));
+  }));
 }
 function translateText(text) {
   if (!text || text === '\u2014') return Promise.resolve(text);
   return new Promise(resolve => {
-    _txQueue.push({ text: text.slice(0, 800), resolve });
+    _txQueue.push({ text: text.slice(0, 500), resolve });
     clearTimeout(_txTimer);
     _txTimer = setTimeout(_flushTxQueue, 150);
   });
 }
-
 async function translateCare(elId, btnId) {
   const el  = document.getElementById(elId);
   const btn = document.getElementById(btnId);
