@@ -880,18 +880,22 @@ function parsePlants() {
   const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+×?\s*[a-z][a-z-]{1,})+(?:\s+'[^']*(?:'s[^']*)*')?|\s+'[^']*(?:'s[^']*)*')/g;
 
   // 2. 구분자로 세그먼트 분리 (줄바꿈·탭·콤마·슬래시·기호)
-  const segs = raw.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
+    // 전처리: 분류 계급 마침표 제거, * 접두사 제거
+  const normalized = raw
+    .replace(/\bvar\./g, 'var')
+    .replace(/\bsubsp\./g, 'subsp')
+    .replace(/\bssp\./g, 'ssp')
+    .replace(/\bf\.(?=\s)/g, 'f')
+    .replace(/^\s*\*+\s*/gm, '');
+const segs = raw.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
 
   const latins = new Set();
   const koreans = new Set();
 
   for (const seg of segs) {
     // 학명 추출
-    const lm = [...(seg.match(latinRe) || [])];
-    lm.forEach(l => latins.add(l.trim()));
-
-    // 학명 제거 후 한글 추출
-    let rest = seg;
+    const lm = [...(seg.match(latinRe) || [const segs = normalized.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
+= seg;
     lm.forEach(l => rest = rest.replace(new RegExp(l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' '));
     rest = rest.replace(/[^가-힣\s]/g, ' ').trim();
     if (!rest) continue;
