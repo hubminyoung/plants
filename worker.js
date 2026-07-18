@@ -483,18 +483,27 @@ async function knagardenDetails(params) {
   const directSlug = (params.get('slug') ?? '').trim();
   if (!korName && !directSlug) return { error: 'q required' };
 
-  const KNA_UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept-Language': 'ko-KR,ko;q=0.9', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' };
+  const KNA_UA = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept-Language': 'ko-KR,ko;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  };
   const GQL_URL = 'https://www.knagarden.info/.gql';
 
-  // 1. slug 직접 전달됐으면 GQL 스킵
   let slug = directSlug, minHeight = null, maxHeight = null;
+
   if (!slug && korName) {
-    // GQL 시도 (JSON Accept 헤더 포함)
+    // 1차: GQL로 slug 조회 (Origin/Referer 포함)
     try {
       const safe = korName.replace(/["\\]/g, '');
       const gqlResp = await fetch(GQL_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://www.knagarden.info',
+          'Referer': 'https://www.knagarden.info/plants',
+        },
         body: JSON.stringify({
           query: `{ posts(keys:["plants"], keywords:"${safe}", limit:1) { id slug minHeight maxHeight } }`
         })
@@ -507,27 +516,26 @@ async function knagardenDetails(params) {
       }
     } catch (e) { /* GQL 실패시 검색 HTML로 시도 */ }
 
-    // GQL 실패시: 검색 결과 HTML에서 slug 추출
+    // 2차: 검색 HTML에서 slug 추출
     if (!slug) {
       try {
         const searchUrl = `https://www.knagarden.info/plants?keywords=${encodeURIComponent(korName)}`;
         const sr = await fetch(searchUrl, { headers: KNA_UA });
         const sh = await sr.text();
-        // href="/plants/slug" 패턴에서 slug 추출
-        const sm = sh.match(/href="/plants/([a-z0-9]+)"/i);
+        const sm = sh.match(/href="\/plants\/([a-z0-9-]+)"/i);
         if (sm) slug = sm[1];
-      } catch(e2) { /* 최종 실패 */ }
+      } catch(e2) { /* 검색도 실패 */ }
     }
 
     if (!slug) return { error: 'not_found', korName };
   }
 
-  // 2. HTML 페이지 fetch
+  // HTML 페이지 fetch
   const htmlResp = await fetch(`https://www.knagarden.info/plants/${slug}`, { headers: KNA_UA });
   if (!htmlResp.ok) return { error: `HTTP ${htmlResp.status}`, slug };
   const html = await htmlResp.text();
 
-  // 3. DT/DD 파싱 (SSR 렌더링된 텍스트 섹션 추출)
+  // DT/DD 파싱 (SSR 렌더링된 텍스트 섹션 추출)
   const fields = {};
   const dtddRe = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi;
   let m;
@@ -544,11 +552,9 @@ async function knagardenDetails(params) {
   const hardiness = fields['내한성'] || fields['내한성(온도)'] || '';
 
   return {
-    slug,
-    korName,
+    slug, korName,
     url: `https://www.knagarden.info/plants/${slug}`,
-    height: heightStr,
-    hardiness,
+    height: heightStr, hardiness,
     성상: fields['성상'] || '',
     자생환경: fields['자생환경'] || '',
     재배: fields['식재 및 재배'] || '',
