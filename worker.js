@@ -536,7 +536,18 @@ async function knagardenDetails(params) {
       } catch(e2) { /* 검색도 실패 */ }
     }
 
-    if (!slug) return { error: 'not_found', korName };
+    // debug: 검색 실패 이유 파악을 위해 임시로 상세 오류 반환
+    if (!slug) {
+      let dbgStatus = 0, dbgLen = 0, dbgLinks = 0;
+      try {
+        const dbgR = await fetch(`https://www.knagarden.info/plants?keywords=${encodeURIComponent(korName)}`, { headers: KNA_UA });
+        dbgStatus = dbgR.status;
+        const dbgH = await dbgR.text();
+        dbgLen = dbgH.length;
+        dbgLinks = (dbgH.match(/\/plants\/[a-z]/g) || []).length;
+      } catch(dbgE) { dbgStatus = -1; }
+      return { error: 'not_found', korName, dbgStatus, dbgLen, dbgLinks };
+    }
   }
 
   // HTML 페이지 fetch
