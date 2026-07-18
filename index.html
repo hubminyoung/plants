@@ -2032,8 +2032,11 @@ async function loadNativePlantDB() {
 
 function lookupNativePlant(latName) {
   if (!_nativeDB || !latName) return null;
-  const clean = latName.replace(/[\u2018\u2019''][^\u2018\u2019'']+[\u2018\u2019'']/g, '').trim().toLowerCase();
+  const clean = latName.replace(/[\u2018\u2019''\u2018\u2019][^\u2018\u2019''\u2018\u2019]+[\u2018\u2019''\u2018\u2019]/g, '').trim().toLowerCase();
   if (_nativeDB[clean]) return _nativeDB[clean];
+  // parsePlants가 subsp./var. 점을 제거하므로 복원 후 재시도
+  const withDots = clean.replace(/\b(subsp|var|ssp|cv)\b/g, '$1.');
+  if (_nativeDB[withDots]) return _nativeDB[withDots];
   const twoWord = clean.split(/\s+/).slice(0,2).join(' ').trim();
   if (twoWord && _nativeDB[twoWord]) return _nativeDB[twoWord];
   return null;
