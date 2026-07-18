@@ -940,7 +940,7 @@ function mkPlant(name) {
     ndbBlutenform: '', ndbBlattfarbe: '', ndbBlattphase: '', ndbBlattform: '',
     ndbSchnecken: '', ndbOekologie: '', ndbVerwendung: '',
     ndbSchnitt: '', ndbVermehrung: '', ndbSchaedlinge: '', ndbInteressantes: '',
-    naturadbUrl: '',
+    naturadbUrl: '', knaUrl: '',
     fetching: false, done: false
   };
 }
@@ -1123,11 +1123,30 @@ async function loadGardeniaDetail(p) {
   renderChips(); renderActiveTab();
 }
 
+async function loadKnagardenDetail(p, korName) {
+  const det = await wFetch('/api/knagarden/details', { q: korName });
+  if (!det || det.error) return;
+  if (det.자생환경 && !p.ndbStandort)      p.ndbStandort    = det.자생환경;
+  if (det.재배     && !p.ndbVerwendung)    p.ndbVerwendung  = det.재배;
+  if (det.번식     && !p.ndbVermehrung)    p.ndbVermehrung  = det.번식;
+  if (det.병충해   && !p.ndbSchaedlinge)   p.ndbSchaedlinge = det.병충해;
+  if (det.이용가치  && !p.ndbInteressantes) p.ndbInteressantes = det.이용가치;
+  if (det.height   && !p.height)           p.height         = det.height;
+  if (det.hardiness && !p.hardiness) {
+    const zm = det.hardiness.match(/(\d+[ab])\s*[-~]\s*(\d+[ab])/i);
+    p.hardiness = zm ? `${zm[1]}–${zm[2]}` : det.hardiness.split(' ')[0];
+  }
+  if (det.성상 && !p.plantType) p.plantType = det.성상;
+  p.knaUrl = det.url || '';
+  renderChips(); renderActiveTab();
+}
+
 async function loadNaturadbDetail(p) {
   const q = p.latName || p.name;
   if (!q) return;
   const det = await wFetch('/api/naturadb/details', { q });
-  if (!det || det.error) return;
+
+  if (det && !det.error) {
 
   const t = det.table   || {};
   const s = det.sections || {};
@@ -1170,6 +1189,12 @@ async function loadNaturadbDetail(p) {
 
   p.naturadbUrl = det.url || '';
   renderChips(); renderActiveTab();
+  } // end if (det && !det.error)
+
+  // 정원백과 fallback: ndb 텍스트 없고 한국어 국명이 있으면
+  const hasNdbText = !!(p.ndbStandort || p.ndbOekologie || p.ndbVerwendung);
+  const korForKna = p.korName && /[가-힣]/.test(p.korName) ? p.korName : null;
+  if (!hasNdbText && korForKna) await loadKnagardenDetail(p, korForKna);
 }
 
 async function loadMbgDetail(p) {
@@ -1576,7 +1601,8 @@ function renderEcology() {
           <div class="eco-ext-links">
             <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
             <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${encodeURIComponent((p.latName||p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
-            <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
+            ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
+                        <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
             <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
           </div>
         </div>
@@ -1604,7 +1630,7 @@ function renderEcology() {
           ${standortTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">위치</div><div class="eco-right-body">${standortTxt}</div></div>` : ''}
           ${verwendungTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">용도</div><div class="eco-right-body">${verwendungTxt}</div></div>` : ''}
           ${oekologieTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">생태</div><div class="eco-right-body">${oekologieTxt}</div></div>` : ''}
-          ${!standortTxt && !oekologieTxt && !verwendungTxt ? '<div style="padding:0.5rem 0;font-size:0.75rem;color:#bbb">NaturaDB 텍스트 없음</div>' : ''}
+          ${!standortTxt && !oekologieTxt && !verwendungTxt ? '<div style="padding:0.5rem 0;font-size:0.75rem;color:#bbb">${p.knaUrl ? '정원백과 데이터' : 'NaturaDB 텍스트 없음'}</div>' : ''}
         </div>
       </div>
 
@@ -1833,6 +1859,7 @@ function renderCare() {
         <div class="eco-ext-links">
           <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="MBG 상세" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
           <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
+          ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
         </div>
       </div>
       ${sectHtml || ''}
