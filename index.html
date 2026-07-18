@@ -887,8 +887,16 @@ function parsePlants() {
   // 1. 학명 패턴
   const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+[a-z][a-z-]{1,})+(?:\s+'[^']*')?|\s+'[^']*')/g;
 
-  // 2. 구분자로 세그먼트 분리
-  const segs = normalized.split(/[\n\t,;/+|(\)[\]:·]+/).map(s => s.trim()).filter(Boolean);
+  // 2. 줄 단위 전처리: 같은 줄에 국명+학명이 함께 있으면 국명 제거
+  //    (국명은 나중에 native_plants.json DB에서 자동으로 채워짘)
+  const cleaned = normalized.split('\n').map(line => {
+    if (/[가-힣]/.test(line) && /[A-Z][a-z]{2,}\s+[a-z]/.test(line))
+      return line.replace(/[가-힣]+\s*/g, ' ');
+    return line;
+  }).join('\n');
+
+  // 3. 구분자로 세그먼트 분리 (줄바꿈·탭·콤마·슬래시·기호)
+  const segs = cleaned.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
 
   const latins = new Set();
   const koreans = new Set();
