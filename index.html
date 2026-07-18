@@ -895,7 +895,7 @@ function parsePlants() {
 
   for (const seg of segs) {
     const lm = [...(seg.match(latinRe) || [])];
-    lm.forEach(l => latins.add(l.trim()));
+    lm.forEach(l => latins.add(l.replace(/\s+/g, ' ').trim()));
 
     let rest = seg;
     lm.forEach(l => rest = rest.replace(new RegExp(l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' '));
@@ -910,11 +910,11 @@ function parsePlants() {
     });
   }
 
-  const names = [...latins, ...koreans].filter(n => n.length >= 2);
+  const normName = s => s.replace(/\s+/g, ' ').trim();
+  const names = [...new Set([...latins, ...koreans].map(normName))].filter(n => n.length >= 2);
   names.forEach(n => {
-    if (!plants.find(p => p.name === n)) plants.push(mkPlant(n));
-  });
-  renderAll();
+    if (!plants.find(p => normName(p.name) === normName(n))) plants.push(mkPlant(n));
+  });renderAll();
   plants.filter(p => !p.fetching && !p.done).forEach(loadPlant);
 }
 function mkPlant(name) {
