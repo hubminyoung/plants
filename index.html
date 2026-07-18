@@ -1630,7 +1630,7 @@ function renderEcology() {
           ${standortTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">위치</div><div class="eco-right-body">${standortTxt}</div></div>` : ''}
           ${verwendungTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">용도</div><div class="eco-right-body">${verwendungTxt}</div></div>` : ''}
           ${oekologieTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">생태</div><div class="eco-right-body">${oekologieTxt}</div></div>` : ''}
-          ${!standortTxt && !oekologieTxt && !verwendungTxt ? '<div style="padding:0.5rem 0;font-size:0.75rem;color:#bbb">${p.knaUrl ? '정원백과 데이터' : 'NaturaDB 텍스트 없음'}</div>' : ''}
+          ${!standortTxt && !oekologieTxt && !verwendungTxt ? `<div style="padding:0.5rem 0;font-size:0.75rem;color:#bbb">${p.knaUrl ? '정원백과 데이터' : 'NaturaDB 텍스트 없음'}</div>` : ''}
         </div>
       </div>
 
