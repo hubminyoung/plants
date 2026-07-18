@@ -522,8 +522,17 @@ async function knagardenDetails(params) {
         const searchUrl = `https://www.knagarden.info/plants?keywords=${encodeURIComponent(korName)}`;
         const sr = await fetch(searchUrl, { headers: KNA_UA });
         const sh = await sr.text();
-        const sm = sh.match(/href="\/plants\/([a-z0-9-]+)"/i);
-        if (sm) slug = sm[1];
+        // 절대 URL 패턴으로 slug 추출
+        const plantLinks = [];
+        let lm2;
+        const linkPat = /\/plants\/([a-z0-9-]+)(?:\?[^"]*)?"/gi;
+        while ((lm2 = linkPat.exec(sh)) !== null) plantLinks.push(lm2[1]);
+        // 정확한 국명이 링크 근처에 있는 것 우선
+        for (const candidate of plantLinks) {
+          const pos = sh.indexOf("/plants/" + candidate);
+          if (pos >= 0 && sh.slice(pos, pos + 400).includes(korName)) { slug = candidate; break; }
+        }
+        if (!slug && plantLinks.length > 0) slug = plantLinks[0];
       } catch(e2) { /* 검색도 실패 */ }
     }
 
