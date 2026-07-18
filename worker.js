@@ -480,28 +480,46 @@ async function gaissmayerDetails(params) {
 // 우선순위: NaturaDB → MBG → 정원백과 (이 함수는 마지막 수단)
 async function knagardenDetails(params) {
   const korName = (params.get('q') ?? '').trim();
-  if (!korName) return { error: 'q required' };
+  const directSlug = (params.get('slug') ?? '').trim();
+  if (!korName && !directSlug) return { error: 'q required' };
 
-  const KNA_UA = { 'User-Agent': 'Mozilla/5.0 (compatible; PlantBot/1.0)' };
+  const KNA_UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept-Language': 'ko-KR,ko;q=0.9', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' };
   const GQL_URL = 'https://www.knagarden.info/.gql';
 
-  // 1. 한국어 이름으로 slug/id 찾기
-  let slug, minHeight, maxHeight;
-  try {
-    const safe = korName.replace(/["\\]/g, '');
-    const gqlResp = await fetch(GQL_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: `{ posts(keys:["plants"], keywords:"${safe}", limit:1) { id slug minHeight maxHeight minColdHardiness maxColdHardiness } }`
-      })
-    });
-    const gqlData = await gqlResp.json();
-    const posts = gqlData?.data?.posts;
-    if (!posts?.length) return { error: 'not_found', korName };
-    ({ slug, minHeight, maxHeight } = posts[0]);
-  } catch (e) {
-    return { error: e.message, korName };
+  // 1. slug 직접 전달됐으면 GQL 스킵
+  let slug = directSlug, minHeight = null, maxHeight = null;
+  if (!slug && korName) {
+    // GQL 시도 (JSON Accept 헤더 포함)
+    try {
+      const safe = korName.replace(/["\\]/g, '');
+      const gqlResp = await fetch(GQL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          query: `{ posts(keys:["plants"], keywords:"${safe}", limit:1) { id slug minHeight maxHeight } }`
+        })
+      });
+      const ct = gqlResp.headers.get('content-type') || '';
+      if (ct.includes('json')) {
+        const gqlData = await gqlResp.json();
+        const posts = gqlData?.data?.posts;
+        if (posts?.length) ({ slug, minHeight, maxHeight } = posts[0]);
+      }
+    } catch (e) { /* GQL 실패시 검색 HTML로 시도 */ }
+
+    // GQL 실패시: 검색 결과 HTML에서 slug 추출
+    if (!slug) {
+      try {
+        const searchUrl = `https://www.knagarden.info/plants?keywords=${encodeURIComponent(korName)}`;
+        const sr = await fetch(searchUrl, { headers: KNA_UA });
+        const sh = await sr.text();
+        // href="/plants/slug" 패턴에서 slug 추출
+        const sm = sh.match(/href="/plants/([a-z0-9]+)"/i);
+        if (sm) slug = sm[1];
+      } catch(e2) { /* 최종 실패 */ }
+    }
+
+    if (!slug) return { error: 'not_found', korName };
   }
 
   // 2. HTML 페이지 fetch
