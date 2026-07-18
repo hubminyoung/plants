@@ -47,6 +47,7 @@ export default {
       else if (pathname === '/api/gemini/test')      data = await geminiTest(env);
       else if (pathname === '/api/naturadb/details') data = await naturadbDetails(searchParams, env);
       else if (pathname === '/api/naturadb/test')    data = await naturadbTest(searchParams);
+      else if (pathname === '/api/knagarden/details') data = await knagardenDetails(searchParams);
       else return new Response('Not found', { status: 404, headers: CORS });
 
       return new Response(JSON.stringify(data), {
@@ -471,6 +472,76 @@ async function gaissmayerDetails(params) {
     pflanzAbstand: pflanzAbstand || null,
     debug: hasGes ? 'found_but_no_parse' : 'no_field_in_page',
     preview: detailHtml.slice(detailHtml.indexOf('product') > 0 ? detailHtml.indexOf('product') : 0, 500),
+  };
+}
+
+// ── 정원백과 (knagarden.info) — 한국 자생식물 fallback ───────────────────────────
+// q: 한국어 국명 (예: "범꼬리", "진달래")
+// 우선순위: NaturaDB → MBG → 정원백과 (이 함수는 마지막 수단)
+async function knagardenDetails(params) {
+  const korName = (params.get('q') ?? '').trim();
+  if (!korName) return { error: 'q required' };
+
+  const KNA_UA = { 'User-Agent': 'Mozilla/5.0 (compatible; PlantBot/1.0)' };
+  const GQL_URL = 'https://www.knagarden.info/.gql';
+
+  // 1. 한국어 이름으로 slug/id 찾기
+  let slug, minHeight, maxHeight;
+  try {
+    const safe = korName.replace(/["\\]/g, '');
+    const gqlResp = await fetch(GQL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{ posts(keys:["plants"], keywords:"${safe}", limit:1) { id slug minHeight maxHeight minColdHardiness maxColdHardiness } }`
+      })
+    });
+    const gqlData = await gqlResp.json();
+    const posts = gqlData?.data?.posts;
+    if (!posts?.length) return { error: 'not_found', korName };
+    ({ slug, minHeight, maxHeight } = posts[0]);
+  } catch (e) {
+    return { error: e.message, korName };
+  }
+
+  // 2. HTML 페이지 fetch
+  const htmlResp = await fetch(`https://www.knagarden.info/plants/${slug}`, { headers: KNA_UA });
+  if (!htmlResp.ok) return { error: `HTTP ${htmlResp.status}`, slug };
+  const html = await htmlResp.text();
+
+  // 3. DT/DD 파싱 (SSR 렌더링된 텍스트 섹션 추출)
+  const fields = {};
+  const dtddRe = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi;
+  let m;
+  while ((m = dtddRe.exec(html)) !== null) {
+    const key = m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const val = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (key && val && key.length < 30 && val.length > 1) fields[key] = val.slice(0, 600);
+  }
+
+  let heightStr = fields['높이'] || '';
+  if (!heightStr && (minHeight != null || maxHeight != null)) {
+    heightStr = [minHeight, maxHeight].filter(v => v != null).join('~') + 'm';
+  }
+  const hardiness = fields['내한성'] || fields['내한성(온도)'] || '';
+
+  return {
+    slug,
+    korName,
+    url: `https://www.knagarden.info/plants/${slug}`,
+    height: heightStr,
+    hardiness,
+    성상: fields['성상'] || '',
+    자생환경: fields['자생환경'] || '',
+    재배: fields['식재 및 재배'] || '',
+    번식: fields['번식정보'] || '',
+    잎: fields['잎'] || '',
+    꽃: fields['꽃'] || '',
+    줄기: fields['줄기'] || '',
+    열매: fields['열매'] || '',
+    병충해: fields['병충해'] || '',
+    이용가치: fields['이용가치'] || '',
+    유래: fields['유래'] || '',
   };
 }
 
