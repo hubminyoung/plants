@@ -332,26 +332,34 @@ table.dtbl tr:last-child td { border-bottom: none; }
 }
 .care-card-hd {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 0.6rem 1rem; background: #f7fbf4; border-bottom: 1px solid #e0eeda;
+  padding: 0.65rem 1rem; background: #f0f8ec; border-bottom: 1px solid #ddeedd;
 }
-.care-card-name { font-size: 0.92rem; font-weight: 700; color: #2a5a2a; }
-.care-section {
-  padding: 0.55rem 1rem; border-bottom: 1px solid #f0f5ec;
+.care-card-name { font-size: 0.95rem; font-weight: 700; color: #1e4d1e; }
+.care-card-lat  { font-style:italic; font-size:0.72rem; color:#6a8a5a; margin-left:0.4rem; }
+.care-accords   { display:flex; flex-direction:column; }
+/* Accordion rows */
+.care-accord { border-bottom: 1px solid #f0f5ec; }
+.care-accord:last-child { border-bottom: none; }
+.care-accord-hd {
+  display: flex; align-items: center; gap: 0.45rem;
+  padding: 0.5rem 1rem; cursor: pointer; user-select: none;
+  font-size: 0.8rem; font-weight: 600; color: #2d5a2d;
+  background: #fafff8;
+  transition: background 0.1s;
 }
-.care-section:last-child { border-bottom: none; }
-.care-sec-hd {
-  display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem;
+.care-accord-hd:hover { background: #f0f8ec; }
+.care-accord .care-chevron { margin-left: auto; font-size: 0.7rem; color: #8aaa7a; transition: transform 0.2s; }
+.care-accord.open .care-chevron { transform: rotate(180deg); }
+.care-accord-body { display: none; padding: 0.5rem 1rem 0.7rem 1rem; background: #fff; }
+.care-accord.open .care-accord-body { display: block; }
+.care-src-badge {
+  font-size: 0.6rem; padding: 0.08rem 0.3rem; border-radius: 6px;
+  background: #e8f4e8; color: #4a7a3a; border: 1px solid #c8e0c0;
 }
-.care-sec-title {
-  font-size: 0.7rem; font-weight: 700; color: #3a6a30;
-  text-transform: uppercase; letter-spacing: 0.04em;
-}
-.care-text {
-  font-size: 0.78rem; line-height: 1.6; color: #3a3a3a;
-}
+.care-text { font-size: 0.8rem; line-height: 1.7; color: #333; }
 .translate-btn {
-  font-size: 0.62rem; padding: 0.08rem 0.35rem; border: 1px solid #c0d8b8;
-  border-radius: 8px; background: white; color: #4a7a3a; cursor: pointer;
+  font-size: 0.6rem; padding: 0.06rem 0.3rem; border: 1px solid #c0d8b8;
+  border-radius: 6px; background: white; color: #4a7a3a; cursor: pointer;
 }
 .translate-btn:hover { background: #edf5e8; }
 .extern-links { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
@@ -1320,6 +1328,7 @@ async function loadMbgDetail(p) {
   // plantType: DB 한글이 있으면 유지, 없으면 MBG 번역값 사용
   if (!p.plantType) p.plantType = translatePlantType(det.plantType || '');
   p.culture      = det.culture      || '';
+  p.noteworthy   = det.noteworthy   || '';
   p.uses         = det.uses         || '';
   p.problems     = det.problems     || '';
   p.tolerate     = det.tolerate     || '';
@@ -2018,60 +2027,49 @@ function renderCare() {
     const sq = encodeURIComponent(p.latName || p.korName || p.name);
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
 
-    // 텍스트 섹션만 표시 (생태탭과 중복되는 수치 항목 제외)
-    const sections = [
-      { id:`care-cult-${pi}`,  icon:'🌱', title:'재배법 (Culture)',          text: p.culture    },
-      { id:`care-note-${pi}`,  icon:'✨', title:'주목할 특징 (Noteworthy)',   text: p.noteworthy },
-      { id:`care-prob-${pi}`,  icon:'⚠️', title:'병해충/문제점 (Problems)',   text: p.problems   },
-      { id:`care-uses-${pi}`,  icon:'🎯', title:'활용 (Uses)',                text: p.uses       },
-    ];
-
-    const sectHtml = sections.map(s => {
-      if (!s.text && !p.fetching) return '';
-      const val = p.fetching ? '<span class="loading-val">불러오는 중…</span>' : (s.text || '—');
-      return `<div class="care-section">
-        <div class="care-sec-hd">
-          <span class="care-sec-title">${s.icon} ${s.title}</span>
-          ${s.text ? `<button class="translate-btn" onclick="translateCare('${s.id}','${s.id}-btn')" id="${s.id}-btn">🌐 번역</button>` : ''}
+    function careAccordion(id, icon, title, text, badge) {
+      if (!text && !p.fetching) return '';
+      const val = p.fetching ? '<span class="loading-val">불러오는 중…</span>' : text;
+      const bdg = badge ? `<span class="care-src-badge">${badge}</span>` : '';
+      return `<div class="care-accord">
+        <div class="care-accord-hd" onclick="this.parentNode.classList.toggle('open')">
+          <span>${icon} ${title}</span>
+          ${bdg}
+          ${text ? `<button class="translate-btn" onclick="event.stopPropagation();translateCare('${id}','${id}-btn')" id="${id}-btn">🌐 번역</button>` : ''}
+          <span class="care-chevron">▾</span>
         </div>
-        <div class="care-text" id="${s.id}" data-orig="${escA(s.text||'')}">${val}</div>
-      </div>`;
-    }).filter(Boolean).join('');
-
-    // NaturaDB 섹션 (독일어 원문)
-    const ndbSections = [
-      { id:`ndb-schnitt-${pi}`,  icon:'✂️',  title:'가지치기',        text: p.ndbSchnitt     },
-      { id:`ndb-verm-${pi}`,     icon:'🌱',  title:'번식',            text: p.ndbVermehrung  },
-      { id:`ndb-pest-${pi}`,     icon:'🐛',  title:'병해충',          text: p.ndbSchaedlinge },
-      { id:`ndb-fact-${pi}`,     icon:'💡',  title:'흥미로운 사실들', text: p.ndbInteressantes },
-    ];
-    const ndbHtml = ndbSections.map(s => {
-      if (!s.text) return '';
-      return `<div class="care-section">
-        <div class="care-sec-hd">
-          <span class="care-sec-title">${s.icon} ${s.title}</span>
-          <span style="font-size:0.65rem;color:#aaa;margin-left:0.3rem">NaturaDB(DE)</span>
-          <button class="translate-btn" onclick="translateCare('${s.id}','${s.id}-btn')" id="${s.id}-btn">🌐 번역</button>
+        <div class="care-accord-body">
+          <div class="care-text" id="${id}" data-orig="${escA(text||'')}">${val||''}</div>
         </div>
-        <div class="care-text" id="${s.id}" data-orig="${escA(s.text)}">${s.text}</div>
       </div>`;
-    }).filter(Boolean).join('');
+    }
+
+    const sectHtml = [
+      careAccordion(`care-cult-${pi}`, '🌱', '재배법', p.culture, ''),
+      careAccordion(`care-note-${pi}`, '✨', '주목할 특징', p.noteworthy, ''),
+      careAccordion(`care-prob-${pi}`, '⚠️', '병해충/문제점', p.problems, ''),
+      careAccordion(`care-uses-${pi}`, '🎯', '활용', p.uses, ''),
+      careAccordion(`ndb-schnitt-${pi}`, '✂️', '가지치기', p.ndbSchnitt, 'NDB'),
+      careAccordion(`ndb-verm-${pi}`,    '🌱', '번식', p.ndbVermehrung, 'NDB'),
+      careAccordion(`ndb-pest-${pi}`,    '🐛', '병해충', p.ndbSchaedlinge, 'NDB'),
+      careAccordion(`ndb-fact-${pi}`,    '💡', '흥미로운 사실', p.ndbInteressantes, 'NDB'),
+    ].filter(Boolean).join('');
 
     return `<div class="care-card">
       <div class="care-card-hd">
         <div>
           <span class="care-card-name">${namePrimary}</span>
-          ${nameSecondary ? `<span style="font-style:italic;font-size:0.72rem;color:#6a8a5a;margin-left:0.4rem">${nameSecondary}</span>` : ''}
+          ${nameSecondary ? `<span class="care-card-lat">${nameSecondary}</span>` : ''}
         </div>
         <div class="eco-ext-links">
-          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="MBG 상세" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
-          <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
-          ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
+          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
+          <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
+          ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener">🌸 KNA</a>` : ''}
         </div>
       </div>
-      ${sectHtml || ''}
-      ${ndbHtml}
-      ${!sectHtml && !ndbHtml ? '<div class="care-section"><span style="color:#aaa;font-size:0.8rem">데이터 없음 (MBG · NaturaDB)</span></div>' : ''}
+      <div class="care-accords">
+        ${sectHtml || '<div style="padding:0.6rem 1rem;color:#aaa;font-size:0.8rem">데이터 없음</div>'}
+      </div>
     </div>`;
   }).join('');
 
