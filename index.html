@@ -348,7 +348,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 /* ── 식재 구상판 ─────────────────────────────────────────────────────────────── */
 .board-toolbar { display:flex;align-items:center;gap:0.5rem;padding:0.8rem 1rem;border-bottom:1px solid #e8f0e4; }
 .board-zones   { display:flex;flex-direction:column;gap:1.5rem;padding:1rem; }
-.board-zone-card { border:1.5px solid #d0e8c8;border-radius:12px;overflow:hidden;background:#fff; }
+.board-zone-card { border:1.5px solid #d0e8c8;border-radius:12px;overflow:hidden;background:#fff;cursor:default; }
+.board-zone-card.bz-active { border-color:#52b788;box-shadow:0 0 0 2px #c8f0dc; }
 .board-zone-header { display:flex;align-items:center;gap:0.5rem;background:#f0f8ec;padding:0.55rem 1rem;border-bottom:1px solid #d0e8c8; }
 .board-zone-name { flex:1;font-size:0.95rem;font-weight:700;color:#2d5a1b;border:none;background:transparent;outline:none;padding:0.15rem 0; }
 .board-zone-body { display:grid;grid-template-columns:200px 1fr;min-height:150px; }
@@ -2283,6 +2284,24 @@ loadNativePlantDB();
 
 // ── 식재 구상판 ───────────────────────────────────────────────────────────────
 const boardZones = [];
+let boardActiveZoneId = null; // 마지막 포커스된 존
+
+// 이미지 Ctrl+V 붙여넣기
+document.addEventListener('paste', function(ev) {
+  if (!document.getElementById('pane-board').classList.contains('active')) return;
+  const items = [...(ev.clipboardData?.items || [])];
+  const imgItem = items.find(it => it.type.startsWith('image/'));
+  if (!imgItem) return;
+  let targetId = boardActiveZoneId;
+  if (!targetId && boardZones.length === 1) targetId = boardZones[0].id;
+  if (!targetId) { showToast('이미지를 붙여넣을 존을 먼저 클릭하세요.'); return; }
+  const z = boardZones.find(z => z.id === targetId);
+  if (!z) return;
+  const file = imgItem.getAsFile();
+  const reader = new FileReader();
+  reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); showToast('이미지 추가됨 ✓'); };
+  reader.readAsDataURL(file);
+});
 
 // HTML attribute 안전 인코딩
 function escA(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -2329,9 +2348,72 @@ function addConceptUrl(zoneId) {
   if (z) { z.conceptImgs.push(url.trim()); renderBoardZones(); }
 }
 
+function boardConceptFileInput(zoneId) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+  inp.onchange = () => {
+    const z = boardZones.find(z => z.id === zoneId);
+    if (!z) return;
+    [...inp.files].forEach(file => {
+      const reader = new FileReader();
+      reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); };
+      reader.readAsDataURL(file);
+    });
+  };
+  inp.click();
+}
+
+async function boardGenerateAI(zoneId) {
+  const z = boardZones.find(z => z.id === zoneId);
+  if (!z) return;
+  const plantNames = z.plantItems.map(pi => {
+    const p = plants.find(pl => pl.name === pi.name);
+    return p?.latName || pi.name;
+  }).slice(0, 5).join(', ');
+  const zoneName = z.name || '정원';
+  const prompt = `A Korean native plant garden design, ${zoneName} zone, featuring ${plantNames || 'native wildflowers'}, naturalistic planting style, landscape architecture concept, photorealistic`;
+
+  const hfToken = localStorage.getItem('hfToken') || '';
+  if (!hfToken) {
+    const t = window.prompt('Hugging Face API 토큰을 입력하세요 (hf_... ):');
+    if (!t) return;
+    localStorage.setItem('hfToken', t.trim());
+  }
+
+  // AI 생성 중 표시
+  const btn = document.getElementById('ai-gen-btn-' + zoneId);
+  if (btn) { btn.disabled = true; btn.textContent = '생성 중…'; }
+
+  try {
+    const resp = await fetch('https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('hfToken') || ''), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inputs: prompt, parameters: { width: 768, height: 512 } }),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const blob = await resp.blob();
+    const reader = new FileReader();
+    reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); showToast('AI 이미지 생성 완료 ✓'); };
+    reader.readAsDataURL(blob);
+  } catch(e) {
+    showToast('AI 생성 실패: ' + e.message.slice(0, 60));
+    if (btn) { btn.disabled = false; btn.textContent = '✨ AI 이미지'; }
+  }
+}
+
 function removeConceptImg(zoneId, idx) {
   const z = boardZones.find(z => z.id === zoneId);
   if (z) { z.conceptImgs.splice(idx, 1); renderBoardZones(); }
+}
+
+function resizeConceptImg(zoneId, idx, delta) {
+  const z = boardZones.find(z => z.id === zoneId);
+  if (!z) return;
+  const entry = z.conceptImgs[idx];
+  const curW = (typeof entry === 'object' && entry.w) ? entry.w : 220;
+  const newW = Math.max(80, Math.min(700, curW + delta));
+  z.conceptImgs[idx] = { src: typeof entry === 'string' ? entry : entry.src, w: newW };
+  renderBoardZones();
 }
 
 function assignPlantToBoard(zoneId, plantName) {
@@ -2412,15 +2494,24 @@ function renderBoardZones() {
 }
 
 function renderBoardZoneHtml(z) {
-  // 경관 이미지
-  const conceptHtml = z.conceptImgs.map((src, i) =>
-    `<div class="board-concept-img-wrap">
-      <img class="board-concept-img" src="${escA(src)}" onclick="window.open(this.src,'_blank')" title="원본 보기">
-      <button class="board-concept-img-del" onclick="removeConceptImg('${escA(z.id)}',${i})">×</button>
-    </div>`
-  ).join('');
+  const zid = escA(z.id);
+  const isActive = boardActiveZoneId === z.id;
 
-  // 식물 카드 (이름 대신 piIdx 사용 → 이스케이프 불필요)
+  // 경관 이미지 (크기 조절 가능, 여러 장)
+  const conceptHtml = z.conceptImgs.map((entry, i) => {
+    const src = typeof entry === 'string' ? entry : entry.src;
+    const w   = typeof entry === 'object' && entry.w ? entry.w : 220;
+    return `<div class="board-concept-img-wrap" style="width:${w}px;min-width:80px;max-width:700px;resize:horizontal;overflow:hidden;position:relative;flex-shrink:0">
+      <img class="board-concept-img" src="${escA(src)}" style="width:100%;height:auto;min-height:60px;object-fit:cover;display:block;cursor:zoom-in;" onclick="window.open('${escA(src)}','_blank')" title="원본 보기">
+      <button class="board-concept-img-del" onclick="removeConceptImg('${zid}',${i})" style="display:flex;">×</button>
+      <div style="position:absolute;bottom:2px;left:3px;display:flex;gap:2px;">
+        <button onclick="resizeConceptImg('${zid}',${i},-40)" style="background:rgba(0,0,0,0.4);color:#fff;border:none;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer;">−</button>
+        <button onclick="resizeConceptImg('${zid}',${i},60)"  style="background:rgba(0,0,0,0.4);color:#fff;border:none;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer;">＋</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // 식물 카드
   const plantCardsHtml = z.plantItems.map((pi, piIdx) => {
     const p     = plants.find(pl => pl.name === pi.name);
     const imgs  = p?.images || [];
@@ -2429,7 +2520,6 @@ function renderBoardZoneHtml(z) {
     const src   = imgs[idx] || '';
     const kor   = (p?.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
     const lat   = p?.latName || pi.name;
-    const zid   = escA(z.id);
 
     const imgContent = src
       ? `<img class="bpc-img" src="${escA(src)}"
@@ -2454,31 +2544,37 @@ function renderBoardZoneHtml(z) {
     </div>`;
   }).join('');
 
-  const zid = escA(z.id);
-  return `<div class="board-zone-card">
+  return `<div class="board-zone-card${isActive ? ' bz-active' : ''}" onclick="boardActiveZoneId='${zid}';document.querySelectorAll('.board-zone-card').forEach(e=>e.classList.remove('bz-active'));this.classList.add('bz-active')">
     <div class="board-zone-header">
       <input class="board-zone-name" value="${escA(z.name)}"
-        onchange="renameBoardZone('${zid}',this.value)">
+        onchange="renameBoardZone('${zid}',this.value)" onclick="event.stopPropagation()">
       <button class="btn btn-sm" style="padding:0.15rem 0.45rem;font-size:0.75rem;color:#c44;"
-        onclick="if(confirm('이 존을 삭제할까요?'))removeBoardZone('${zid}')">🗑</button>
+        onclick="event.stopPropagation();if(confirm('이 존을 삭제할까요?'))removeBoardZone('${zid}')">🗑</button>
     </div>
-    <div class="board-zone-body">
-      <div class="board-concept-area">
-        <div class="board-concept-label">📸 경관 이미지</div>
+
+    <div class="board-concept-area">
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.4rem;flex-wrap:wrap;">
+        <span class="board-concept-label" style="margin:0;">📸 개념 이미지</span>
+        <button class="btn btn-sm" style="font-size:0.68rem;padding:0.15rem 0.4rem;color:#4a8a5a;border-color:#b0d0a0;" onclick="event.stopPropagation();boardConceptFileInput('${zid}')">📂 파일</button>
+        <button class="btn btn-sm" style="font-size:0.68rem;padding:0.15rem 0.4rem;color:#4a8a5a;border-color:#b0d0a0;" onclick="event.stopPropagation();addConceptUrl('${zid}')">🔗 URL</button>
+        <button id="ai-gen-btn-${zid}" class="btn btn-sm" style="font-size:0.68rem;padding:0.15rem 0.4rem;color:#7a4ab0;border-color:#c0a0e0;" onclick="event.stopPropagation();boardGenerateAI('${zid}')">✨ AI 생성</button>
+        ${isActive ? '<span style="font-size:0.62rem;color:#52b788;margin-left:auto;">← 포커스됨 · Ctrl+V로 붙여넣기</span>' : ''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;min-height:60px;">
         ${conceptHtml}
-        <div class="board-concept-drop"
+        <div class="board-concept-drop" style="min-width:90px;height:auto;align-self:stretch;"
           ondragover="boardConceptDragover(event)"
           ondragleave="boardConceptDragleave(event)"
-          ondrop="boardConceptDrop(event,'${zid}')">
-          🖼 이미지 드롭<br><span style="font-size:0.65rem;opacity:0.8;">파일 · URL 모두 가능</span>
+          ondrop="event.stopPropagation();boardConceptDrop(event,'${zid}')">
+          🖼<br><span style="font-size:0.6rem;opacity:0.7;">드롭</span>
         </div>
-        <button class="btn btn-sm" style="font-size:0.72rem;padding:0.2rem 0.45rem;color:#4a8a5a;border-color:#b0d0a0;"
-          onclick="addConceptUrl('${zid}')">+ URL 추가</button>
-      </div>
-      <div class="board-plant-area">
-        ${plantCardsHtml || '<div style="color:#b0c8a0;font-size:0.78rem;padding:1rem 0.5rem;">↓ 아래에서 식물을 추가하세요</div>'}
       </div>
     </div>
+
+    <div class="board-plant-area" style="border-top:1px solid #eaf0e6;">
+      ${plantCardsHtml || '<div style="color:#b0c8a0;font-size:0.78rem;padding:0.7rem 0.5rem;">아래에서 식물을 추가하세요</div>'}
+    </div>
+
     <div class="board-add-row">
       <span style="font-size:0.75rem;color:#6a8a5a;white-space:nowrap;">🌿 식물 추가:</span>
       <div style="position:relative;display:inline-block;">
@@ -2486,7 +2582,8 @@ function renderBoardZoneHtml(z) {
           data-bps-zone="${zid}"
           oninput="boardPlantSearch(this,'${zid}')"
           onfocus="boardPlantSearch(this,'${zid}')"
-          onblur="setTimeout(()=>{const e=document.getElementById('bps-${z.id}');if(e)e.style.display='none'},150)">
+          onblur="setTimeout(()=>{const e=document.getElementById('bps-${z.id}');if(e)e.style.display='none'},150)"
+          onclick="event.stopPropagation()">
         <div class="board-sug-list" id="bps-${z.id}"></div>
       </div>
     </div>
