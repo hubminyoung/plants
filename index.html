@@ -1748,26 +1748,61 @@ function setSeasonalSort(by) {
 }
 
 function exportSeasonalXlsx() {
-  const rows = plants.map(p => ({
-    '국명': p.korName || '',
-    '학명': p.latName || p.name,
-    '수고': p.height || '',
-    '개화월': p.bloomMonths.length ? p.bloomMonths.map(m => MO_LABELS[m-1]).join(', ') : '',
-    '꽃색': (p.flowerColors || []).join(', '),
-    '내한성': p.hardiness || '',
-    '식물유형': p.plantType || '',
-    '자생환경': p.ndbStandort || '',
-    'NaturaDB': p.naturadbUrl || '',
-    'MBG': p.mbgTaxonId ? `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId}` : '',
-    '정원백과': p.knaUrl || '',
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  // 열 너비 자동 조정
-  const cols = Object.keys(rows[0] || {});
-  ws['!cols'] = cols.map(k => ({ wch: Math.max(k.length, ...rows.map(r => String(r[k]||'').length), 6) + 2 }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '식재목록');
-  XLSX.writeFile(wb, '식재목록.xlsx');
+  // 꽃색 이름 → hex 매핑 (한/영)
+  const COLOR_MAP = {
+    'white':'#ffffff','yellow':'#fff176','pink':'#f48fb1','red':'#ef5350',
+    'purple':'#ab47bc','blue':'#42a5f5','orange':'#ffa726','lavender':'#b39ddb',
+    'magenta':'#ec407a','green':'#66bb6a','cream':'#fff8e1','rose':'#f06292',
+    'violet':'#7e57c2','lilac':'#ce93d8','burgundy':'#880e4f','mauve':'#ce93d8',
+    '흰색':'#ffffff','백색':'#ffffff','노랑':'#fff176','황색':'#fff176',
+    '분홍':'#f48fb1','핑크':'#f48fb1','빨강':'#ef5350','적색':'#ef5350',
+    '보라':'#ab47bc','자주':'#880e4f','파랑':'#42a5f5','청색':'#42a5f5',
+    '주황':'#ffa726','연보라':'#ce93d8','자홍':'#ec407a',
+    '녹색':'#66bb6a','초록':'#66bb6a','크림':'#fff8e1','붉은색':'#ef5350',
+  };
+  function colorChip(name) {
+    const hex = COLOR_MAP[name.trim().toLowerCase()];
+    if (!hex) return `<span style="font-size:10pt">${name}</span>`;
+    const border = (hex === '#ffffff' || hex === '#fff176' || hex === '#fff8e1') ? 'border:1px solid #bbb;' : '';
+    return `<span style="display:inline-block;width:13px;height:13px;background:${hex};${border}border-radius:2px;vertical-align:middle;margin-right:3px"></span><span style="font-size:10pt">${name}</span>`;
+  }
+
+  const HEADERS = ['국명','학명','수고','개화월','꽃색','내한성','식물유형','자생환경'];
+  let html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head><meta charset="UTF-8">
+<style>
+body{font-family:\'Malgun Gothic\',sans-serif;}
+table{border-collapse:collapse;}
+td,th{border:1px solid #c8d8b8;padding:4px 7px;white-space:nowrap;vertical-align:middle;}
+th{background:#2d5a1b;color:white;font-weight:700;font-size:10pt;}
+tr:nth-child(even) td{background:#f6fbf4;}
+</style></head><body><table>`;
+
+  html += '<tr>' + HEADERS.map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+  for (const p of plants) {
+    const colors = (p.flowerColors || []);
+    const colorCell = colors.length
+      ? colors.map(c => colorChip(c)).join(' ')
+      : '';
+    html += '<tr>';
+    html += `<td style="font-weight:600">${p.korName||''}</td>`;
+    html += `<td style="font-style:italic;color:#4a6a3a">${p.latName||p.name}</td>`;
+    html += `<td>${p.height||''}</td>`;
+    html += `<td>${p.bloomMonths.length ? p.bloomMonths.map(m=>MO_LABELS[m-1]).join(', ') : ''}</td>`;
+    html += `<td>${colorCell}</td>`;
+    html += `<td>${p.hardiness||''}</td>`;
+    html += `<td>${p.plantType||''}</td>`;
+    html += `<td style="max-width:300px;white-space:normal">${p.ndbStandort||''}</td>`;
+    html += '</tr>';
+  }
+  html += '</table></body></html>';
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '식재목록.xls'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 function renderSeasonal() {
