@@ -181,6 +181,15 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 #eco-lightbox img { max-width: 90vw; max-height: 88vh; border-radius: 8px; object-fit: contain; }
 #eco-lightbox-close { position: absolute; top: 1rem; right: 1.2rem; color: white; font-size: 2rem;
   cursor: pointer; line-height: 1; background: none; border: none; }
+#eco-lightbox-prev, #eco-lightbox-next { position: absolute; top: 50%; transform: translateY(-50%);
+  color: white; font-size: 2.2rem; cursor: pointer; background: rgba(0,0,0,0.35); border: none;
+  border-radius: 50%; width: 2.4rem; height: 2.4rem; display: flex; align-items: center; justify-content: center;
+  padding: 0; transition: background 0.15s; }
+#eco-lightbox-prev:hover, #eco-lightbox-next:hover { background: rgba(0,0,0,0.65); }
+#eco-lightbox-prev { left: 1.2rem; }
+#eco-lightbox-next { right: 1.2rem; }
+#eco-lightbox-counter { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,0.75); font-size: 0.85rem; pointer-events: none; }
 .eco-card-body { display: flex; }
 .eco-left { flex: 0 0 60%; display: flex; flex-direction: column; border-right: 1px solid #eef3ec; overflow: hidden; min-width: 0; }
 .eco-sec-body { display: grid; }
@@ -612,9 +621,12 @@ table.dtbl tr:last-child td { border-bottom: none; }
 </div>
 
 <!-- Lightbox -->
-<div id="eco-lightbox" onclick="this.classList.remove('open')">
-  <button id="eco-lightbox-close" onclick="document.getElementById('eco-lightbox').classList.remove('open')">×</button>
+<div id="eco-lightbox" onclick="ecoLightboxBgClick(event)">
+  <button id="eco-lightbox-close" onclick="ecoCloseLightbox()">×</button>
+  <button id="eco-lightbox-prev" onclick="event.stopPropagation();ecoLightboxNav(-1)">&#8249;</button>
   <img id="eco-lightbox-img" src="" alt="">
+  <button id="eco-lightbox-next" onclick="event.stopPropagation();ecoLightboxNav(1)">&#8250;</button>
+  <div id="eco-lightbox-counter"></div>
 </div>
 
 <div id="pane-board" class="tab-pane">
@@ -1707,7 +1719,7 @@ function renderEcology() {
 
     // image strip
     const imgThumbsHtml = (p.images||[]).slice(0,10).map((src,ii) =>
-      `<div class="eco-img-thumb" onclick="event.stopPropagation();ecoOpenLightbox('${escA(src)}')"><img src="${escA(src)}" alt=""><button class="eco-img-thumb-del" onclick="event.stopPropagation();ecoRemoveImg(${pflanzIdx},${ii})">×</button></div>`
+      `<div class="eco-img-thumb" onclick="event.stopPropagation();ecoOpenLightbox(${pflanzIdx},${ii})"><img src="${escA(src)}" alt=""><button class="eco-img-thumb-del" onclick="event.stopPropagation();ecoRemoveImg(${pflanzIdx},${ii})">×</button></div>`
     ).join('');
     const addImgHtml = (p.images||[]).length<3 ? `<label class="eco-img-add" title="이미지 추가 (Ctrl+V 또는 파일)"><span>＋</span><input type="file" accept="image/*" onchange="ecoAddImgFile(event,${pflanzIdx})"></label>` : '';
 
@@ -2345,13 +2357,51 @@ function ecoAddImgFile(ev, idx) {
   const r = new FileReader(); r.onload = e => ecoAddImgData(idx, e.target.result); r.readAsDataURL(f);
 }
 function ecoRemoveImg(idx, ii) {
-  const p = plants[idx]; if (!p||!p.images) return;
-  p.images.splice(ii,1); renderActiveTab();
+  const p = plants[idx];
+  if (!p || !p.images) return;
+  const removed = p.images[ii];
+  if (removed && !removed.startsWith('data:')) {
+    if (!p.hiddenImages) p.hiddenImages = [];
+    p.hiddenImages.push(removed);
+  }
+  p.images.splice(ii, 1);
+  renderActiveTab();
 }
-function ecoOpenLightbox(src) {
-  document.getElementById('eco-lightbox-img').src = src;
+let ecoLbPlantIdx = null, ecoLbImgIdx = null;
+function ecoOpenLightbox(plantIdx, imgIdx) {
+  ecoLbPlantIdx = plantIdx; ecoLbImgIdx = imgIdx;
+  ecoLightboxShow();
   document.getElementById('eco-lightbox').classList.add('open');
 }
+function ecoLightboxShow() {
+  const p = plants[ecoLbPlantIdx];
+  if (!p || !p.images) return;
+  const imgs = p.images;
+  document.getElementById('eco-lightbox-img').src = imgs[ecoLbImgIdx] || '';
+  const total = imgs.length;
+  document.getElementById('eco-lightbox-counter').textContent = total > 1 ? (ecoLbImgIdx+1) + ' / ' + total : '';
+  document.getElementById('eco-lightbox-prev').style.display = total > 1 ? 'flex' : 'none';
+  document.getElementById('eco-lightbox-next').style.display = total > 1 ? 'flex' : 'none';
+}
+function ecoLightboxNav(dir) {
+  const p = plants[ecoLbPlantIdx];
+  if (!p || !p.images) return;
+  ecoLbImgIdx = (ecoLbImgIdx + dir + p.images.length) % p.images.length;
+  ecoLightboxShow();
+}
+function ecoCloseLightbox() {
+  document.getElementById('eco-lightbox').classList.remove('open');
+}
+function ecoLightboxBgClick(ev) {
+  if (ev.target === document.getElementById('eco-lightbox')) ecoCloseLightbox();
+}
+document.addEventListener('keydown', function(ev) {
+  const lb = document.getElementById('eco-lightbox');
+  if (!lb || !lb.classList.contains('open')) return;
+  if (ev.key === 'ArrowLeft') ecoLightboxNav(-1);
+  else if (ev.key === 'ArrowRight') ecoLightboxNav(1);
+  else if (ev.key === 'Escape') ecoCloseLightbox();
+});
 // ── 식재 구상판 ───────────────────────────────────────────────────────────────
 const boardZones = [];
 let boardActiveZoneId = null; // 마지막 포커스된 존
