@@ -1124,14 +1124,54 @@ async function loadGardeniaDetail(p) {
 }
 
 async function loadKnagardenDetail(p, korName) {
-  const det = await wFetch('/api/knagarden/details', { q: korName });
-  if (!det || det.error) return;
-  if (det.자생환경 && !p.ndbStandort)      p.ndbStandort    = det.자생환경;
-  if (det.재배     && !p.ndbVerwendung)    p.ndbVerwendung  = det.재배;
-  if (det.번식     && !p.ndbVermehrung)    p.ndbVermehrung  = det.번식;
-  if (det.병충해   && !p.ndbSchaedlinge)   p.ndbSchaedlinge = det.병충해;
-  if (det.이용가치  && !p.ndbInteressantes) p.ndbInteressantes = det.이용가치;
-  if (det.height   && !p.height)           p.height         = det.height;
+  // Cloudflare Worker에서 corsproxy.io도 403 차단 → 브라우저에서 직접 조회
+  async function knaFetchBrowser(url) {
+    try {
+      const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url));
+      if (r.ok) return await r.text();
+    } catch(e) {}
+    return null;
+  }
+
+  // 1. 검색 페이지에서 slug 추출
+  const sh = await knaFetchBrowser('https://www.knagarden.info/plants?keywords=' + encodeURIComponent(korName));
+  if (!sh) return;
+  const postsSection = (sh.match(/"posts":\[([^\]]+)\]/) || [])[1] || '';
+  const slugsInPosts = Array.from(postsSection.matchAll(/"slug":"([a-z0-9-]+)"/g), m => m[1]);
+  const baseSlug = slugsInPosts.find(s => s && slugsInPosts.every(o => o === s || o.endsWith(s)));
+  const slug = baseSlug || slugsInPosts[0];
+  if (!slug) return;
+
+  // 2. 상세 페이지 HTML 파싱
+  const html = await knaFetchBrowser('https://www.knagarden.info/plants/' + slug);
+  if (!html) return;
+  const fields = {};
+  const dtddRe = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi;
+  let m;
+  while ((m = dtddRe.exec(html)) !== null) {
+    const key = m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const val = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (key && val && key.length < 30 && val.length > 1) fields[key] = val.slice(0, 600);
+  }
+
+  const det = {
+    url: 'https://www.knagarden.info/plants/' + slug,
+    height: fields['높이'] || '',
+    hardiness: fields['내한성'] || fields['내한성(온도)'] || '',
+    성상: fields['성상'] || '',
+    자생환경: fields['자생환경'] || '',
+    재배: fields['식재 및 재배'] || '',
+    번식: fields['번식정보'] || '',
+    이용가치: fields['이용가치'] || '',
+    병충해: fields['병충해'] || '',
+  };
+
+  if (det.자생환경 && !p.ndbStandort)     p.ndbStandort    = det.자생환경;
+  if (det.재배    && !p.ndbVerwendung)   p.ndbVerwendung  = det.재배;
+  if (det.번식    && !p.ndbVermehrung)   p.ndbVermehrung  = det.번식;
+  if (det.병충해  && !p.ndbSchaedlinge)  p.ndbSchaedlinge = det.병충해;
+  if (det.이용가치 && !p.ndbInteressantes) p.ndbInteressantes = det.이용가치;
+  if (det.height   && !p.height)         p.height         = det.height;
   if (det.hardiness && !p.hardiness) {
     const zm = det.hardiness.match(/(\d+[ab])\s*[-~]\s*(\d+[ab])/i);
     p.hardiness = zm ? `${zm[1]}–${zm[2]}` : det.hardiness.split(' ')[0];
