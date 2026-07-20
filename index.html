@@ -258,15 +258,25 @@ table.eco tr:hover td { background: #f4faf2; }
   font-size: 0.62rem;
 }
 .s-height {
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-  padding: 0.2rem 0.3rem 0.25rem; border-right: 1px solid #eaf0e6;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  padding: 0.3rem 0.5rem; border-right: 1px solid #eaf0e6; gap: 3px;
 }
-.s-height-bar-bg {
-  width: 10px; height: 36px; background: #e8f0e4; border-radius: 3px 3px 0 0;
-  display: flex; align-items: flex-end; overflow: hidden;
+.s-height-track {
+  width: 100%; height: 6px; background: #e8f0e4; border-radius: 3px;
 }
-.s-height-bar { width: 100%; background: #4a8a3a; border-radius: 3px 3px 0 0; min-height: 2px; }
-.s-height-val { font-size: 0.6rem; color: #5a7a4a; margin-top: 2px; text-align: center; line-height: 1.2; white-space: nowrap; }
+.s-height-fill { height: 100%; background: #4a8a3a; border-radius: 3px; min-width: 2px; }
+.s-height-val { font-size: 0.6rem; color: #3b6d11; line-height: 1.2; white-space: nowrap; }
+.sea-toolbar {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.7rem; flex-wrap: wrap;
+}
+.sea-sort-label { font-size: 0.72rem; color: #5a7a4a; font-weight: 600; }
+.sea-sort-btn {
+  padding: 0.2rem 0.55rem; border: 1.5px solid #c0d8b8; border-radius: 5px;
+  background: white; color: #3a6330; font-size: 0.7rem; cursor: pointer;
+  font-weight: 600; transition: all 0.15s;
+}
+.sea-sort-btn.active { background: #2d5a1b; color: white; border-color: #2d5a1b; }
+.sea-sort-btn:hover:not(.active) { background: #edf5e8; }
 .season-legend { display: flex; gap: 1rem; margin-top: 0.8rem;
   font-size: 0.72rem; color: #6a8a5a; flex-wrap: wrap; }
 
@@ -894,11 +904,12 @@ function parsePlants() {
     .replace(/\bcv\./g, 'cv')
     .replace(/^\s*\*+\s*/gm, '');
 
-  // 1. 학명 패턴
-  const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+[a-z][a-z-]{1,})+(?:\s+'[^']*')?|\s+'[^']*')/g;
+  // 1. 학명 패턴: 반드시 이명법(속명+종명) 또는 속명+'품종명' 구조 필요
+  //    → East, Shade, Garden 같은 일반 영단어 단독은 제외
+  const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+×?\s*[a-z][a-z-]{1,})+(?:\s+'[^']*(?:'s[^']*)*')?|\s+'[^']*(?:'s[^']*)*')/g;
 
   // 2. 줄 단위 전처리: 같은 줄에 국명+학명이 함께 있으면 국명 제거
-  //    (국명은 나중에 native_plants.json DB에서 자동으로 채워짘)
+  //    (국명은 나중에 native_plants.json DB에서 자동으로 채워짐)
   const cleaned = normalized.split('\n').map(line => {
     if (/[가-힣]/.test(line) && /[A-Z][a-z]{2,}\s+[a-z]/.test(line))
       return line.replace(/[가-힣]+\s*/g, ' ');
@@ -912,14 +923,17 @@ function parsePlants() {
   const koreans = new Set();
 
   for (const seg of segs) {
+    // 학명 추출
     const lm = [...(seg.match(latinRe) || [])];
     lm.forEach(l => latins.add(l.replace(/\s+/g, ' ').trim()));
 
+    // 학명 제거 후 한글 추출
     let rest = seg;
     lm.forEach(l => rest = rest.replace(new RegExp(l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' '));
     rest = rest.replace(/[^가-힣\s]/g, ' ').trim();
     if (!rest) continue;
 
+    // 공백으로 쪼개 각 단어: 조사 제거 → 동사형 필터
     rest.split(/\s+/).forEach(w => {
       w = w.trim();
       if (!w) return;
@@ -932,9 +946,11 @@ function parsePlants() {
   const names = [...new Set([...latins, ...koreans].map(normName))].filter(n => n.length >= 2);
   names.forEach(n => {
     if (!plants.find(p => normName(p.name) === normName(n))) plants.push(mkPlant(n));
-  });renderAll();
+  });
+  renderAll();
   plants.filter(p => !p.fetching && !p.done).forEach(loadPlant);
 }
+
 function mkPlant(name) {
   return {
     name, korName: '', latName: '', commonName: '', native: '', family: '',
@@ -1241,7 +1257,7 @@ async function loadNaturadbDetail(p) {
   renderChips(); renderActiveTab();
   } // end if (det && !det.error)
 
-  // 정원백과 fallback: ndb 텍스트 없고 한국어 국명이 있으면
+  // 정원백과 fallback: ndb 텍스트 섹션이 없고 한국어 국명이 있으면
   const hasNdbText = !!(p.ndbStandort || p.ndbOekologie || p.ndbVerwendung);
   const korForKna = p.korName && /[가-힣]/.test(p.korName) ? p.korName : null;
   if (!hasNdbText && korForKna) await loadKnagardenDetail(p, korForKna);
@@ -1652,7 +1668,7 @@ function renderEcology() {
             <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
             <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${encodeURIComponent((p.latName||p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
             ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
-                        <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
+            <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
             <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
           </div>
         </div>
@@ -1719,6 +1735,41 @@ function isDark(c) { return ['red','purple','blue','green','magenta','violet'].i
 // ── Tab 3: Seasonal ───────────────────────────────────────────────────────────
 const MO_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
+let seasonalSort = { by: null, dir: 'asc' };
+
+function setSeasonalSort(by) {
+  if (seasonalSort.by === by) {
+    seasonalSort.dir = seasonalSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    seasonalSort.by = by;
+    seasonalSort.dir = 'asc';
+  }
+  renderSeasonal();
+}
+
+function exportSeasonalXlsx() {
+  const rows = plants.map(p => ({
+    '국명': p.korName || '',
+    '학명': p.latName || p.name,
+    '수고': p.height || '',
+    '개화월': p.bloomMonths.length ? p.bloomMonths.map(m => MO_LABELS[m-1]).join(', ') : '',
+    '꽃색': (p.flowerColors || []).join(', '),
+    '내한성': p.hardiness || '',
+    '식물유형': p.plantType || '',
+    '자생환경': p.ndbStandort || '',
+    'NaturaDB': p.naturadbUrl || '',
+    'MBG': p.mbgTaxonId ? `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId}` : '',
+    '정원백과': p.knaUrl || '',
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // 열 너비 자동 조정
+  const cols = Object.keys(rows[0] || {});
+  ws['!cols'] = cols.map(k => ({ wch: Math.max(k.length, ...rows.map(r => String(r[k]||'').length), 6) + 2 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '식재목록');
+  XLSX.writeFile(wb, '식재목록.xlsx');
+}
+
 function renderSeasonal() {
   const el = document.getElementById('sea-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div>'; return; }
@@ -1737,11 +1788,31 @@ function renderSeasonal() {
     return null;
   }
 
-  const heights = plants.map(p => parseHeightM(p.height));
+  // 정렬 (원본 배열 불변)
+  let sorted = [...plants];
+  if (seasonalSort.by === 'height') {
+    sorted.sort((a, b) => {
+      const ha = parseHeightM(a.height)?.max ?? -1;
+      const hb = parseHeightM(b.height)?.max ?? -1;
+      return seasonalSort.dir === 'asc' ? ha - hb : hb - ha;
+    });
+  } else if (seasonalSort.by === 'bloom') {
+    sorted.sort((a, b) => {
+      const ma = a.bloomMonths.length ? Math.min(...a.bloomMonths) : 13;
+      const mb = b.bloomMonths.length ? Math.min(...b.bloomMonths) : 13;
+      return seasonalSort.dir === 'asc' ? ma - mb : mb - ma;
+    });
+  }
+
+  const heights = sorted.map(p => parseHeightM(p.height));
   const maxH = Math.max(0.1, ...heights.map(h => h?.max || 0));
 
+  const dirIcon = d => d === 'asc' ? ' ↑' : ' ↓';
+  const hActive = seasonalSort.by === 'height';
+  const bActive = seasonalSort.by === 'bloom';
+
   const headCells = MO_LABELS.map(m => `<div>${m}</div>`).join('');
-  const rows = plants.map((p, i) => {
+  const rows = sorted.map((p, i) => {
     const cells = [1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
       if (p.bloomMonths.includes(m)) {
         const col = p.flowerColors[0] ? c2css(p.flowerColors[0]) : '#74c476';
@@ -1751,14 +1822,12 @@ function renderSeasonal() {
     }).join('');
 
     const h = heights[i];
-    const hPct = h ? Math.max(4, Math.round((h.max / maxH) * 100)) : 0;
-    const hLabel = p.height
-      ? p.height.replace(/\s/g, '').replace('~', '~')
-      : '—';
+    const hPct = h ? Math.max(3, Math.round((h.max / maxH) * 100)) : 0;
+    const hLabel = p.height ? p.height.replace(/\s/g, '') : '—';
 
     const heightCell = `<div class="s-height">
-      <div class="s-height-bar-bg">
-        <div class="s-height-bar" style="height:${hPct}%" title="${p.height || '수고 미제공'}"></div>
+      <div class="s-height-track">
+        <div class="s-height-fill" style="width:${hPct}%" title="${p.height || '수고 미제공'}"></div>
       </div>
       <div class="s-height-val">${hLabel}</div>
     </div>`;
@@ -1773,6 +1842,13 @@ function renderSeasonal() {
   }).join('');
 
   el.innerHTML = `
+    <div class="sea-toolbar">
+      <span class="sea-sort-label">정렬:</span>
+      <button class="sea-sort-btn${hActive ? ' active' : ''}" onclick="setSeasonalSort('height')">수고${hActive ? dirIcon(seasonalSort.dir) : ''}</button>
+      <button class="sea-sort-btn${bActive ? ' active' : ''}" onclick="setSeasonalSort('bloom')">개화월${bActive ? dirIcon(seasonalSort.dir) : ''}</button>
+      ${(hActive || bActive) ? `<button class="sea-sort-btn" onclick="seasonalSort={by:null,dir:'asc'};renderSeasonal()" style="color:#888;border-color:#ddd">초기화</button>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="exportSeasonalXlsx()" style="margin-left:auto;background:#f0f8ec;color:#2d5a1b;border:1px solid #c0d8b8;">📥 엑셀 내보내기</button>
+    </div>
     <div class="season-wrap">
       <div class="season-grid">
         <div class="season-head"><div>식물명</div><div>수고</div>${headCells}</div>
@@ -1954,34 +2030,50 @@ function renderCare() {
     <p class="src-note" style="padding:0 1rem 0.5rem">* Missouri Botanical Garden Plant Finder. 🌐 번역 버튼으로 한국어 번역 (HF API 키 필요)</p>`;
 }
 
-// Google Translate 비공식 API (무료, 한도 없음)
 // 독일어 원예 전문용어 사전
 const DE_KO = {
+  // 뿌리 시스템
   'Flachwurzler':'천근성 뿌리','Tiefwurzler':'심근성 뿌리','Pfahlwurzler':'직근성 뿌리','Herzwurzler':'심장형 뿌리',
+  // 식물 종류
   'Staude':'숙근초','Strauch':'관목','Baum':'교목','Kletterpflanze':'덩굴식물','Bodendecker':'지피식물',
-  'einjährig':'일년생','zweijährig':'이년생','Halbstrauch':'아관목',
-  'aufrecht':'직립 성장형','horstbildend':'군생(클럼프)형','buschig':'덤불형','überhängend':'늘어지는형','kriechend':'포복형','niederliegend':'누움',
-  'kompakt':'밀집형','locker':'산개형','hängend':'현수형','kletternd':'덩굴형','leicht':'약간','spreizend':'개장형',
+  'einjährig':'일년생','zweijährig':'이년생','Zwiebelpflanze':'구근식물','Halbstrauch':'아관목',
+  // 성장 형태
+  'aufrecht':'직립 성장형','horstbildend':'군생(클럼프)형','buschig':'덤불형','überhängend':'늘어지는형',
+  'kriechend':'포복형','niederliegend':'누움','kompakt':'밀집형','locker':'산개형',
+  'hängend':'현수형','kletternd':'덩굴형','spreizend':'개장형','leicht':'약간',
+  // 토양
   'sandig':'사질','lehmig':'양토질','tonig':'점토질','humos':'부식토','durchlässig':'배수성',
   'feucht':'습윤','trocken':'건조','nährstoffreich':'비옥','nährstoffarm':'척박',
+  // pH
   'sauer':'산성','neutral':'중성','basisch':'알칼리성','kalk':'석회질',
+  // 꽃 형태
   'schalenförmig':'컵형','trichterförmig':'나팔형','röhrenförmig':'관상형','glockig':'종형',
-  'radiärsymmetrisch':'방사대칭','zygomorph':'좌우대칭','gefüllt':'겹꽃','einfach':'홑꽃',
+  'kreuzförmig':'십자형','radiärsymmetrisch':'방사대칭','zygomorph':'좌우대칭',
+  'gefüllt':'겹꽃','einfach':'홑꽃',
+  // 잎 단계
   'sommergrün':'여름녹엽성','immergrün':'상록성','wintergrün':'겨울녹엽성','halbimmergrün':'반상록성',
-  'grün':'녹색','dunkelgrün':'진녹색','hellgrün':'연녹색','blaugrün':'청록색','rotbraun':'적갈색','purpur':'자주색',
-  'rund':'원형','rundlich':'원형에 가까운','herzförmig':'심장형','nierenförmig':'신장형','lanzettlich':'피침형','oval':'타원형','gefiedert':'우상형','gelappt':'결각형','gezähnt':'거치형',
+  // 잎 색
+  'grün':'녹색','dunkelgrün':'진녹색','hellgrün':'연녹색','silbergrün':'은녹색',
+  'blaugrün':'청록색','gelbgrün':'황록색','rotbraun':'적갈색','purpur':'자주색','bunt':'화려한',
+  // 잎 형태
+  'rund':'원형','rundlich':'원형에 가까운','herzförmig':'심장형','nierenförmig':'신장형',
+  'lanzettlich':'피침형','oval':'타원형','gefiedert':'우상형','gelappt':'결각형','gezähnt':'거치형',
+  // 기타
   'ja':'예','nein':'아니오','bis':'~',
 };
 function deKoDict(text) {
   if (!text) return null;
-  const t = text.trim();
-  if (DE_KO[t]) return DE_KO[t];
-  const words = t.split(/([ ,~.]+)/);
-  const out = words.map(w => DE_KO[w] || w).join('');
-  return out !== t ? out : null;
+  if (DE_KO[text.trim()]) return DE_KO[text.trim()];
+  let r = text;
+  for (const [de, ko] of Object.entries(DE_KO))
+    r = r.replace(new RegExp('(?<![\\w\\u00C0-\\u024F])' + de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '(?![\\w\\u00C0-\\u024F])', 'g'), ko);
+  return r !== text ? r : null;
 }
+
+// Google Translate 비공식 API (무료, 한도 없음)
 async function myMemoryDirect(text, langpair = 'en|ko') {
   if (!text) return text;
+  // 단어 단위 정확 매칭만 우선 처리 (짧은 텍스트)
   if (langpair === 'de|ko' && DE_KO[text.trim()]) return DE_KO[text.trim()];
   try {
     const parts = langpair.split('|');
@@ -1996,7 +2088,7 @@ async function myMemoryDirect(text, langpair = 'en|ko') {
   }
 }
 
-// 배치 번역 큐 — 150ms 내 요청을 병렬 처리
+// 배치 번역 큐 — 150ms 내 요청을 모아 병렬 처리
 const _txQueue = [];
 let _txTimer = null;
 async function _flushTxQueue() {
@@ -2007,13 +2099,14 @@ async function _flushTxQueue() {
   }));
 }
 function translateText(text) {
-  if (!text || text === '\u2014') return Promise.resolve(text);
+  if (!text || text === '—') return Promise.resolve(text);
   return new Promise(resolve => {
     _txQueue.push({ text: text.slice(0, 500), resolve });
     clearTimeout(_txTimer);
     _txTimer = setTimeout(_flushTxQueue, 150);
   });
 }
+
 async function translateCare(elId, btnId) {
   const el  = document.getElementById(elId);
   const btn = document.getElementById(btnId);
@@ -2141,9 +2234,9 @@ async function loadNativePlantDB() {
 
 function lookupNativePlant(latName) {
   if (!_nativeDB || !latName) return null;
-  const clean = latName.replace(/[\u2018\u2019''\u2018\u2019][^\u2018\u2019''\u2018\u2019]+[\u2018\u2019''\u2018\u2019]/g, '').trim().toLowerCase();
+  const clean = latName.replace(/[\u2018\u2019''][^\u2018\u2019'']+[\u2018\u2019'']/g, '').trim().toLowerCase();
   if (_nativeDB[clean]) return _nativeDB[clean];
-  // parsePlants가 subsp./var. 점을 제거하므로 복원 후 재시도
+  // parsePlants\uac00 subsp./var. \uc810\uc744 \uc81c\uac70\ud558\ubbc0\ub85c \ubcf5\uc6d0 \ud6c4 \uc7ac\uc2dc\ub3c4
   const withDots = clean.replace(/\b(subsp|var|ssp|cv)\b/g, '$1.');
   if (_nativeDB[withDots]) return _nativeDB[withDots];
   const twoWord = clean.split(/\s+/).slice(0,2).join(' ').trim();
