@@ -2349,7 +2349,7 @@ function ecoSetActive(idx) {
 function ecoAddImgData(idx, dataUrl) {
   const p = plants[idx]; if (!p) return;
   if (!p.images) p.images = [];
-  if (p.images.length >= 3) { showToast('최대 3장입니다.'); return; }
+  if (p.images.length >= 3) { showToast('최대 10장입니다.'); return; }
   p.images.push(dataUrl); renderActiveTab(); showToast('이미지 추가됨 ✓');
 }
 function ecoAddImgFile(ev, idx) {
