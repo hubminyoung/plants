@@ -236,13 +236,13 @@ table.eco tr:hover td { background: #f4faf2; }
   box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
 .season-grid { min-width: 700px; }
 .season-head {
-  display: grid; grid-template-columns: 170px repeat(12, 1fr);
+  display: grid; grid-template-columns: 170px 60px repeat(12, 1fr);
   background: #2d5a1b; color: white; font-size: 0.7rem; font-weight: 600;
 }
 .season-head div { padding: 0.4rem 0.15rem; text-align: center; }
 .season-head div:first-child { text-align: left; padding-left: 0.7rem; }
 .season-row {
-  display: grid; grid-template-columns: 170px repeat(12, 1fr);
+  display: grid; grid-template-columns: 170px 60px repeat(12, 1fr);
   border-bottom: 1px solid #eaf0e6; background: white;
   transition: 0.1s;
 }
@@ -257,6 +257,16 @@ table.eco tr:hover td { background: #f4faf2; }
   display: flex; align-items: center; justify-content: center;
   font-size: 0.62rem;
 }
+.s-height {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  padding: 0.2rem 0.3rem 0.25rem; border-right: 1px solid #eaf0e6;
+}
+.s-height-bar-bg {
+  width: 10px; height: 36px; background: #e8f0e4; border-radius: 3px 3px 0 0;
+  display: flex; align-items: flex-end; overflow: hidden;
+}
+.s-height-bar { width: 100%; background: #4a8a3a; border-radius: 3px 3px 0 0; min-height: 2px; }
+.s-height-val { font-size: 0.6rem; color: #5a7a4a; margin-top: 2px; text-align: center; line-height: 1.2; white-space: nowrap; }
 .season-legend { display: flex; gap: 1rem; margin-top: 0.8rem;
   font-size: 0.72rem; color: #6a8a5a; flex-wrap: wrap; }
 
@@ -1713,8 +1723,25 @@ function renderSeasonal() {
   const el = document.getElementById('sea-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div>'; return; }
 
+  // 수고 파싱: "0.3~0.8m", "1.5m", "30~80cm" → { min?, max } in meters
+  function parseHeightM(str) {
+    if (!str) return null;
+    const cm = str.match(/([\d.]+)\s*~\s*([\d.]+)\s*cm/i);
+    if (cm) return { min: +cm[1]/100, max: +cm[2]/100 };
+    const scm = str.match(/([\d.]+)\s*cm/i);
+    if (scm) return { max: +scm[1]/100 };
+    const range = str.match(/([\d.]+)\s*~\s*([\d.]+)\s*m/i);
+    if (range) return { min: +range[1], max: +range[2] };
+    const single = str.match(/([\d.]+)\s*m/i);
+    if (single) return { max: +single[1] };
+    return null;
+  }
+
+  const heights = plants.map(p => parseHeightM(p.height));
+  const maxH = Math.max(0.1, ...heights.map(h => h?.max || 0));
+
   const headCells = MO_LABELS.map(m => `<div>${m}</div>`).join('');
-  const rows = plants.map(p => {
+  const rows = plants.map((p, i) => {
     const cells = [1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
       if (p.bloomMonths.includes(m)) {
         const col = p.flowerColors[0] ? c2css(p.flowerColors[0]) : '#74c476';
@@ -1722,25 +1749,40 @@ function renderSeasonal() {
       }
       return `<div class="s-cell"></div>`;
     }).join('');
+
+    const h = heights[i];
+    const hPct = h ? Math.max(4, Math.round((h.max / maxH) * 100)) : 0;
+    const hLabel = p.height
+      ? p.height.replace(/\s/g, '').replace('~', '~')
+      : '—';
+
+    const heightCell = `<div class="s-height">
+      <div class="s-height-bar-bg">
+        <div class="s-height-bar" style="height:${hPct}%" title="${p.height || '수고 미제공'}"></div>
+      </div>
+      <div class="s-height-val">${hLabel}</div>
+    </div>`;
+
     const { primary: sPrimary, secondary: sSecondary } = pNames(p);
     return `<div class="season-row">
       <div class="s-name" style="flex-direction:column;align-items:flex-start;justify-content:center">
         <span style="${sSecondary ? '' : 'font-style:italic'}">${sPrimary}</span>
         ${sSecondary ? `<span class="eco-latin">${sSecondary}</span>` : ''}
-      </div>${cells}
+      </div>${heightCell}${cells}
     </div>`;
   }).join('');
 
   el.innerHTML = `
     <div class="season-wrap">
       <div class="season-grid">
-        <div class="season-head"><div>식물명</div>${headCells}</div>
+        <div class="season-head"><div>식물명</div><div>수고</div>${headCells}</div>
         ${rows}
       </div>
     </div>
     <div class="season-legend">
       <span>🌸 = 개화기 (MBG 월 기준)</span>
       <span>꽃색은 MBG Bloom Description 기준</span>
+      <span>수고 막대는 목록 내 최대 높이 기준 비율</span>
     </div>`;
 }
 
