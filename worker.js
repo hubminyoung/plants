@@ -488,12 +488,28 @@ async function knagardenDetails(params) {
     'Accept-Language': 'ko-KR,ko;q=0.9',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   };
-  const GQL_URL = 'https://www.knagarden.info/.gql';
 
+  // knagarden.info는 Cloudflare Worker IP를 403으로 차단 → allorigins.win 프록시 경유
+  async function knaFetch(url) {
+    // 1차: 직접 시도
+    try {
+      const r = await fetch(url, { headers: KNA_UA });
+      if (r.ok) return await r.text();
+    } catch(e) {}
+    // 2차: allorigins.win 프록시 경유
+    try {
+      const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+      const r = await fetch(proxyUrl);
+      if (r.ok) return await r.text();
+    } catch(e2) {}
+    return null;
+  }
+
+  const GQL_URL = 'https://www.knagarden.info/.gql';
   let slug = directSlug, minHeight = null, maxHeight = null;
 
   if (!slug && korName) {
-    // 1차: GQL로 slug 조회 (Origin/Referer 포함)
+    // 1차: GQL로 slug 조회
     try {
       const safe = korName.replace(/["\\]/g, '');
       const gqlResp = await fetch(GQL_URL, {
@@ -514,48 +530,36 @@ async function knagardenDetails(params) {
         const posts = gqlData?.data?.posts;
         if (posts?.length) ({ slug, minHeight, maxHeight } = posts[0]);
       }
-    } catch (e) { /* GQL 실패시 검색 HTML로 시도 */ }
+    } catch (e) {}
 
-    // 2차: 검색 HTML에서 slug 추출
+    // 2차: 검색 HTML에서 slug 추출 (proxy 경유)
     if (!slug) {
-      try {
-        const searchUrl = `https://www.knagarden.info/plants?keywords=${encodeURIComponent(korName)}`;
-        const sr = await fetch(searchUrl, { headers: KNA_UA });
-        const sh = await sr.text();
-        // 절대 URL 패턴으로 slug 추출
-        const plantLinks = [];
-        let lm2;
-        const linkPat = /\/plants\/([a-z0-9-]+)(?:\?[^"]*)?"/gi;
-        while ((lm2 = linkPat.exec(sh)) !== null) plantLinks.push(lm2[1]);
-        // 정확한 국명이 링크 근처에 있는 것 우선
-        for (const candidate of plantLinks) {
-          const pos = sh.indexOf("/plants/" + candidate);
-          if (pos >= 0 && sh.slice(pos, pos + 400).includes(korName)) { slug = candidate; break; }
+      const searchUrl = `https://www.knagarden.info/plants?keywords=${encodeURIComponent(korName)}`;
+      const sh = await knaFetch(searchUrl);
+      if (sh) {
+        const escapedName = korName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const exactRe = new RegExp(
+          'href="https://www\\.knagarden\\.info/plants/([a-z0-9-]+)[^"]*">(?:\\s|<[^>]+>)*' + escapedName + '[^가-힣]',
+          'i'
+        );
+        const exactM = sh.match(exactRe);
+        if (exactM) {
+          slug = exactM[1];
+        } else {
+          const anyM = sh.match(/href="https:\/\/www\.knagarden\.info\/plants\/([a-z0-9-]+)(?:\?[^"]*)?"/i);
+          if (anyM) slug = anyM[1];
         }
-        if (!slug && plantLinks.length > 0) slug = plantLinks[0];
-      } catch(e2) { /* 검색도 실패 */ }
+      }
     }
 
-    // debug: 검색 실패 이유 파악을 위해 임시로 상세 오류 반환
-    if (!slug) {
-      let dbgStatus = 0, dbgLen = 0, dbgLinks = 0;
-      try {
-        const dbgR = await fetch(`https://www.knagarden.info/plants?keywords=${encodeURIComponent(korName)}`, { headers: KNA_UA });
-        dbgStatus = dbgR.status;
-        const dbgH = await dbgR.text();
-        dbgLen = dbgH.length;
-        dbgLinks = (dbgH.match(/\/plants\/[a-z]/g) || []).length;
-      } catch(dbgE) { dbgStatus = -1; }
-      return { error: 'not_found', korName, dbgStatus, dbgLen, dbgLinks };
-    }
+    if (!slug) return { error: 'not_found', korName };
   }
 
-  // HTML 페이지 fetch
-  const htmlResp = await fetch(`https://www.knagarden.info/plants/${slug}`, { headers: KNA_UA });
-  if (!htmlResp.ok) return { error: `HTTP ${htmlResp.status}`, slug };
-  const html = await htmlResp.text();
+  // HTML 페이지 fetch (proxy 경유)
+  const html = await knaFetch(`https://www.knagarden.info/plants/${slug}`);
+  if (!html) return { error: 'fetch_failed', slug };
 
-  // DT/DD 파싱 (SSR 렌더링된 텍스트 섹션 추출)
+  // DT/DD 파싱
   const fields = {};
   const dtddRe = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi;
   let m;
