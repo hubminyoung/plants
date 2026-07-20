@@ -48,6 +48,7 @@ export default {
       else if (pathname === '/api/naturadb/details') data = await naturadbDetails(searchParams, env);
       else if (pathname === '/api/naturadb/test')    data = await naturadbTest(searchParams);
       else if (pathname === '/api/knagarden/details') data = await knagardenDetails(searchParams);
+      else if (pathname === '/api/knagarden/debug')   data = await knagardenDebug(searchParams);
       else return new Response('Not found', { status: 404, headers: CORS });
 
       return new Response(JSON.stringify(data), {
@@ -584,6 +585,40 @@ async function knagardenDetails(params) {
     이용가치: fields['이용가치'] || '',
     유래: fields['유래'] || '',
   };
+}
+
+// ── 정원백과 디버그 ───────────────────────────────────────────────────────────────
+async function knagardenDebug(params) {
+  const testUrl = 'https://www.knagarden.info/plants?keywords=' + encodeURIComponent('범꼬리');
+  const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(testUrl);
+  const results = {};
+
+  // 1. Direct fetch
+  try {
+    const r = await fetch(testUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    results.direct = { status: r.status, ok: r.ok };
+  } catch(e) { results.direct = { error: e.message }; }
+
+  // 2. corsproxy.io fetch
+  try {
+    const r = await fetch(proxyUrl);
+    const text = r.ok ? await r.text() : '';
+    const slugs = [...text.matchAll(/"slug":"([a-z0-9-]+)"/g)].map(m=>m[1]).slice(0,5);
+    results.corsproxy = { status: r.status, ok: r.ok, textLen: text.length, slugs };
+  } catch(e) { results.corsproxy = { error: e.message }; }
+
+  // 3. GQL direct
+  try {
+    const r = await fetch('https://www.knagarden.info/.gql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': 'https://www.knagarden.info' },
+      body: JSON.stringify({ query: '{ posts(keys:["plants"], keywords:"범꼬리", limit:1) { id slug } }' })
+    });
+    const text = await r.text();
+    results.gql_direct = { status: r.status, ok: r.ok, body: text.slice(0, 200) };
+  } catch(e) { results.gql_direct = { error: e.message }; }
+
+  return results;
 }
 
 // ── Gemini 독일어→한국어 번역 헬퍼 ──────────────────────────────────────────────
