@@ -1181,7 +1181,7 @@ async function loadKnagardenDetail(p, korName) {
   if (det.번식    && !p.ndbVermehrung)   p.ndbVermehrung  = det.번식;
   if (det.병충해  && !p.ndbSchaedlinge)  p.ndbSchaedlinge = det.병충해;
   if (det.이용가치 && !p.ndbInteressantes) p.ndbInteressantes = det.이용가치;
-  if (det.height   && !p.height)         p.height         = det.height;
+  if (det.height)                         p.height         = det.height;  // 정원백과 높이가 가장 신뢰도 높음 → 항상 덮어씀
   if (det.hardiness && !p.hardiness) {
     const zm = det.hardiness.match(/(\d+[ab])\s*[-~]\s*(\d+[ab])/i);
     p.hardiness = zm ? `${zm[1]}–${zm[2]}` : det.hardiness.split(' ')[0];
