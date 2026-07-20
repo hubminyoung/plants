@@ -489,17 +489,14 @@ async function knagardenDetails(params) {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   };
 
-  // knagarden.info는 Cloudflare Worker IP를 403으로 차단 → allorigins.win 프록시 경유
+  // corsproxy.io 프록시로 fetch (Cloudflare Worker IP 차단 우회)
   async function knaFetch(url) {
-    // 1차: 직접 시도
     try {
       const r = await fetch(url, { headers: KNA_UA });
       if (r.ok) return await r.text();
     } catch(e) {}
-    // 2차: allorigins.win 프록시 경유
     try {
-      const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-      const r = await fetch(proxyUrl);
+      const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url));
       if (r.ok) return await r.text();
     } catch(e2) {}
     return null;
@@ -509,54 +506,50 @@ async function knagardenDetails(params) {
   let slug = directSlug, minHeight = null, maxHeight = null;
 
   if (!slug && korName) {
-    // 1차: GQL로 slug 조회
-    try {
-      const safe = korName.replace(/["\\]/g, '');
-      const gqlResp = await fetch(GQL_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://www.knagarden.info',
-          'Referer': 'https://www.knagarden.info/plants',
-        },
-        body: JSON.stringify({
-          query: `{ posts(keys:["plants"], keywords:"${safe}", limit:1) { id slug minHeight maxHeight } }`
-        })
-      });
-      const ct = gqlResp.headers.get('content-type') || '';
-      if (ct.includes('json')) {
-        const gqlData = await gqlResp.json();
-        const posts = gqlData?.data?.posts;
-        if (posts?.length) ({ slug, minHeight, maxHeight } = posts[0]);
-      }
-    } catch (e) {}
+    const safe = korName.replace(/["\\]/g, '');
+    const gqlBody = JSON.stringify({
+      query: '{ posts(keys:["plants"], keywords:"' + safe + '", limit:1) { id slug minHeight maxHeight } }'
+    });
+    const gqlHeaders = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Origin': 'https://www.knagarden.info',
+      'Referer': 'https://www.knagarden.info/plants',
+    };
 
-    // 2차: 검색 HTML에서 slug 추출 (proxy 경유)
-    if (!slug) {
-      const searchUrl = `https://www.knagarden.info/plants?keywords=${encodeURIComponent(korName)}`;
-      const sh = await knaFetch(searchUrl);
-      if (sh) {
-        const escapedName = korName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const exactRe = new RegExp(
-          'href="https://www\\.knagarden\\.info/plants/([a-z0-9-]+)[^"]*">(?:\\s|<[^>]+>)*' + escapedName + '[^가-힣]',
-          'i'
-        );
-        const exactM = sh.match(exactRe);
-        if (exactM) {
-          slug = exactM[1];
-        } else {
-          const anyM = sh.match(/href="https:\/\/www\.knagarden\.info\/plants\/([a-z0-9-]+)(?:\?[^"]*)?"/i);
-          if (anyM) slug = anyM[1];
+    // 1차: GQL 직접 → 2차: GQL via corsproxy.io
+    for (const gqlUrl of [GQL_URL, 'https://corsproxy.io/?' + encodeURIComponent(GQL_URL)]) {
+      if (slug) break;
+      try {
+        const r = await fetch(gqlUrl, { method: 'POST', headers: gqlHeaders, body: gqlBody });
+        if (r.ok) {
+          const ct = r.headers.get('content-type') || '';
+          if (ct.includes('json')) {
+            const d = await r.json();
+            const posts = d?.data?.posts;
+            if (posts?.length) ({ slug, minHeight, maxHeight } = posts[0]);
+          }
         }
+      } catch(e) {}
+    }
+
+    // 3차: search HTML (corsproxy.io 경유) → JSON posts 배열에서 slug 추출
+    if (!slug) {
+      const sh = await knaFetch('https://www.knagarden.info/plants?keywords=' + encodeURIComponent(korName));
+      if (sh) {
+        const postsSection = (sh.match(/"posts":\[([^\]]+)\]/) || [])[1] || '';
+        const slugsInPosts = Array.from(postsSection.matchAll(/"slug":"([a-z0-9-]+)"/g), m => m[1]);
+        // 모든 다른 slug의 suffix인 base slug 찾기 (정확한 국명의 slug)
+        const baseSlug = slugsInPosts.find(s => s && slugsInPosts.every(o => o === s || o.endsWith(s)));
+        slug = baseSlug || slugsInPosts[0] || null;
       }
     }
 
     if (!slug) return { error: 'not_found', korName };
   }
 
-  // HTML 페이지 fetch (proxy 경유)
-  const html = await knaFetch(`https://www.knagarden.info/plants/${slug}`);
+  // HTML 페이지 fetch (corsproxy.io 경유)
+  const html = await knaFetch('https://www.knagarden.info/plants/' + slug);
   if (!html) return { error: 'fetch_failed', slug };
 
   // DT/DD 파싱
@@ -577,7 +570,7 @@ async function knagardenDetails(params) {
 
   return {
     slug, korName,
-    url: `https://www.knagarden.info/plants/${slug}`,
+    url: 'https://www.knagarden.info/plants/' + slug,
     height: heightStr, hardiness,
     성상: fields['성상'] || '',
     자생환경: fields['자생환경'] || '',
