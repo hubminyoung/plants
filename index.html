@@ -1986,7 +1986,7 @@ tr:nth-child(even) td{background:#f6fbf4;}
       const isBloom = p.bloomMonths.includes(m);
       const isWinter = p.winterInterest && (m === 12 || m === 1 || m === 2);
       if (isBloom) {
-        html += `<td style="background:${bloomHex};text-align:center;vertical-align:middle;font-size:11pt;padding:2px">●</td>`;
+        html += `<td style="background:${bloomHex};padding:2px"></td>`;
       } else if (isWinter) {
         html += `<td style="background:#b0c4de;text-align:center;vertical-align:middle;font-size:9pt;color:#2a5a8c;padding:2px">▲</td>`;
       } else {
