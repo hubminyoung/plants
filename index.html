@@ -161,6 +161,7 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-card-primary { font-size: 1rem; font-weight: 700; color: #2a5a2a; }
 .eco-card-latin   { font-size: 0.8rem; color: #666; font-style: italic; }
 .eco-card-hd-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; flex: 0 0 auto; }
+/* Plant image thumbnails */
 .eco-img-strip { display: flex; align-items: center; gap: 0.3rem; flex: 1 1 auto;
   padding: 0 0.5rem; overflow-x: auto; overflow-y: visible; min-width: 0; }
 .eco-img-thumb { position: relative; width: 62px; height: 62px; border-radius: 6px; overflow: hidden; cursor: pointer;
@@ -175,6 +176,7 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
   justify-content: center; cursor: pointer; flex-shrink: 0; }
 .eco-img-add:hover { background: #e8f5e2; border-color: #74c476; }
 .eco-img-add input { display: none; }
+/* Lightbox */
 #eco-lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.82);
   z-index: 9999; align-items: center; justify-content: center; }
 #eco-lightbox.open { display: flex; }
@@ -184,7 +186,7 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 #eco-lightbox-prev, #eco-lightbox-next { position: absolute; top: 50%; transform: translateY(-50%);
   color: white; font-size: 2.2rem; cursor: pointer; background: rgba(0,0,0,0.35); border: none;
   border-radius: 50%; width: 2.4rem; height: 2.4rem; display: flex; align-items: center; justify-content: center;
-  padding: 0; transition: background 0.15s; }
+  line-height: 1; padding: 0; transition: background 0.15s; }
 #eco-lightbox-prev:hover, #eco-lightbox-next:hover { background: rgba(0,0,0,0.65); }
 #eco-lightbox-prev { left: 1.2rem; }
 #eco-lightbox-next { right: 1.2rem; }
@@ -620,12 +622,12 @@ table.dtbl tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
-<!-- Lightbox -->
+<!-- Lightbox for plant images -->
 <div id="eco-lightbox" onclick="ecoLightboxBgClick(event)">
   <button id="eco-lightbox-close" onclick="ecoCloseLightbox()">×</button>
-  <button id="eco-lightbox-prev" onclick="event.stopPropagation();ecoLightboxNav(-1)">&#8249;</button>
+  <button id="eco-lightbox-prev" onclick="event.stopPropagation();ecoLightboxNav(-1)">‹</button>
   <img id="eco-lightbox-img" src="" alt="">
-  <button id="eco-lightbox-next" onclick="event.stopPropagation();ecoLightboxNav(1)">&#8250;</button>
+  <button id="eco-lightbox-next" onclick="event.stopPropagation();ecoLightboxNav(1)">›</button>
   <div id="eco-lightbox-counter"></div>
 </div>
 
@@ -1021,7 +1023,8 @@ function mkPlant(name) {
     watering: '', maintenance: '', nativeRange: '', plantType: '',
     culture: '', noteworthy: '', uses: '', problems: '', tolerate: '',
     suggestedUse: '', flower: '', leaf: '', attracts: '',
-    imageUrl: '', images: [], wikiUrl: '', inatId: null, inatUrl: '',
+    imageUrl: '', images: [], hiddenImages: [], wikiUrl: '', inatId: null, inatUrl: '',
+    winterStructure: { show: null, color: null },
     geselligkeit: '', pflanzAbstand: '', pflanzCount: '',
     ndbBoden: '', ndbNaehrstoffe: '', ndbPH: '', ndbKuebel: '',
     ndbStandort: '', ndbPflanzenart: '', ndbWuchs: '', ndbWurzel: '',
@@ -1054,6 +1057,38 @@ function clearAll() {
   plants.length = 0;
   document.getElementById('plantInput').value = '';
   renderAll();
+}
+
+// ── 동절기 구조미 룩업 ──────────────────────────────────────────────────────────
+const WINTER_GENERA = {
+  // 검정 (짙은 씨앗 머리)
+  Rudbeckia:'#1a1a1a', Echinacea:'#1a1a1a', Monarda:'#1a1a1a',
+  Agastache:'#1a1a1a', Knautia:'#1a1a1a', Scabiosa:'#1a1a1a',
+  Sanguisorba:'#1a1a1a', Verbena:'#1a1a1a', Eryngium:'#1a1a1a',
+  Phlomis:'#1a1a1a', Digitalis:'#1a1a1a',
+  // 연회색 (은백 줄기)
+  Perovskia:'#c0c0c0', Stipa:'#c0c0c0', Nassella:'#c0c0c0',
+  Echinops:'#c0c0c0', Anaphalis:'#c0c0c0',
+  // 연노랑/베이지 (황갈색 씨앗)
+  Achillea:'#d4c878', Ratibida:'#d4c878', Helenium:'#d4c878',
+  Inula:'#d4c878', Telekia:'#d4c878',
+  // 갈색 (솜털 씨앗)
+  Symphyotrichum:'#8b5a2b', Aster:'#8b5a2b', Solidago:'#8b5a2b',
+  Eupatorium:'#8b5a2b', Eutrochium:'#8b5a2b',
+  // 베이지/크림 (그라스류)
+  Pennisetum:'#c8a870', Miscanthus:'#c8a870', Calamagrostis:'#c8a870',
+  Panicum:'#c8a870', Sporobolus:'#c8a870', Deschampsia:'#c8a870',
+  Molinia:'#c8a870', Sesleria:'#c8a870',
+};
+function getWinterColor(latName) {
+  if (!latName) return null;
+  const genus = latName.trim().split(/\s+/)[0];
+  return WINTER_GENERA[genus] || null;
+}
+function applyWinterStructure(p) {
+  if (p.winterStructure.show !== null) return; // 수동 설정 시 건드리지 않음
+  const color = getWinterColor(p.latName || p.name);
+  p.winterStructure = { show: !!color, color: color };
 }
 
 // ── Data Loading ──────────────────────────────────────────────────────────────
@@ -1105,8 +1140,14 @@ async function loadPlant(p) {
     for (const ph of gbifPh) if (!photos.find(x => x.url === ph.url)) photos.push(ph);
   }
 
-  p.images = photos.map(ph => ph.url).slice(0, 15);
-  if (!p.images.length && p.imageUrl) p.images = [p.imageUrl];
+  const hidden = new Set(p.hiddenImages || []);
+  const autoUrls = photos.map(ph => ph.url).filter(url => !hidden.has(url));
+  // 기존 유저 추가 이미지(base64) 보존 + 새 자동 이미지 병합
+  const existingUrls = new Set((p.images||[]).map(u => u));
+  for (const url of autoUrls) {
+    if (!existingUrls.has(url) && p.images.length < 10) p.images.push(url);
+  }
+  if (!p.images.length && p.imageUrl && !hidden.has(p.imageUrl)) p.images = [p.imageUrl];
 
   renderChips(); renderActiveTab();
 
@@ -1159,6 +1200,7 @@ async function loadPlant(p) {
   } finally {
     p.fetching = false;
     p.done = true;
+    applyWinterStructure(p);
     renderAll();
   }
 }
@@ -1717,11 +1759,18 @@ function renderEcology() {
     // ── 식재적용 (KV 입력)
     const pflanzIdx = plants.indexOf(p);
 
-    // image strip
-    const imgThumbsHtml = (p.images||[]).slice(0,10).map((src,ii) =>
-      `<div class="eco-img-thumb" onclick="event.stopPropagation();ecoOpenLightbox(${pflanzIdx},${ii})"><img src="${escA(src)}" alt=""><button class="eco-img-thumb-del" onclick="event.stopPropagation();ecoRemoveImg(${pflanzIdx},${ii})">×</button></div>`
-    ).join('');
-    const addImgHtml = (p.images||[]).length<3 ? `<label class="eco-img-add" title="이미지 추가 (Ctrl+V 또는 파일)"><span>＋</span><input type="file" accept="image/*" onchange="ecoAddImgFile(event,${pflanzIdx})"></label>` : '';
+    // Image strip for this plant
+    const imgThumbsHtml = (p.images||[]).slice(0,10).map((src, ii) => `
+      <div class="eco-img-thumb" onclick="event.stopPropagation();ecoOpenLightbox(${pflanzIdx},${ii})">
+        <img src="${escA(src)}" alt="">
+        <button class="eco-img-thumb-del" onclick="event.stopPropagation();ecoRemoveImg(${pflanzIdx},${ii})" title="삭제">×</button>
+      </div>`).join('');
+    const canAddImg = (p.images||[]).length < 10;
+    const addImgHtml = canAddImg ? `
+      <label class="eco-img-add" title="이미지 추가 (파일 또는 Ctrl+V)">
+        <span>＋</span>
+        <input type="file" accept="image/*" onchange="ecoAddImgFile(event,${pflanzIdx})">
+      </label>` : '';
 
     return `<div class="eco-card">
       <div class="eco-card-hd${ecoActivePlant===pflanzIdx?' eco-hd-active':''}" onclick="ecoSetActive(${pflanzIdx})">
@@ -1777,9 +1826,10 @@ function renderEcology() {
             onchange="onGesChange(${pflanzIdx},this.value,this)">
         </div>
         <div class="eco-kv-row"><label>식재간격</label>
-          <input type="text" class="eco-kv-input" placeholder="예: 30cm"
+          <input type="text" class="eco-kv-input" placeholder="30"
             value="${p.pflanzAbstand||''}"
             onchange="onPflanzChange(${pflanzIdx},this.value,this)">
+          <span style="font-size:11px;color:#888;margin-left:4px;">cm</span>
         </div>
         <div class="eco-kv-row"><label>m²당 주수</label>
           <input type="text" class="eco-kv-input" placeholder="예: 11"
@@ -2116,6 +2166,33 @@ function renderCare() {
       </div>
       <div class="care-accords">
         ${sectHtml || '<div style="padding:0.6rem 1rem;color:#aaa;font-size:0.8rem">데이터 없음</div>'}
+        <div class="care-accord">
+          <div class="care-accord-hd" onclick="this.parentNode.classList.toggle('open')">
+            <span>❄️ 동절기 구조미</span>
+            <span class="care-chevron">▾</span>
+          </div>
+          <div class="care-accord-body">
+            <div style="display:flex;align-items:center;gap:0.8rem;font-size:0.82rem;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+                <input type="checkbox" ${(p.winterStructure?.show) ? 'checked' : ''}
+                  onchange="winterToggle(${pi},this.checked)" style="cursor:pointer">
+                표시
+              </label>
+              <label style="display:flex;align-items:center;gap:0.3rem;color:#666">
+                라인 색상:
+                <input type="color" value="${p.winterStructure?.color || '#1a1a1a'}"
+                  onchange="winterColor(${pi},this.value)"
+                  style="width:32px;height:22px;padding:1px;border:1px solid #ddd;border-radius:4px;cursor:pointer">
+              </label>
+              <a href="https://www.google.com/search?q=${encodeURIComponent((p.latName||p.name)+' winter')}&tbm=isch"
+                target="_blank" rel="noopener"
+                style="font-size:0.75rem;color:#4a7a3a;text-decoration:none;border:1px solid #c8e0c0;border-radius:4px;padding:1px 7px;background:#f4faf0">
+                🔍 winter 이미지
+              </a>
+              <span style="font-size:0.72rem;color:#aaa">9월~3월 중순</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -2341,35 +2418,61 @@ function lookupNativePlant(latName) {
 loadNativePlantDB();
 
 // ── 생태탭 식물 이미지 ─────────────────────────────────────────────────────────
-let ecoActivePlant = null;
+let ecoActivePlant = null; // 현재 선택된 식물 인덱스
+
 function ecoSetActive(idx) {
   ecoActivePlant = idx;
-  document.querySelectorAll('.eco-card-hd').forEach((el,i) => el.classList.toggle('eco-hd-active', i===idx));
+  document.querySelectorAll('.eco-card-hd').forEach((el, i) => {
+    el.classList.toggle('eco-hd-active', i === idx);
+  });
 }
+
 function ecoAddImgData(idx, dataUrl) {
-  const p = plants[idx]; if (!p) return;
+  const p = plants[idx];
+  if (!p) return;
   if (!p.images) p.images = [];
-  if (p.images.length >= 3) { showToast('최대 10장입니다.'); return; }
-  p.images.push(dataUrl); renderActiveTab(); showToast('이미지 추가됨 ✓');
+  if (p.images.length >= 10) { showToast('이미지는 최대 10장입니다.'); return; }
+  p.images.push(dataUrl);
+  renderActiveTab();
+  showToast('이미지 추가됨 ✓');
 }
-function ecoAddImgFile(ev, idx) {
-  const f = ev.target.files[0]; if (!f) return;
-  const r = new FileReader(); r.onload = e => ecoAddImgData(idx, e.target.result); r.readAsDataURL(f);
+
+function ecoAddImgFile(event, idx) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => ecoAddImgData(idx, e.target.result);
+  reader.readAsDataURL(file);
 }
-function ecoRemoveImg(idx, ii) {
+
+function winterToggle(idx, show) {
+  const p = plants[idx]; if (!p) return;
+  if (!p.winterStructure) p.winterStructure = { show: false, color: '#1a1a1a' };
+  p.winterStructure.show = show;
+  if (show && !p.winterStructure.color) p.winterStructure.color = getWinterColor(p.latName||p.name) || '#1a1a1a';
+}
+function winterColor(idx, color) {
+  const p = plants[idx]; if (!p) return;
+  if (!p.winterStructure) p.winterStructure = { show: true, color };
+  p.winterStructure.color = color;
+}
+
+function ecoRemoveImg(idx, imgIdx) {
   const p = plants[idx];
   if (!p || !p.images) return;
-  const removed = p.images[ii];
+  const removed = p.images[imgIdx];
   if (removed && !removed.startsWith('data:')) {
     if (!p.hiddenImages) p.hiddenImages = [];
     p.hiddenImages.push(removed);
   }
-  p.images.splice(ii, 1);
+  p.images.splice(imgIdx, 1);
   renderActiveTab();
 }
+
 let ecoLbPlantIdx = null, ecoLbImgIdx = null;
 function ecoOpenLightbox(plantIdx, imgIdx) {
-  ecoLbPlantIdx = plantIdx; ecoLbImgIdx = imgIdx;
+  ecoLbPlantIdx = plantIdx;
+  ecoLbImgIdx = imgIdx;
   ecoLightboxShow();
   document.getElementById('eco-lightbox').classList.add('open');
 }
@@ -2379,9 +2482,9 @@ function ecoLightboxShow() {
   const imgs = p.images;
   document.getElementById('eco-lightbox-img').src = imgs[ecoLbImgIdx] || '';
   const total = imgs.length;
-  document.getElementById('eco-lightbox-counter').textContent = total > 1 ? (ecoLbImgIdx+1) + ' / ' + total : '';
-  document.getElementById('eco-lightbox-prev').style.display = total > 1 ? 'flex' : 'none';
-  document.getElementById('eco-lightbox-next').style.display = total > 1 ? 'flex' : 'none';
+  document.getElementById('eco-lightbox-counter').textContent = total > 1 ? `${ecoLbImgIdx+1} / ${total}` : '';
+  document.getElementById('eco-lightbox-prev').style.display = (total > 1) ? 'flex' : 'none';
+  document.getElementById('eco-lightbox-next').style.display = (total > 1) ? 'flex' : 'none';
 }
 function ecoLightboxNav(dir) {
   const p = plants[ecoLbPlantIdx];
@@ -2402,19 +2505,23 @@ document.addEventListener('keydown', function(ev) {
   else if (ev.key === 'ArrowRight') ecoLightboxNav(1);
   else if (ev.key === 'Escape') ecoCloseLightbox();
 });
+
 // ── 식재 구상판 ───────────────────────────────────────────────────────────────
 const boardZones = [];
 let boardActiveZoneId = null; // 마지막 포커스된 존
 
 // 이미지 Ctrl+V 붙여넣기
 document.addEventListener('paste', function(ev) {
+  // 생태탭 식물 이미지 붙여넣기
   if (document.getElementById('pane-ecology').classList.contains('active')) {
-    const items = [...(ev.clipboardData?.items||[])];
+    const items = [...(ev.clipboardData?.items || [])];
     const imgItem = items.find(it => it.type.startsWith('image/'));
     if (imgItem) {
-      if (ecoActivePlant===null) { showToast('식물을 먼저 클릭하세요.'); return; }
-      const f = imgItem.getAsFile();
-      const r = new FileReader(); r.onload = e => ecoAddImgData(ecoActivePlant, e.target.result); r.readAsDataURL(f);
+      if (ecoActivePlant === null) { showToast('이미지를 붙여넣을 식물을 먼저 클릭하세요.'); return; }
+      const file = imgItem.getAsFile();
+      const reader = new FileReader();
+      reader.onload = e => ecoAddImgData(ecoActivePlant, e.target.result);
+      reader.readAsDataURL(file);
       return;
     }
   }
