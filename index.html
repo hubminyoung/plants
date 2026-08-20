@@ -3065,9 +3065,6 @@ document.addEventListener('click', function(ev) {
     const items=[];
     activePl.forEach(p=>{
       if(p.bloom.includes(mn)) items.push({r:p.r, n:p.n, c:p.c});
-      /* 10월·2월: 겨울 꽃머리도 캔버스에 반영 */
-      if(p.wc && (mn===10||mn===2) && !p.bloom.includes(mn))
-        items.push({r:p.r*0.65, n:Math.max(3,Math.round(p.n*0.55)), c:p.wc});
     });
     if(!items.length) return;
 
