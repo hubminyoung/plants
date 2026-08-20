@@ -490,6 +490,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
   <button class="tab-btn"        data-tab="ecology"  onclick="switchTab('ecology')">🌱 생태/형태</button>
   <button class="tab-btn"        data-tab="care"     onclick="switchTab('care')">🔧 유지관리</button>
   <button class="tab-btn"        data-tab="seasonal" onclick="switchTab('seasonal')">📅 계절 도표</button>
+  <button class="tab-btn"        data-tab="dotview"  onclick="switchTab('dotview')">🌸 개화 분포도</button>
   <button class="tab-btn"        data-tab="density"  onclick="switchTab('density')">📐 식재 밀도</button>
   <button class="tab-btn"        data-tab="ai"       onclick="switchTab('ai')">🎨 AI 이미지</button>
   <button class="tab-btn"        data-tab="site"     onclick="switchTab('site')">📍 입지분석</button>
@@ -500,6 +501,32 @@ table.dtbl tr:last-child td { border-bottom: none; }
 <div id="pane-images"   class="tab-pane active"><div id="img-content"><div class="empty"><div class="emo">📷</div><p>식물을 입력하면 이미지를 불러옵니다.</p></div></div></div>
 <div id="pane-ecology"  class="tab-pane"><div id="eco-content"><div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div></div></div>
 <div id="pane-seasonal" class="tab-pane"><div id="sea-content"><div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div></div></div>
+<div id="pane-dotview" class="tab-pane">
+  <style>
+    #dv-wrap { background:#2a2a28; border-radius:6px; padding:12px; overflow-x:auto; }
+    #dv-t { border-collapse:collapse; table-layout:fixed; width:1700px; }
+    #dv-t col.nc { width:200px; } #dv-t col.mc { width:125px; }
+    #dv-t tr.dot-lbl td { font-size:11px; color:#888; text-align:center; padding-bottom:4px; font-weight:500; }
+    #dv-t tr.dot-row td { padding:0 1px; vertical-align:bottom; }
+    #dv-t tr.dot-row canvas { display:block; width:123px; height:123px; border-radius:4px; }
+    #dv-t tr.mhd th { font-size:10px; font-weight:400; color:#555; text-align:center; padding:5px 0 4px; border-left:1px solid #3c3c3a; }
+    #dv-t tr.mhd th.w { color:#3a6a9a; }
+    #dv-t tr.pr { height:17px; }
+    #dv-t td.nc { font-size:10px; color:#999; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:8px; text-align:right; }
+    #dv-t td.bc { position:relative; height:17px; }
+    #dv-t td.bc::before { content:''; position:absolute; left:0; top:0; bottom:0; width:1px; background:#3c3c3a; z-index:0; }
+    .dv-bar  { position:absolute; top:3px; bottom:3px; border-radius:2px; z-index:1; }
+    .dv-wbar { position:absolute; top:3px; bottom:3px; border-radius:2px; z-index:1; }
+  </style>
+  <div id="dv-wrap">
+    <table id="dv-t"><colgroup>
+      <col class="nc">
+      <col class="mc"><col class="mc"><col class="mc"><col class="mc">
+      <col class="mc"><col class="mc"><col class="mc"><col class="mc">
+      <col class="mc"><col class="mc"><col class="mc"><col class="mc">
+    </colgroup><tbody id="dv-tb"></tbody></table>
+  </div>
+</div>
 <div id="pane-density"  class="tab-pane">
   <div class="density-card">
     <h3>식재 밀도 계산기</h3>
@@ -1982,13 +2009,25 @@ tr:nth-child(even) td{background:#f6fbf4;}
     html += `<td class="lat-col">${latName}</td>`;
     html += `<td class="h-col">${p.height||'—'}</td>`;
 
+    // SP_PLANTS wc 조회: latName으로 매칭
+    const spMatch = (window.SP_PLANTS||[]).find(sp => {
+      const a = (sp.name||'').toLowerCase().replace(/['"]/g,'').split(' ').slice(0,2).join(' ');
+      const b = (latName||'').toLowerCase().replace(/['"]/g,'').split(' ').slice(0,2).join(' ');
+      return a && b && a === b;
+    });
+    const hasWc = spMatch && spMatch.wc;
+    const WIN_MONTHS = window.SP_WIN || new Set([10,11,12,1,2]);
+
     for (let m = 1; m <= 12; m++) {
       const isBloom = p.bloomMonths.includes(m);
-      const isWinter = p.winterInterest && (m === 12 || m === 1 || m === 2);
-      if (isBloom) {
+      const isWinter = hasWc && WIN_MONTHS.has(m) && (m === 10 || !isBloom);
+      if (isBloom && m !== 10) {
         html += `<td style="background:${bloomHex};padding:2px"></td>`;
+      } else if (isBloom && m === 10) {
+        // 10월: 앞 절반 개화, 뒤 절반 동절기(wc 있으면)
+        html += `<td style="background:linear-gradient(to right,${bloomHex} 50%,${hasWc?'#b0c4de':'#fff'} 50%);padding:2px"></td>`;
       } else if (isWinter) {
-        html += `<td style="background:#b0c4de;text-align:center;vertical-align:middle;font-size:9pt;color:#2a5a8c;padding:2px">▲</td>`;
+        html += `<td style="background:#b0c4de;padding:2px"></td>`;
       } else {
         html += `<td></td>`;
       }
@@ -1996,7 +2035,12 @@ tr:nth-child(even) td{background:#f6fbf4;}
     html += '</tr>';
   }
 
-  html += '</table></body></html>';
+  html += '</table>';
+  html += '<p style="margin-top:8px;font-size:8pt;color:#4a6a3a;">'
+        + '<span style="display:inline-block;width:14px;height:14px;background:#4caf7d;vertical-align:middle;margin-right:4px;border:1px solid #ccc"></span>개화색 (개화기) &nbsp;&nbsp;'
+        + '<span style="display:inline-block;width:14px;height:14px;background:#b0c4de;vertical-align:middle;margin-right:4px;border:1px solid #ccc"></span>동절기 구조미'
+        + '</p>';
+  html += '</body></html>';
 
   const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -2964,6 +3008,158 @@ document.addEventListener('click', function(ev) {
     const galleryHalf = gallery.offsetWidth / 2;
     gallery.scrollTo({ left: imgCenter - galleryHalf, behavior: 'smooth' });
   });
+})();
+
+/* ── 개화 분포도 탭 ─────────────────────────────────────────────────── */
+(function(){
+  const MN  = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const DOT = new Set([2,3,4,5,6,7,8,9,10]);
+  const WIN = new Set([10,11,12,1,2]);
+
+  const pl = [
+    /* ── 구근 · 소구근 ── */
+    {name:'Crocus tommasinianus var. roseus',          bloom:[2,3],        wc:null,      c:'#c8a4d8', r:2,   n:130},
+    {name:"Crocus sieberi 'Firefly'",                  bloom:[2,3],        wc:null,      c:'#e8d0f0', r:2,   n:105},
+    {name:'Narcissus (early yellow)',                  bloom:[3,4],        wc:null,      c:'#f5d020', r:3.5, n:45 },
+    {name:'Scilla sibirica',                           bloom:[3,4],        wc:null,      c:'#5575e8', r:2,   n:100},
+    {name:'Narcissus (late white)',                    bloom:[4,5],        wc:null,      c:'#ebebeb', r:3.5, n:38 },
+    {name:'Ornithogalum umbellatum',                   bloom:[4,5],        wc:null,      c:'#e0e0e0', r:2.5, n:55 },
+    {name:'Armeria maritima',                          bloom:[4,5,6],      wc:null,      c:'#e080a0', r:2.5, n:42 },
+    {name:'Iberis sempervirens',                       bloom:[3,4,5],      wc:null,      c:'#f4f4f4', r:3,   n:35 },
+    {name:'Monarda bradburiana',                       bloom:[6,7],        wc:'#6a4a2a', c:'#e06080', r:8,   n:13 },
+    /* ── 구근 대형 ── */
+    {name:"Allium 'Purple Sensation'",                 bloom:[5,6],        wc:null,      c:'#7744bb', r:11,  n:9  },
+    /* ── 숙근 소~중형 ── */
+    {name:'Sisyrinchium angustifolium Lucerne',        bloom:[5,6,7],      wc:null,      c:'#6070cc', r:3.5, n:28 },
+    {name:"Oenothera fruticosa 'Fireworks'",           bloom:[6,7,8],      wc:null,      c:'#f0c010', r:5,   n:20 },
+    {name:'Coreopsis lanceolata',                      bloom:[6,7,8],      wc:null,      c:'#f5d020', r:6,   n:20 },
+    {name:"Nepeta sibirica 'Chaudron'",                bloom:[6,7,8],      wc:null,      c:'#8899dd', r:5,   n:24 },
+    {name:'Petrorhagia saxifraga',                     bloom:[6,7,8,9],    wc:null,      c:'#f0d8e8', r:2.5, n:50 },
+    {name:'Ratibida columnifera',                      bloom:[6,7,8,9],    wc:'#d4c878', c:'#f5c020', r:6,   n:18 },
+    {name:"Achillea 'Coronation Gold'",                bloom:[6,7,8],      wc:'#c8b840', c:'#e8c020', r:7,   n:18 },
+    {name:'Eremurus stenophyllus',                     bloom:[6,7],        wc:null,      c:'#f5d020', r:9,   n:7  },
+    {name:"Calamintha 'White Cloud'",                  bloom:[7,8,9,10],   wc:null,      c:'#d8d8d8', r:3,   n:50 },
+    {name:"Perovskia atriplicifolia 'Superba'",        bloom:[7,8,9],      wc:'#c0c0c0', c:'#aabbee', r:5.5, n:22 },
+    {name:'Knautia macedonica',                        bloom:[6,7,8,9,10], wc:null,      c:'#cc2244', r:5,   n:26 },
+    {name:'Rudbeckia fulgida var. fulgida',            bloom:[7,8,9],      wc:'#8b6914', c:'#f5c010', r:7,   n:20 },
+    {name:"Agastache 'Blue Fortune'",                  bloom:[8,9],        wc:'#5a4a7a', c:'#7788dd', r:6,   n:22 },
+    {name:"Symphyotrichum oblongifolium 'October Skies'", bloom:[9,10],   wc:'#8b5a2b', c:'#8899d8', r:7,   n:18 },
+  ];
+
+  /* 전역 노출 → Excel 동절기 구조미 판단에 사용 */
+  window.SP_PLANTS = pl;
+  window.SP_WIN    = WIN;
+
+  function rng(s){ s=s>>>0; return()=>{s=(s*1664525+1013904223)>>>0;return s/0xffffffff;}; }
+
+  function drawGrid(cv, mn) {
+    const S=246;
+    cv.width=S; cv.height=S;
+    const ctx=cv.getContext('2d');
+    ctx.fillStyle='#d0d0d0'; ctx.fillRect(0,0,S,S);
+    const blooming=pl.filter(p=>p.bloom.includes(mn));
+    if(!blooming.length) return;
+    const rand=rng(mn*7919+31337);
+    const pool=[];
+    blooming.forEach(p=>{ for(let i=0;i<p.n;i++) pool.push(p); });
+    for(let i=pool.length-1;i>0;i--){
+      const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];
+    }
+    const total=pool.length;
+    const COLS=Math.ceil(Math.sqrt(total*1.6));
+    const ROWS=Math.ceil(total/COLS);
+    const cw=S/COLS, ch=S/ROWS;
+    const cells=[];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) cells.push({cx:(c+.5)*cw,cy:(r+.5)*ch});
+    for(let i=cells.length-1;i>0;i--){
+      const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]];
+    }
+    pool.forEach((p,i)=>{
+      const cell=cells[i%cells.length];
+      const r=p.r*2*(0.78+rand()*0.44);
+      const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*.65));
+      const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle=p.c; ctx.fill();
+    });
+  }
+
+  const tb=document.getElementById('dv-tb');
+  /* 닷 레이블 행 */
+  const lr=document.createElement('tr'); lr.className='dot-lbl';
+  lr.appendChild(document.createElement('td'));
+  MN.forEach((_,i)=>{ const td=document.createElement('td'); if(DOT.has(i+1)) td.textContent=MN[i]; lr.appendChild(td); });
+  tb.appendChild(lr);
+  /* 닷 그리드 행 */
+  const dr=document.createElement('tr'); dr.className='dot-row';
+  dr.appendChild(document.createElement('td'));
+  MN.forEach((_,i)=>{
+    const mn=i+1, td=document.createElement('td');
+    if(DOT.has(mn)){ const cv=document.createElement('canvas'); cv._mn=mn; td.appendChild(cv); drawGrid(cv,mn); }
+    dr.appendChild(td);
+  });
+  tb.appendChild(dr);
+  /* 월 헤더 행 */
+  const hr=document.createElement('tr'); hr.className='mhd';
+  hr.appendChild(document.createElement('th'));
+  MN.forEach((_,i)=>{ const th=document.createElement('th'); th.textContent=MN[i]; if([1,2,10,11,12].includes(i+1)) th.classList.add('w'); hr.appendChild(th); });
+  tb.appendChild(hr);
+  /* 식물 행 */
+  pl.forEach(p=>{
+    const row=document.createElement('tr'); row.className='pr';
+    const nc=document.createElement('td'); nc.className='nc'; nc.textContent=p.name; row.appendChild(nc);
+    MN.forEach((_,i)=>{
+      const mn=i+1, cell=document.createElement('td'); cell.className='bc';
+      if(p.bloom.includes(mn)){
+        const b=document.createElement('div'); b.className='dv-bar';
+        const fl=!p.bloom.includes(mn===1?12:mn-1), ll=!p.bloom.includes(mn===12?1:mn+1);
+        let lft, rgt;
+        if(mn===10){ lft=fl?'1px':'0'; rgt='50%'; }
+        else if(mn===2&&fl){ lft='50%'; rgt=ll?'1px':'0'; }
+        else { lft=fl?'1px':'0'; rgt=ll?'1px':'0'; }
+        b.style.cssText=`background:${p.c};left:${lft};right:${rgt};border-radius:${fl?'2px':'0'} ${ll?'2px':'0'} ${ll?'2px':'0'} ${fl?'2px':'0'}`;
+        cell.appendChild(b);
+      }
+      if(p.wc && WIN.has(mn) && (mn===10||!p.bloom.includes(mn))){
+        const wb=document.createElement('div'); wb.className='dv-wbar';
+        const lft=mn===10?'50%':'0', rgt=mn===2?'50%':'0';
+        wb.style.cssText=`background:${p.wc};left:${lft};right:${rgt};border-radius:${mn===10?'2px':'0'} ${mn===2?'2px':'0'} ${mn===2?'2px':'0'} ${mn===10?'2px':'0'}`;
+        cell.appendChild(wb);
+      }
+      row.appendChild(cell);
+    });
+    tb.appendChild(row);
+  });
+
+  /* ── 꽃 크기 자동조회 ── */
+  const WORKER = 'https://plantlist.younrake.workers.dev';
+  window.dvAutoFetchSizes = async function() {
+    const btn=document.getElementById('dv-autoBtn');
+    const log=document.getElementById('dv-statusLog');
+    const pw=document.getElementById('dv-pwInput').value;
+    btn.disabled=true;
+    log.textContent='연결 확인 중...';
+    try {
+      const testRes=await fetch(`${WORKER}/api/gemini/flower-size?q=${encodeURIComponent(pl[0].name)}`,{headers:pw?{'x-app-password':pw}:{}});
+      const testJ=await testRes.json();
+      if(testJ.error){ log.textContent=`❌ ${JSON.stringify(testJ)}`; btn.disabled=false; return; }
+    } catch(e){ log.textContent=`❌ fetch 실패: ${e.message}`; btn.disabled=false; return; }
+    let done=0; log.textContent=`0/${pl.length} 조회 중...`;
+    const results=await Promise.all(pl.map(async p=>{
+      try {
+        const res=await fetch(`${WORKER}/api/gemini/flower-size?q=${encodeURIComponent(p.name)}`,{headers:pw?{'x-app-password':pw}:{}});
+        const j=await res.json(); done++; log.textContent=`${done}/${pl.length} 조회 중...`;
+        if(!j.error&&j.r) return {name:p.name,r:j.r,diameterCm:j.diameterCm};
+      } catch(e){ console.warn(p.name,e); }
+      return null;
+    }));
+    let updated=0;
+    results.forEach(res=>{ if(!res) return; const p=pl.find(x=>x.name===res.name); if(p){p.r=res.r;updated++;} });
+    document.querySelectorAll('#dv-t tr.dot-row canvas').forEach(cv=>{ if(cv._mn) drawGrid(cv,cv._mn); });
+    const lines=results.filter(Boolean).map(r=>`${r.name.split(' ')[0]}: ${r.diameterCm}cm→r${r.r}`);
+    log.innerHTML=`✅ ${updated}종 업데이트 | <span style="color:#666">${lines.join(', ')}</span>`;
+    btn.disabled=false;
+  };
 })();
 </script>
 </body>
