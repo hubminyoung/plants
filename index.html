@@ -1195,6 +1195,11 @@ async function loadPlant(p) {
   // NaturaDB는 MBG와 별개로 항상 병렬 시도 (독일어 DB, 다른 필드 제공)
   loadNaturadbDetail(p);
 
+  // Gaissmayer: Geselligkeit, Pflanzabstand (KV 캐시가 없는 식물 자동 보완)
+  if (!p.gaissmayerFetched) {
+    loadGaissmayerDetail(p);
+  }
+
   } catch(err) {
     console.error('[loadPlant]', p.name, err);
   } finally {
@@ -1365,13 +1370,16 @@ async function loadNaturadbDetail(p) {
   }
 
   // 독일어 테이블값 + 섹션 브라우저에서 MyMemory로 직접 번역
+  // static 데이터(fromStatic:true)는 이미 한국어 → 번역 건너뜀
   const ndbFields = ['ndbBoden','ndbNaehrstoffe','ndbPH','ndbKuebel','ndbPflanzenart',
     'ndbWuchs','ndbWurzel','ndbBlutenform','ndbBlattfarbe','ndbBlattphase','ndbBlattform','ndbSchnecken',
     'ndbStandort','ndbOekologie','ndbVerwendung','ndbSchnitt','ndbVermehrung','ndbSchaedlinge','ndbInteressantes'];
-  Promise.all(ndbFields.filter(k => p[k]).map(async k => {
-    const translated = await myMemoryDirect(p[k], 'de|ko');
-    if (translated && translated !== p[k]) { p[k] = translated; renderActiveTab(); }
-  }));
+  if (!det.fromStatic) {
+    Promise.all(ndbFields.filter(k => p[k]).map(async k => {
+      const translated = await myMemoryDirect(p[k], 'de|ko');
+      if (translated && translated !== p[k]) { p[k] = translated; renderActiveTab(); }
+    }));
+  }
 
   // NaturaDB 개화기가 있고 현재 없으면 보완
   if (det.bloomMonths?.length && !p.bloomMonths.length)
@@ -1385,6 +1393,27 @@ async function loadNaturadbDetail(p) {
   const hasNdbText = !!(p.ndbStandort || p.ndbOekologie || p.ndbVerwendung);
   const korForKna = p.korName && /[가-힣]/.test(p.korName) ? p.korName : null;
   if (!hasNdbText && korForKna) await loadKnagardenDetail(p, korForKna);
+}
+
+async function loadGaissmayerDetail(p) {
+  const q = p.latName || p.name;
+  if (!q) return;
+  const det = await wFetch('/api/gaissmayer/details', { q });
+  if (!det) return;
+  if (det.geselligkeit && !p.geselligkeit) {
+    p.geselligkeit = det.geselligkeit.trim();
+  }
+  if (det.pflanzAbstand && !p.pflanzAbstand) {
+    // "30cm · 12.8개/m²" or "30cm" → p.pflanzAbstand(숫자), p.pflanzCount(숫자)
+    const raw = String(det.pflanzAbstand);
+    const cm  = raw.match(/([\d.]+)\s*cm/i)?.[1];
+    const stm = raw.match(/([\d.]+)개\/m²/)?.[1]
+             || raw.match(/([\d,]+)\s*St\./i)?.[1]?.replace(',','.');
+    if (cm)  p.pflanzAbstand = +cm;
+    if (stm && !p.pflanzCount) p.pflanzCount = +stm;
+  }
+  p.gaissmayerFetched = true;
+  if (det.geselligkeit || det.pflanzAbstand) renderActiveTab();
 }
 
 async function loadMbgDetail(p) {
