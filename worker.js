@@ -16,15 +16,6 @@ export default {
   async fetch(req, env) {
     if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
-    // ── 비밀번호 인증 ──────────────────────────────────────────
-    if (env.APP_PASSWORD) {
-      const pw = req.headers.get('x-app-password') || '';
-      if (pw !== env.APP_PASSWORD) {
-        return new Response(JSON.stringify({ error: 'unauthorized' }), {
-          status: 401, headers: { ...CORS, 'Content-Type': 'application/json' }
-        });
-      }
-    }
 
     const { pathname, searchParams } = new URL(req.url);
 
@@ -43,8 +34,9 @@ export default {
       else if (pathname === '/api/gardenia/details') data = await gardeniaDetails(searchParams);
       else if (pathname === '/api/kv/get')  data = await kvGet(searchParams, env);
       else if (pathname === '/api/kv/set')  data = await kvSet(req, env);
-      else if (pathname === '/api/gemini/image')     data = await geminiImage(req, env);
-      else if (pathname === '/api/gemini/test')      data = await geminiTest(env);
+      else if (pathname === '/api/gemini/image')      data = await geminiImage(req, env);
+      else if (pathname === '/api/gemini/test')       data = await geminiTest(env);
+      else if (pathname === '/api/gemini/flower-size') data = await geminiFlowerSize(searchParams, env);
       else if (pathname === '/api/naturadb/details') data = await naturadbDetails(searchParams, env);
       else if (pathname === '/api/naturadb/test')    data = await naturadbTest(searchParams);
       else if (pathname === '/api/knagarden/details') data = await knagardenDetails(searchParams);
@@ -247,10 +239,11 @@ async function myMemoryTranslate(text, langpair = 'en|ko') {
   if (!text) return null;
   try {
     const encoded = encodeURIComponent(text.slice(0, 500));
-    const resp = await fetch('https://api.mymemory.translated.net/get?q=' + encoded + '&langpair=' + langpair);
+    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encoded}&langpair=${langpair}`);
     if (!resp.ok) return null;
     const data = await resp.json();
     const result = data.responseData?.translatedText;
+    // MyMemory는 번역 실패시 원문 반환하므로 원문과 같으면 null
     return (result && result !== text) ? result : null;
   } catch { return null; }
 }
@@ -261,6 +254,10 @@ async function hfTranslate(req, env) {
   const translation = await myMemoryTranslate(text, 'en|ko');
   return { translation: translation || '' };
 }
+
+// ── Gemini Key Test ───────────────────────────────────────────────────────────
+
+// ── 배치 번역 (여러 텍스트를 Gemini 1번 호출로) ─────────────────────────────────
 async function hfTranslateBatch(req, env) {
   const { texts } = await req.json();
   if (!texts?.length) return { translations: [] };
@@ -274,10 +271,10 @@ async function geminiTest(env) {
   if (!key) return { ok: false, error: 'GEMINI_API_KEY secret not set', keyPrefix: '' };
 
   const body = JSON.stringify({ contents: [{ parts: [{ text: 'Say hi' }] }] });
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
 
   // AQ. 형식 키 → Bearer 토큰, AIza 형식 → x-goog-api-key 헤더
-  const isOAuth = key.startsWith('AQ.') || key.startsWith('ya29.');
+  const isOAuth = key.startsWith('ya29.');
   const authHeader = isOAuth
     ? { 'Authorization': `Bearer ${key}` }
     : { 'x-goog-api-key': key };
@@ -296,7 +293,7 @@ async function geminiTest(env) {
 async function geminiImage(req, env) {
   const body = await req.json();
   const key = env.GEMINI_API_KEY || '';
-  const isOAuth = key.startsWith('AQ.') || key.startsWith('ya29.');
+  const isOAuth = key.startsWith('ya29.');
   const authHeader = isOAuth
     ? { 'Authorization': `Bearer ${key}` }
     : { 'x-goog-api-key': key };
@@ -313,7 +310,17 @@ async function geminiImage(req, env) {
 }
 
 // ── Gardenia.net ─────────────────────────────────────────────────────────────
-const GDN_UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+// 완전한 Chrome 브라우저 헤더 (봇 감지 우회 — Ajax Search 플러그인 CSS 주입 방지)
+const GDN_UA = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+};
 
 async function gardeniaTest(params) {
   const q = (params.get('q') ?? 'caltha-palustris').trim();
@@ -343,20 +350,31 @@ async function gardeniaDetails(params) {
   const url = `https://www.gardenia.net/plant/${slug}`;
   const resp = await fetch(url, { headers: GDN_UA });
   if (!resp.ok) return { error: `HTTP ${resp.status}`, slug };
-  const html = await resp.text();
+  let html = await resp.text();
+
+  // CSS 주입 사전 제거 (WordPress Ajax Search 플러그인이 데이터 필드에 CSS 삽입)
+  html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+  html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+  html = html.replace(/div\[id[^\]]*ajaxsearch[\s\S]*?(?=<)/gi, '');
 
   function ent(s) {
     return s.replace(/&amp;/g,'&').replace(/&nbsp;/g,' ').replace(/&#\d+;/g,'').trim();
   }
+  function clean(v) {
+    // CSS 주입 필터 (ajaxsearch, 중괄호, font-size 등)
+    if (!v) return null;
+    if (v.includes('ajaxsearch') || v.includes('{') || v.includes('font-size') || v.length > 200) return null;
+    return v;
+  }
   function field(label) {
     const re = new RegExp(label + '[^<]*</[^>]+>\\s*<[^>]+>([^<]+)', 'i');
     const m = html.match(re);
-    return m ? ent(m[1]) : null;
+    return m ? clean(ent(m[1])) : null;
   }
   function fieldAlt(label) {
     const re = new RegExp(label + '[\\s\\S]{0,60}?<[^>]+>([^<]{2,80})', 'i');
     const m = html.match(re);
-    return m ? ent(m[1]) : null;
+    return m ? clean(ent(m[1])) : null;
   }
 
   return {
@@ -621,9 +639,54 @@ async function knagardenDebug(params) {
   return results;
 }
 
+// ── Gemini 꽃 크기 조회 ────────────────────────────────────────────────────────
+// GET /api/gemini/flower-size?q=Crocus+tommasinianus
+// → { name, diameterCm, r }   (r = 2~13 스케일)
+
+async function geminiFlowerSize(params, env) {
+  const name = (params.get('q') ?? '').trim();
+  if (!name) return { error: 'q required' };
+
+  if (!env.AI) return { error: 'AI binding not configured' };
+
+  const prompt =
+    `You are a botanical expert. What is the typical diameter in centimeters of a ` +
+    `single flower or flowerhead of "${name}"?\n` +
+    `Rules:\n` +
+    `- Individual flower (crocus, narcissus, rudbeckia): size of one bloom\n` +
+    `- Globose inflorescence (allium): diameter of the sphere\n` +
+    `- Flat corymb (achillea): diameter of one corymb cluster (not the whole plant)\n` +
+    `- Spike type (agastache, perovskia, eremurus): diameter of the spike column (~2cm)\n` +
+    `- Tiny flowers (scilla, petrorhagia, calamintha): individual flower only\n` +
+    `Reply with ONLY a single decimal number in cm. No units, no explanation.`;
+
+  const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 10,
+    temperature: 0.1,
+    stream: false
+  });
+
+  let raw = '';
+  if (result && typeof result.response === 'string') {
+    raw = result.response.trim();
+  } else if (result?.choices?.[0]?.message?.content) {
+    raw = String(result.choices[0].message.content).trim();
+  } else {
+    return { name, error: 'unexpected_format', debug: JSON.stringify(result).slice(0, 300) };
+  }
+
+  const diameterCm = parseFloat(raw);
+  if (isNaN(diameterCm)) return { name, error: 'parse_failed', raw };
+
+  // r 스케일: 꽃 지름(cm)을 1~13 반지름으로 매핑
+  const r = Math.max(2, Math.min(12, Math.round(0.2 * Math.pow(diameterCm, 1.7))));
+  return { name, diameterCm, r };
+}
+
 // ── Gemini 독일어→한국어 번역 헬퍼 ──────────────────────────────────────────────
 async function geminiTranslateDE(prompt, apiKey) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -642,32 +705,40 @@ async function geminiTranslateDE(prompt, apiKey) {
   return result;
 }
 
-// ── NaturaDB 연결 테스트 ───────────────────────────────────────────────────────
+// ── NaturaDB 연결 테스트 (직접/corsproxy/allorigins 3가지 모두 확인) ──────────
 async function naturadbTest(params) {
   const q = params.get('q') || 'caltha-palustris';
   const slug = q.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-  const url = `https://www.naturadb.de/pflanzen/${slug}/`;
+  const ndbUrl = `https://www.naturadb.de/pflanzen/${slug}/`;
+  const NDB_H = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept-Language': 'de-DE,de;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml',
+  };
+  const results = { url: ndbUrl };
+
+  // 1. 직접 요청
   try {
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept-Language': 'de-DE,de;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml',
-      }
-    });
-    const text = await resp.text();
-    return {
-      ok: resp.ok,
-      status: resp.status,
-      url,
-      htmlLength: text.length,
-      hasHöhe: text.includes('Höhe'),
-      hasBlick: text.includes('Wichtigste'),
-      preview: text.slice(0, 300),
-    };
-  } catch(e) {
-    return { error: e.message, url };
-  }
+    const r = await fetch(ndbUrl, { headers: NDB_H });
+    const text = await r.text();
+    results.direct = { ok: r.ok, status: r.status, hasHöhe: text.includes('Höhe'), len: text.length };
+  } catch(e) { results.direct = { error: e.message }; }
+
+  // 2. corsproxy.io
+  try {
+    const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(ndbUrl));
+    const text = await r.text();
+    results.corsproxy = { ok: r.ok, status: r.status, hasHöhe: text.includes('Höhe'), len: text.length };
+  } catch(e) { results.corsproxy = { error: e.message }; }
+
+  // 3. allorigins.win
+  try {
+    const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(ndbUrl)}`);
+    const text = await r.text();
+    results.allorigins = { ok: r.ok, status: r.status, hasHöhe: text.includes('Höhe'), len: text.length };
+  } catch(e) { results.allorigins = { error: e.message }; }
+
+  return results;
 }
 
 // ── NaturaDB 식물 정보 ─────────────────────────────────────────────────────────
@@ -677,19 +748,42 @@ async function naturadbDetails(params, env) {
 
   const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
   const slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  const url  = `https://www.naturadb.de/pflanzen/${slug}/`;
+  const ndbUrl = `https://www.naturadb.de/pflanzen/${slug}/`;
+  const url    = ndbUrl;
 
-  let html;
+  const NDB_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Accept-Language': 'de-DE,de;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Cache-Control': 'no-cache',
+  };
+
+  let html = null;
+  let fetchSource = 'direct';
   try {
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept-Language': 'de-DE,de;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml',
-      }
-    });
-    if (!resp.ok) return { error: `HTTP ${resp.status}`, url };
-    html = await resp.text();
+    // 1. 직접 요청
+    try {
+      const r = await fetch(ndbUrl, { headers: NDB_HEADERS });
+      if (r.ok) { html = await r.text(); fetchSource = 'direct'; }
+    } catch(e) {}
+
+    // 2. corsproxy.io 우회 (직접 실패 시)
+    if (!html) {
+      try {
+        const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(ndbUrl));
+        if (r.ok) { html = await r.text(); fetchSource = 'corsproxy'; }
+      } catch(e) {}
+    }
+
+    // 3. allorigins.win 우회 (2차 fallback)
+    if (!html) {
+      try {
+        const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(ndbUrl)}`);
+        if (r.ok) { html = await r.text(); fetchSource = 'allorigins'; }
+      } catch(e) {}
+    }
+
+    if (!html) return { error: 'all_fetch_failed', url };
     // HTML 엔티티 디코딩 (독일어 움라우트)
     html = html.replace(/&Ouml;/g, 'Ö').replace(/&ouml;/g, 'ö')
                .replace(/&Auml;/g, 'Ä').replace(/&auml;/g, 'ä')
@@ -703,17 +797,46 @@ async function naturadbDetails(params, env) {
     return { error: 'not_found', url };
   }
 
+  // CSS/스크립트 주입 제거
+  html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+  html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+  // WordPress Ajax Search 플러그인 CSS 인라인 주입 제거 (HTML 전체에서 제거)
+  html = html.replace(/div\[id[^\]]*ajaxsearch[\s\S]*?(?=<\/td>|<\/dd>|<\/li>|<\/p>|<tr|$)/gi, '');
+
   // ── tr/td 테이블 (Das Wichtigste auf einen Blick 섹션) ────────────────────
   const table = {};
   const blickStart = html.indexOf('Das Wichtigste auf einen Blick');
   const blickSlice = blickStart >= 0 ? html.slice(blickStart, blickStart + 12000) : html;
 
+  function parseKV(raw) {
+    const key = raw[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().replace(/:$/, '');
+    const val = raw[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const isCSS = val.includes('ajaxsearch') || val.includes('{') || val.includes('font-size') || val.length > 300;
+    if (key && val && key.length < 50 && !isCSS && !table[key]) table[key] = val;
+  }
+
+  // ── tr/td 테이블 파싱
   const trRe = /<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi;
   let m;
-  while ((m = trRe.exec(blickSlice)) !== null) {
-    const key = m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().replace(/:$/, '');
-    const val = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    if (key && val && key.length < 50) table[key] = val;
+  while ((m = trRe.exec(blickSlice)) !== null) parseKV(m);
+
+  // ── dl/dt/dd 파싱 (NaturaDB가 이 구조를 사용하는 경우)
+  const dtRe = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi;
+  while ((m = dtRe.exec(blickSlice)) !== null) parseKV(m);
+
+  // ── 텍스트 기반 key:value 파싱 (HTML 구조 독립적 — 어떤 레이아웃도 처리)
+  // HTML 태그 제거 후 "Key: Value" 형태의 줄을 파싱
+  const rawText = blickSlice.replace(/<[^>]+>/g, '\n');
+  for (const line of rawText.split('\n')) {
+    const t2 = line.trim();
+    const ci = t2.indexOf(':');
+    if (ci < 2 || ci > 40) continue;
+    const key2 = t2.slice(0, ci).trim();
+    const val2 = t2.slice(ci + 1).trim();
+    if (!key2 || !val2 || val2.length < 2 || val2.length > 200) continue;
+    const isCSS2 = val2.includes('ajaxsearch') || val2.includes('{') || val2.includes('font-size');
+    const badKey = /[{};@#|]|http|www|^\d/.test(key2);
+    if (!isCSS2 && !badKey && !table[key2]) table[key2] = val2;
   }
 
   // ── 개화기: month-indicator[data-active] 위치 (1~12) ─────────────────────
@@ -759,5 +882,6 @@ async function naturadbDetails(params, env) {
       if (t) sections[k] = t;
     })
   ]);
-  return { table, sections, bloomMonths, url };
+
+  return { table, sections, bloomMonths, url, fetchSource };
 }
