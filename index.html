@@ -1344,6 +1344,16 @@ async function loadNaturadbDetail(p) {
   if (s['Interessantes'] || s['Wissenswertes'])
     p.ndbInteressantes = s['Interessantes'] || s['Wissenswertes'];
 
+  // NaturaDB 수고/폭 (Höhe: "40 - 60 cm", Breite: "40 - 50 cm") → p.height / p.spreadStr
+  if (t['Höhe'] && !p.height) {
+    const h = parseCmRange(t['Höhe']);
+    if (h) p.height = h;
+  }
+  if (t['Breite'] && !p.spreadStr) {
+    const b = parseCmRange(t['Breite']);
+    if (b) p.spreadStr = b;
+  }
+
   // 독일어 테이블값 + 섹션 브라우저에서 MyMemory로 직접 번역
   const ndbFields = ['ndbBoden','ndbNaehrstoffe','ndbPH','ndbKuebel','ndbPflanzenart',
     'ndbWuchs','ndbWurzel','ndbBlutenform','ndbBlattfarbe','ndbBlattphase','ndbBlattform','ndbSchnecken',
@@ -1611,14 +1621,33 @@ const NATIVE_RANGE_KO = {
   'Arctic regions':'북극 지역','Alpine regions':'고산 지역',
   'Wetlands':'습지','Meadows':'초원',
 };
+function parseCmRange(s) {
+  if (!s) return null;
+  // "40 - 60 cm" or "40-60 cm" or "80 cm"
+  const rng = s.match(/([\d.,]+)\s*[-–~]\s*([\d.,]+)\s*cm/i);
+  if (rng) {
+    const min = Math.round(parseFloat(rng[1].replace(',','.')) / 100 * 100) / 100;
+    const max = Math.round(parseFloat(rng[2].replace(',','.')) / 100 * 100) / 100;
+    return `${min}~${max}m`;
+  }
+  const single = s.match(/([\d.,]+)\s*cm/i);
+  if (single) {
+    const v = Math.round(parseFloat(single[1].replace(',','.')) / 100 * 100) / 100;
+    return `${v}m`;
+  }
+  return null;
+}
 function translateNativeRange(s) {
   if (!s) return '';
+  // HTML 주석 잔재 제거 (-->  등)
+  s = s.replace(/-->/g, '').replace(/<!--[\s\S]*?-->/g, '').trim();
+  if (!s || s === '--') return '';
   // 통째로 매칭 먼저, 없으면 단어별 치환
   if (NATIVE_RANGE_KO[s]) return NATIVE_RANGE_KO[s];
   return s.split(/,\s*/).map(part => {
     const t = part.trim();
     return NATIVE_RANGE_KO[t] || t;
-  }).join(', ');
+  }).filter(Boolean).join(', ');
 }
 const PLANT_TYPE_KO = {
   'herbaceous perennial':'다년생 초본', 'annual':'일년생 초본', 'biennial':'이년생 초본',
@@ -1671,8 +1700,21 @@ function translateList(str, map) {
 }
 const SUN_KO   = { 'full sun':'양지', 'part shade':'반음지', 'full shade':'음지', 'part_shade':'반음지', 'full_sun':'양지', 'full_shade':'음지', 'part sun/part shade':'반음지', 'part sun':'반양지' };
 const WATER_KO = { minimum:'건조에 강함', average:'보통', frequent:'습윤 선호',
+  'low':'건조에 강함', 'low water':'건조에 강함', 'infrequent':'건조에 강함',
+  'high':'습윤 선호', 'moist':'습윤 선호',
   'dry':'건조', 'dry to medium':'건조~보통', 'dry to medium, wet':'건조~습윤',
   'medium':'보통', 'medium to wet':'보통~습윤', 'wet':'습윤', 'average to wet':'보통~습윤' };
+// 정규 키 외 텍스트에서 키워드 매칭
+function waterKoLookup(w) {
+  if (!w) return '';
+  const v = w.toLowerCase().trim();
+  if (WATER_KO[v]) return WATER_KO[v];
+  if (/drought|very low|xeric|once established/.test(v)) return '건조에 강함';
+  if (/low/.test(v)) return '건조에 강함';
+  if (/high|moist|wet/.test(v)) return '습윤 선호';
+  if (/medium|moderate|average/.test(v)) return '보통';
+  return '';
+}
 const MAINT_KO = { low:'낮음', medium:'보통', high:'높음', minimum:'최소' };
 const MO_SHORT = ['1','2','3','4','5','6','7','8','9','10','11','12'];
 
@@ -1715,7 +1757,7 @@ function renderEcology() {
     // ── 서식처
     const s2 = [
       f('일조',     sunStr),
-      f('수분요구', WATER_KO[p.watering] || ld(p, p.watering)),
+      f('수분요구', waterKoLookup(p.watering) || ld(p, '')),
       f('바닥',     nld(p, p.ndbBoden)),
       f('영양소',   nld(p, p.ndbNaehrstoffe)),
       f('pH 값',    nld(p, p.ndbPH)),
