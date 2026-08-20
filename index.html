@@ -1560,6 +1560,7 @@ function renderActiveTab() {
     case 'images':   renderImages();   break;
     case 'ecology':  renderEcology();  break;
     case 'seasonal': renderSeasonal(); break;
+    case 'dotview':  renderDotView();  break;
     case 'density':  calcDensity();    break;
     case 'ai':       renderAISel();    break;
     case 'care':     renderCare();     break;
@@ -3016,6 +3017,7 @@ document.addEventListener('click', function(ev) {
   const DOT = new Set([2,3,4,5,6,7,8,9,10]);
   const WIN = new Set([10,11,12,1,2]);
 
+  /* 기준 식물 DB (wc·r 참조용) */
   const pl = [
     /* ── 구근 · 소구근 ── */
     {name:'Crocus tommasinianus var. roseus',          bloom:[2,3],        wc:null,      c:'#c8a4d8', r:2,   n:130},
@@ -3052,12 +3054,13 @@ document.addEventListener('click', function(ev) {
 
   function rng(s){ s=s>>>0; return()=>{s=(s*1664525+1013904223)>>>0;return s/0xffffffff;}; }
 
-  function drawGrid(cv, mn) {
+  /* activePl: [{name,bloom,wc,c,r,n}] */
+  function drawGrid(cv, mn, activePl) {
     const S=246;
     cv.width=S; cv.height=S;
     const ctx=cv.getContext('2d');
     ctx.fillStyle='#d0d0d0'; ctx.fillRect(0,0,S,S);
-    const blooming=pl.filter(p=>p.bloom.includes(mn));
+    const blooming=activePl.filter(p=>p.bloom.includes(mn));
     if(!blooming.length) return;
     const rand=rng(mn*7919+31337);
     const pool=[];
@@ -3084,83 +3087,85 @@ document.addEventListener('click', function(ev) {
     });
   }
 
-  const tb=document.getElementById('dv-tb');
-  /* 닷 레이블 행 */
-  const lr=document.createElement('tr'); lr.className='dot-lbl';
-  lr.appendChild(document.createElement('td'));
-  MN.forEach((_,i)=>{ const td=document.createElement('td'); if(DOT.has(i+1)) td.textContent=MN[i]; lr.appendChild(td); });
-  tb.appendChild(lr);
-  /* 닷 그리드 행 */
-  const dr=document.createElement('tr'); dr.className='dot-row';
-  dr.appendChild(document.createElement('td'));
-  MN.forEach((_,i)=>{
-    const mn=i+1, td=document.createElement('td');
-    if(DOT.has(mn)){ const cv=document.createElement('canvas'); cv._mn=mn; td.appendChild(cv); drawGrid(cv,mn); }
-    dr.appendChild(td);
-  });
-  tb.appendChild(dr);
-  /* 월 헤더 행 */
-  const hr=document.createElement('tr'); hr.className='mhd';
-  hr.appendChild(document.createElement('th'));
-  MN.forEach((_,i)=>{ const th=document.createElement('th'); th.textContent=MN[i]; if([1,2,10,11,12].includes(i+1)) th.classList.add('w'); hr.appendChild(th); });
-  tb.appendChild(hr);
-  /* 식물 행 */
-  pl.forEach(p=>{
-    const row=document.createElement('tr'); row.className='pr';
-    const nc=document.createElement('td'); nc.className='nc'; nc.textContent=p.name; row.appendChild(nc);
+  function buildTable(activePl) {
+    const tb=document.getElementById('dv-tb');
+    tb.innerHTML='';
+    /* 닷 레이블 행 */
+    const lr=document.createElement('tr'); lr.className='dot-lbl';
+    lr.appendChild(document.createElement('td'));
+    MN.forEach((_,i)=>{ const td=document.createElement('td'); if(DOT.has(i+1)) td.textContent=MN[i]; lr.appendChild(td); });
+    tb.appendChild(lr);
+    /* 닷 그리드 행 */
+    const dr=document.createElement('tr'); dr.className='dot-row';
+    dr.appendChild(document.createElement('td'));
     MN.forEach((_,i)=>{
-      const mn=i+1, cell=document.createElement('td'); cell.className='bc';
-      if(p.bloom.includes(mn)){
-        const b=document.createElement('div'); b.className='dv-bar';
-        const fl=!p.bloom.includes(mn===1?12:mn-1), ll=!p.bloom.includes(mn===12?1:mn+1);
-        let lft, rgt;
-        if(mn===10){ lft=fl?'1px':'0'; rgt='50%'; }
-        else if(mn===2&&fl){ lft='50%'; rgt=ll?'1px':'0'; }
-        else { lft=fl?'1px':'0'; rgt=ll?'1px':'0'; }
-        b.style.cssText=`background:${p.c};left:${lft};right:${rgt};border-radius:${fl?'2px':'0'} ${ll?'2px':'0'} ${ll?'2px':'0'} ${fl?'2px':'0'}`;
-        cell.appendChild(b);
-      }
-      if(p.wc && WIN.has(mn) && (mn===10||!p.bloom.includes(mn))){
-        const wb=document.createElement('div'); wb.className='dv-wbar';
-        const lft=mn===10?'50%':'0', rgt=mn===2?'50%':'0';
-        wb.style.cssText=`background:${p.wc};left:${lft};right:${rgt};border-radius:${mn===10?'2px':'0'} ${mn===2?'2px':'0'} ${mn===2?'2px':'0'} ${mn===10?'2px':'0'}`;
-        cell.appendChild(wb);
-      }
-      row.appendChild(cell);
+      const mn=i+1, td=document.createElement('td');
+      if(DOT.has(mn)){ const cv=document.createElement('canvas'); cv._mn=mn; td.appendChild(cv); drawGrid(cv,mn,activePl); }
+      dr.appendChild(td);
     });
-    tb.appendChild(row);
-  });
+    tb.appendChild(dr);
+    /* 월 헤더 행 */
+    const hr=document.createElement('tr'); hr.className='mhd';
+    hr.appendChild(document.createElement('th'));
+    MN.forEach((_,i)=>{ const th=document.createElement('th'); th.textContent=MN[i]; if([1,2,10,11,12].includes(i+1)) th.classList.add('w'); hr.appendChild(th); });
+    tb.appendChild(hr);
+    /* 식물 행 */
+    activePl.forEach(p=>{
+      const row=document.createElement('tr'); row.className='pr';
+      const nc=document.createElement('td'); nc.className='nc'; nc.textContent=p.name; row.appendChild(nc);
+      MN.forEach((_,i)=>{
+        const mn=i+1, cell=document.createElement('td'); cell.className='bc';
+        if(p.bloom.includes(mn)){
+          const b=document.createElement('div'); b.className='dv-bar';
+          const fl=!p.bloom.includes(mn===1?12:mn-1), ll=!p.bloom.includes(mn===12?1:mn+1);
+          let lft, rgt;
+          if(mn===10){ lft=fl?'1px':'0'; rgt='50%'; }
+          else if(mn===2&&fl){ lft='50%'; rgt=ll?'1px':'0'; }
+          else { lft=fl?'1px':'0'; rgt=ll?'1px':'0'; }
+          b.style.cssText=`background:${p.c};left:${lft};right:${rgt};border-radius:${fl?'2px':'0'} ${ll?'2px':'0'} ${ll?'2px':'0'} ${fl?'2px':'0'}`;
+          cell.appendChild(b);
+        }
+        if(p.wc && WIN.has(mn) && (mn===10||!p.bloom.includes(mn))){
+          const wb=document.createElement('div'); wb.className='dv-wbar';
+          const lft=mn===10?'50%':'0', rgt=mn===2?'50%':'0';
+          wb.style.cssText=`background:${p.wc};left:${lft};right:${rgt};border-radius:${mn===10?'2px':'0'} ${mn===2?'2px':'0'} ${mn===2?'2px':'0'} ${mn===10?'2px':'0'}`;
+          cell.appendChild(wb);
+        }
+        row.appendChild(cell);
+      });
+      tb.appendChild(row);
+    });
+  }
 
-  /* ── 꽃 크기 자동조회 ── */
-  const WORKER = 'https://plantlist.younrake.workers.dev';
-  window.dvAutoFetchSizes = async function() {
-    const btn=document.getElementById('dv-autoBtn');
-    const log=document.getElementById('dv-statusLog');
-    const pw=document.getElementById('dv-pwInput').value;
-    btn.disabled=true;
-    log.textContent='연결 확인 중...';
-    try {
-      const testRes=await fetch(`${WORKER}/api/gemini/flower-size?q=${encodeURIComponent(pl[0].name)}`,{headers:pw?{'x-app-password':pw}:{}});
-      const testJ=await testRes.json();
-      if(testJ.error){ log.textContent=`❌ ${JSON.stringify(testJ)}`; btn.disabled=false; return; }
-    } catch(e){ log.textContent=`❌ fetch 실패: ${e.message}`; btn.disabled=false; return; }
-    let done=0; log.textContent=`0/${pl.length} 조회 중...`;
-    const results=await Promise.all(pl.map(async p=>{
-      try {
-        const res=await fetch(`${WORKER}/api/gemini/flower-size?q=${encodeURIComponent(p.name)}`,{headers:pw?{'x-app-password':pw}:{}});
-        const j=await res.json(); done++; log.textContent=`${done}/${pl.length} 조회 중...`;
-        if(!j.error&&j.r) return {name:p.name,r:j.r,diameterCm:j.diameterCm};
-      } catch(e){ console.warn(p.name,e); }
-      return null;
-    }));
-    let updated=0;
-    results.forEach(res=>{ if(!res) return; const p=pl.find(x=>x.name===res.name); if(p){p.r=res.r;updated++;} });
-    document.querySelectorAll('#dv-t tr.dot-row canvas').forEach(cv=>{ if(cv._mn) drawGrid(cv,cv._mn); });
-    const lines=results.filter(Boolean).map(r=>`${r.name.split(' ')[0]}: ${r.diameterCm}cm→r${r.r}`);
-    log.innerHTML=`✅ ${updated}종 업데이트 | <span style="color:#666">${lines.join(', ')}</span>`;
-    btn.disabled=false;
-  };
+  /* 전역 노출 */
+  window.SP_PLANTS = pl;
+  window.SP_WIN    = WIN;
+  window.dvRebuild = buildTable;
+
+  /* 초기 빌드 (기준 DB) */
+  buildTable(pl);
 })();
+
+/* 검색된 plants → 개화 분포도 변환 */
+function renderDotView() {
+  if (!plants.length) {
+    window.dvRebuild(window.SP_PLANTS || []);
+    return;
+  }
+  const mapped = plants.map(p => {
+    const lat = (p.latName || p.name || '').toLowerCase();
+    const spMatch = (window.SP_PLANTS||[]).find(sp =>
+      lat && sp.name.toLowerCase().split(' ').slice(0,2).join(' ') === lat.split(' ').slice(0,2).join(' ')
+    );
+    const activeColor = p.selectedFlowerColor || (p.flowerColors && p.flowerColors[0]) || null;
+    const c = activeColor ? c2css(activeColor) : '#4caf7d';
+    const r = spMatch ? spMatch.r : 5;
+    const wc = spMatch ? spMatch.wc : null;
+    const n = Math.max(5, Math.round(400 / Math.max(1, r * r)));
+    return { name: p.latName || p.name || p.korName || '', bloom: p.bloomMonths || [], wc, c, r, n };
+  }).filter(p => p.name);
+  window.dvRebuild(mapped.length ? mapped : (window.SP_PLANTS || []));
+}
 </script>
 </body>
 </html>
