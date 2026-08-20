@@ -175,6 +175,331 @@ const STATIC_MBG = {
     attracts: 'Birds', tolerate: '',
     suggestedUse: 'Naturalizing, Woodland', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
   },
+
+  /* ── 구근류 ── */
+  'crocus-tommasinianus': {
+    commonName: 'Tommy Crocus', plantType: 'Bulb',
+    family: 'Iridaceae', nativeRange: 'Southeastern Europe', zone: '3 to 8',
+    heightFeet: '0.25 to 0.33 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'February to April', bloomColor: 'Lavender to Purple',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought',
+    suggestedUse: 'Naturalizing, Rock Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'crocus-sieberi-subsp-atticus': {
+    commonName: 'Crocus sieberi', plantType: 'Bulb',
+    family: 'Iridaceae', nativeRange: 'Greece', zone: '3 to 8',
+    heightFeet: '0.17 to 0.25 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'February to March', bloomColor: 'Purple, White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: 'Drought',
+    suggestedUse: 'Rock Garden, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'crocus-sieberi': {
+    commonName: 'Sieber Crocus', plantType: 'Bulb',
+    family: 'Iridaceae', nativeRange: 'Greece, Turkey', zone: '3 to 8',
+    heightFeet: '0.17 to 0.25 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'February to March', bloomColor: 'Purple, White, Yellow',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: 'Drought',
+    suggestedUse: 'Rock Garden, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'scilla-sibirica': {
+    commonName: 'Siberian Squill', plantType: 'Bulb',
+    family: 'Asparagaceae', nativeRange: 'Russia, Central Asia', zone: '2 to 8',
+    heightFeet: '0.25 to 0.50 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'March to April', bloomColor: 'Blue',
+    sun: 'Full Sun to Part Shade', water: 'Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: 'Drought',
+    suggestedUse: 'Naturalizing, Ground Cover', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'ornithogalum-umbellatum': {
+    commonName: 'Star of Bethlehem', plantType: 'Bulb',
+    family: 'Asparagaceae', nativeRange: 'Europe, Western Asia', zone: '4 to 9',
+    heightFeet: '0.50 to 1.00 feet', spreadFeet: '0.50 to 1.00 feet',
+    bloomTime: 'April to May', bloomColor: 'White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought',
+    suggestedUse: 'Naturalizing, Border Front', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'allium': {
+    commonName: 'Ornamental Onion', plantType: 'Bulb',
+    family: 'Amaryllidaceae', nativeRange: 'Central Asia, Mediterranean', zone: '4 to 8',
+    heightFeet: '2.00 to 3.00 feet', spreadFeet: '0.50 to 1.00 feet',
+    bloomTime: 'May to June', bloomColor: 'Purple',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border, Cutting Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'allium-purple-sensation': {
+    commonName: "Allium 'Purple Sensation'", plantType: 'Bulb',
+    family: 'Amaryllidaceae', nativeRange: 'Central Asia', zone: '5 to 8',
+    heightFeet: '2.50 to 3.00 feet', spreadFeet: '0.50 to 0.75 feet',
+    bloomTime: 'May to June', bloomColor: 'Purple',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border, Cutting Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'eremurus-stenophyllus': {
+    commonName: 'Foxtail Lily', plantType: 'Bulb',
+    family: 'Asphodelaceae', nativeRange: 'Central Asia', zone: '5 to 9',
+    heightFeet: '3.00 to 5.00 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'May to June', bloomColor: 'Yellow to Orange',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Heat',
+    suggestedUse: 'Back of Border, Cutting Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  // Eremurus × isabellinus 'Cleopatra' — MBG taxonid 246124
+  // × 기호 → slug에서 제거되어 더블대시 발생: eremurus--isabellinus-cleopatra
+  'eremurus--isabellinus-cleopatra': {
+    commonName: "Foxtail Lily 'Cleopatra'", plantType: 'Bulb',
+    family: 'Asphodelaceae', nativeRange: 'Garden Origin (hybrid)', zone: '5 to 8',
+    heightFeet: '3.00 to 5.00 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'May to June', bloomColor: 'Orange, Copper',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Heat',
+    suggestedUse: 'Back of Border, Cutting Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  // base(재배종 제거) 슬러그 대응: Eremurus × isabellinus → eremurus--isabellinus
+  'eremurus--isabellinus': {
+    commonName: 'Hybrid Foxtail Lily', plantType: 'Bulb',
+    family: 'Asphodelaceae', nativeRange: 'Garden Origin (hybrid)', zone: '5 to 8',
+    heightFeet: '3.00 to 5.00 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'May to June', bloomColor: 'Yellow, Orange, Pink, White',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Heat',
+    suggestedUse: 'Back of Border, Cutting Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+
+  /* ── 숙근초 ── */
+  'armeria-maritima': {
+    commonName: 'Sea Thrift', plantType: 'Perennial',
+    family: 'Plumbaginaceae', nativeRange: 'Europe, North America', zone: '4 to 8',
+    heightFeet: '0.50 to 1.00 feet', spreadFeet: '0.50 to 0.75 feet',
+    bloomTime: 'May to July', bloomColor: 'Pink to Rose',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Butterflies, Bees', tolerate: 'Drought, Salt',
+    suggestedUse: 'Rock Garden, Border Front, Ground Cover', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'iberis-sempervirens': {
+    commonName: 'Edging Candytuft', plantType: 'Perennial',
+    family: 'Brassicaceae', nativeRange: 'Southern Europe', zone: '3 to 9',
+    heightFeet: '0.50 to 1.00 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'April to May', bloomColor: 'White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Rock Garden, Ground Cover, Border Front', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'monarda-bradburiana': {
+    commonName: 'Eastern Bee Balm', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Central United States', zone: '4 to 8',
+    heightFeet: '1.50 to 2.50 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'June to July', bloomColor: 'Lavender to Pink, White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Deer',
+    suggestedUse: 'Naturalizing, Prairie Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'monarda-bradburyana': {
+    commonName: 'Eastern Bee Balm', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Central United States', zone: '4 to 8',
+    heightFeet: '1.50 to 2.50 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'June to July', bloomColor: 'Lavender to Pink, White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Deer',
+    suggestedUse: 'Naturalizing, Prairie Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'sisyrinchium-angustifolium': {
+    commonName: 'Blue-eyed Grass', plantType: 'Perennial',
+    family: 'Iridaceae', nativeRange: 'Eastern North America', zone: '4 to 9',
+    heightFeet: '0.50 to 1.00 feet', spreadFeet: '0.50 to 0.75 feet',
+    bloomTime: 'May to July', bloomColor: 'Blue, Violet',
+    sun: 'Full Sun to Part Shade', water: 'Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: '',
+    suggestedUse: 'Border Front, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'oenothera-fruticosa': {
+    commonName: 'Sundrops', plantType: 'Perennial',
+    family: 'Onagraceae', nativeRange: 'Eastern North America', zone: '4 to 8',
+    heightFeet: '1.00 to 2.00 feet', spreadFeet: '0.75 to 1.25 feet',
+    bloomTime: 'June to August', bloomColor: 'Yellow',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Poor Soil',
+    suggestedUse: 'Border, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'coreopsis-lanceolata': {
+    commonName: 'Lanceleaf Coreopsis', plantType: 'Perennial',
+    family: 'Asteraceae', nativeRange: 'Central and Eastern United States', zone: '3 to 9',
+    heightFeet: '1.00 to 2.00 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'May to October', bloomColor: 'Yellow',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Birds', tolerate: 'Drought, Poor Soil',
+    suggestedUse: 'Border, Cutting Garden, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'nepeta-sibirica': {
+    commonName: 'Siberian Catmint', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Siberia, Central Asia', zone: '3 to 8',
+    heightFeet: '2.00 to 3.00 feet', spreadFeet: '1.50 to 2.50 feet',
+    bloomTime: 'June to August', bloomColor: 'Blue, Lavender',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'petrorhagia-saxifraga': {
+    commonName: 'Tunic Flower', plantType: 'Perennial',
+    family: 'Caryophyllaceae', nativeRange: 'Southern Europe', zone: '5 to 9',
+    heightFeet: '0.50 to 1.00 feet', spreadFeet: '0.75 to 1.50 feet',
+    bloomTime: 'June to September', bloomColor: 'Pink, White',
+    sun: 'Full Sun', water: 'Dry', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Poor Soil',
+    suggestedUse: 'Rock Garden, Green Roof, Wall', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'ratibida-columnifera': {
+    commonName: 'Prairie Coneflower', plantType: 'Perennial',
+    family: 'Asteraceae', nativeRange: 'Central North America', zone: '3 to 9',
+    heightFeet: '2.00 to 3.00 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'June to September', bloomColor: 'Yellow, Red',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Birds', tolerate: 'Drought, Heat, Poor Soil',
+    suggestedUse: 'Prairie, Naturalizing, Border', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'achillea': {
+    commonName: 'Yarrow', plantType: 'Perennial',
+    family: 'Asteraceae', nativeRange: 'Europe, Western Asia', zone: '3 to 9',
+    heightFeet: '2.00 to 3.00 feet', spreadFeet: '1.50 to 2.00 feet',
+    bloomTime: 'June to August', bloomColor: 'Yellow, Gold',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Poor Soil, Deer',
+    suggestedUse: 'Border, Cutting Garden, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'calamintha': {
+    commonName: 'Calamint', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Europe', zone: '5 to 9',
+    heightFeet: '1.00 to 1.50 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'July to October', bloomColor: 'White, Lavender',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border Front, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  // Calamintha nepeta 'Montrose White' — MBG taxonid 293629
+  'calamintha-nepeta': {
+    commonName: 'Lesser Calamint', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Europe, North Africa', zone: '5 to 9',
+    heightFeet: '1.00 to 1.50 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'July to October', bloomColor: 'White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border Front, Ground Cover, Herb Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'calamintha-white-cloud': {
+    commonName: "Calamint 'White Cloud'", plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Europe, North Africa', zone: '5 to 9',
+    heightFeet: '1.00 to 1.50 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'July to October', bloomColor: 'White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border Front, Ground Cover, Herb Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'calamintha-nepeta-montrose-white': {
+    commonName: "Lesser Calamint 'Montrose White'", plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Europe, North Africa', zone: '5 to 9',
+    heightFeet: '1.00 to 1.50 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'July to October', bloomColor: 'White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border Front, Ground Cover, Herb Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'perovskia': {
+    commonName: 'Russian Sage', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Central Asia', zone: '5 to 9',
+    heightFeet: '3.00 to 5.00 feet', spreadFeet: '2.00 to 4.00 feet',
+    bloomTime: 'July to September', bloomColor: 'Blue, Lavender',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Heat, Poor Soil, Deer',
+    suggestedUse: 'Border, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'knautia-macedonica': {
+    commonName: 'Macedonian Scabiosa', plantType: 'Perennial',
+    family: 'Caprifoliaceae', nativeRange: 'Balkans', zone: '5 to 9',
+    heightFeet: '2.00 to 3.00 feet', spreadFeet: '1.50 to 2.00 feet',
+    bloomTime: 'July to September', bloomColor: 'Crimson, Red',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border, Cutting Garden, Cottage Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'rudbeckia-fulgida-var-fulgida': {
+    commonName: 'Black-eyed Susan', plantType: 'Perennial',
+    family: 'Asteraceae', nativeRange: 'Eastern North America', zone: '3 to 9',
+    heightFeet: '2.00 to 3.00 feet', spreadFeet: '1.50 to 2.00 feet',
+    bloomTime: 'July to September', bloomColor: 'Yellow, Orange',
+    sun: 'Full Sun to Part Shade', water: 'Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Birds', tolerate: 'Drought, Clay Soil',
+    suggestedUse: 'Border, Naturalizing, Cutting Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'agastache': {
+    commonName: 'Hyssop', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'North America, Asia', zone: '5 to 9',
+    heightFeet: '3.00 to 4.00 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'August to September', bloomColor: 'Blue, Lavender',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Deer',
+    suggestedUse: 'Border, Cutting Garden, Pollinator Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'symphyotrichum-oblongifolium': {
+    commonName: 'Aromatic Aster', plantType: 'Perennial',
+    family: 'Asteraceae', nativeRange: 'Central United States', zone: '3 to 9',
+    heightFeet: '1.50 to 2.50 feet', spreadFeet: '2.00 to 3.00 feet',
+    bloomTime: 'September to October', bloomColor: 'Lavender, Purple',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Birds', tolerate: 'Drought, Heat, Poor Soil',
+    suggestedUse: 'Border, Naturalizing, Prairie', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+
+  /* ── 슬러그 별칭 (학명 표기 변형 대응) ── */
+  'crocus-tommasinianus-var-roseus': {
+    commonName: 'Rosy Tommy Crocus', plantType: 'Bulb',
+    family: 'Iridaceae', nativeRange: 'Southeastern Europe', zone: '3 to 8',
+    heightFeet: '0.25 to 0.33 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'February to March', bloomColor: 'Rose, Pink',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought',
+    suggestedUse: 'Naturalizing, Rock Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'crocus-sieberi': {
+    commonName: 'Sieber\'s Crocus', plantType: 'Bulb',
+    family: 'Iridaceae', nativeRange: 'Greece', zone: '3 to 8',
+    heightFeet: '0.17 to 0.25 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'February to March', bloomColor: 'Purple, White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: 'Drought',
+    suggestedUse: 'Rock Garden, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'scilla-siberica': {
+    commonName: 'Siberian Squill', plantType: 'Bulb',
+    family: 'Asparagaceae', nativeRange: 'Russia, Central Asia', zone: '2 to 8',
+    heightFeet: '0.25 to 0.50 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'March to April', bloomColor: 'Blue',
+    sun: 'Full Sun to Part Shade', water: 'Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: 'Drought',
+    suggestedUse: 'Naturalizing, Ground Cover', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'monarda-bradburyana': {
+    commonName: 'Eastern Bee Balm', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Central United States', zone: '4 to 8',
+    heightFeet: '1.50 to 2.50 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'June to July', bloomColor: 'Lavender to Pink, White',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Deer',
+    suggestedUse: 'Naturalizing, Prairie Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'perovskia-atriplicifolia': {
+    commonName: 'Russian Sage', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'Central Asia', zone: '5 to 9',
+    heightFeet: '3.00 to 5.00 feet', spreadFeet: '2.00 to 4.00 feet',
+    bloomTime: 'July to September', bloomColor: 'Blue, Lavender',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Heat, Poor Soil, Deer',
+    suggestedUse: 'Border, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
 };
 
 // 분류학적으로 속명이 바뀐 경우 동의어 매핑 (소문자)
@@ -194,10 +519,19 @@ async function mbgSearch(params) {
   if (!q) return { taxonid: null };
 
   // STATIC_MBG 폴백: MBG가 Cloudflare IP에서 차단될 경우 정적 데이터 사용
+  const toSlug = s => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  // 1) 재배종명 제거
   const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
-  const slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  if (STATIC_MBG[slug]) {
-    return { taxonid: `static:${slug}`, matchedName: q, fromStatic: true };
+  // 2) var./subsp./f./cv. 이하 제거 → 종소명까지만
+  const baseNoVar = base.replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+.*$/i, '').trim();
+  // 3) 속명+종소명 2단어만 (예: Crocus sieberi)
+  const baseSpecies = base.split(/\s+/).slice(0, 2).join(' ');
+
+  for (const candidate of [q, base, baseNoVar, baseSpecies]) {
+    const slug = toSlug(candidate);
+    if (STATIC_MBG[slug]) {
+      return { taxonid: `static:${slug}`, matchedName: q, fromStatic: true };
+    }
   }
 
   let result = await mbgFetchSearch(q);
