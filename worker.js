@@ -534,34 +534,38 @@ async function mbgSearch(params) {
     }
   }
 
-  let result = await mbgFetchSearch(q);
-  if (result.taxonid) return result;
+  // 라이브 MBG 검색 (차단되거나 타임아웃 시 exception → try/catch로 무시)
+  try {
+    let result = await mbgFetchSearch(q);
+    if (result.taxonid) return result;
 
-  // Fallback 1: genus only
-  const genus = q.split(' ')[0];
-  if (genus && genus !== q) {
-    result = await mbgFetchSearch(genus);
-    if (result.taxonid) return { ...result, fallback: 'genus' };
-  }
-
-  // Fallback 2: 속명 동의어 (예: Cimicifuga → Actaea)
-  const synGenus = GENUS_SYNONYMS[(genus || q).toLowerCase()];
-  if (synGenus && synGenus !== (genus || q).toLowerCase()) {
-    // 재배종명 있으면 동의어속명 + 재배종명 먼저 시도
-    const cultivarPart = q.match(/([''][^'']+[''])/)?.[1];
-    if (cultivarPart) {
-      result = await mbgFetchSearch(`${synGenus} ${cultivarPart}`);
-      if (result.taxonid) return { ...result, fallback: 'synonym_cultivar' };
+    // Fallback 1: genus only
+    const genus = q.split(' ')[0];
+    if (genus && genus !== q) {
+      result = await mbgFetchSearch(genus);
+      if (result.taxonid) return { ...result, fallback: 'genus' };
     }
-    result = await mbgFetchSearch(synGenus);
-    if (result.taxonid) return { ...result, fallback: 'synonym' };
+
+    // Fallback 2: 속명 동의어 (예: Cimicifuga → Actaea)
+    const synGenus = GENUS_SYNONYMS[(genus || q).toLowerCase()];
+    if (synGenus && synGenus !== (genus || q).toLowerCase()) {
+      const cultivarPart = q.match(/([''][^'']+[''])/)?.[1];
+      if (cultivarPart) {
+        result = await mbgFetchSearch(`${synGenus} ${cultivarPart}`);
+        if (result.taxonid) return { ...result, fallback: 'synonym_cultivar' };
+      }
+      result = await mbgFetchSearch(synGenus);
+      if (result.taxonid) return { ...result, fallback: 'synonym' };
+    }
+  } catch(_) {
+    // MBG 네트워크 오류 무시 — STATIC_MBG로 처리됨
   }
 
   return { taxonid: null };
 }
 
 async function mbgFetchSearch(q) {
-  const url = `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${encodeURIComponent(q)}`;
+  const url = `https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=${encodeURIComponent(q)}`;
   const html = await (await fetch(url, { headers: MBG_UA })).text();
 
   const m = html.match(/taxonid=(\d+)/i);
@@ -584,7 +588,7 @@ async function mbgDetails(params) {
     throw new Error(`STATIC_MBG에 '${slug}' 항목 없음`);
   }
 
-  const url = `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
+  const url = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
   const html = await (await fetch(url, { headers: MBG_UA })).text();
 
   function ent(s) {
