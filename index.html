@@ -1353,6 +1353,16 @@ async function loadNaturadbDetail(p) {
     const b = parseCmRange(t['Breite']);
     if (b) p.spreadStr = b;
   }
+  // NaturaDB 내한성 (Frostverträglich: "bis -28 °C (bis Klimazone 5)") → p.hardiness
+  // 실제 NaturaDB HTML 파싱 시 소문자 키('frostverträglich'), static 데이터는 대문자 키 → 둘 다 체크
+  const _frostVal = t['Frostverträglich'] || t['frostverträglich'];
+  if (_frostVal) {
+    const zm = _frostVal.match(/Klimazone[^\d]*(\d+)/i);
+    if (zm) {
+      p.ndbHardiness = `Zone ${zm[1]}`;  // 항상 NDB 전용 필드에 저장
+      if (!p.hardiness) p.hardiness = p.ndbHardiness;  // MBG/Gardenia에서 이미 설정 안 된 경우에만
+    }
+  }
 
   // 독일어 테이블값 + 섹션 브라우저에서 MyMemory로 직접 번역
   const ndbFields = ['ndbBoden','ndbNaehrstoffe','ndbPH','ndbKuebel','ndbPflanzenart',
@@ -1771,7 +1781,7 @@ function renderEcology() {
       f('성장',       nld(p, p.ndbWuchs)),
       f('수고',       p.height     || ld(p,'')),
       f('폭',         p.spreadStr  || (p.spreadM ? p.spreadM+'m' : ld(p,''))),
-      f('내한성',     p.hardiness  || ld(p,'')),
+      f('내한성',     p.hardiness || p.ndbHardiness || ld(p,'')),
       f('루트 시스템',nld(p, p.ndbWurzel)),
     ].join('');
 
