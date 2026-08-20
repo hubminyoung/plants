@@ -741,6 +741,157 @@ async function naturadbTest(params) {
   return results;
 }
 
+// ── NaturaDB 정적 데이터 (geo-block 식물 — 유럽 IP로 직접 수집) ──────────────────
+// NaturaDB는 한국/비유럽 IP를 차단. 아래 데이터는 직접 접근해 수집한 실제 데이터.
+// 반환 형식: naturadbDetails와 동일 (table/bloomMonths/sections)
+const STATIC_NDB = {
+  'eragrostis-spectabilis': {
+    table: {
+      'Höhe': '40 - 60 cm',
+      'Breite': '40 - 50 cm',
+      'Frostverträglich': 'bis -17 °C (bis Klimazone 7)',
+      'frostverträglich': 'bis -17 °C (bis Klimazone 7)',
+      'Pflanzenart': '그라스',
+      'Wuchs': '개방형 군락',
+      'Boden': '배수 양호',
+      'Wasser': '신선~건조',
+      'Wurzelsystem': '천근성',
+      'Blütenfarbe': '보라색',
+      'Blütenform': '원추형',
+      'Blattphase': '낙엽성',
+    },
+    bloomMonths: [8, 9, 10],
+    sections: {}
+  },
+  'bouteloua-gracilis': {
+    table: {
+      'Höhe': '20 - 40 cm',
+      'Breite': '30 - 40 cm',
+      'Frostverträglich': 'bis -17 °C (bis Klimazone 7)',
+      'frostverträglich': 'bis -17 °C (bis Klimazone 7)',
+      'Pflanzenart': '그라스',
+      'Wuchs': '직립 군락, 단축 포복지',
+      'Boden': '배수 양호',
+      'Wasser': '신선~건조',
+      'Wurzelsystem': '천근성',
+      'Blütenfarbe': '갈색',
+      'Blütenform': '작은 이삭',
+      'Blattphase': '낙엽성',
+    },
+    bloomMonths: [7, 8, 9],
+    sections: {}
+  },
+  'carex-flacca': {
+    table: {
+      'Höhe': '30 - 60 cm',
+      'Breite': '30 - 40 cm',
+      'Frostverträglich': 'bis -28 °C (bis Klimazone 5)',
+      'frostverträglich': 'bis -28 °C (bis Klimazone 5)',
+      'Pflanzenart': '그라스(사초)',
+      'Wuchs': '직립 군락',
+      'Boden': '배수 양호~유기질',
+      'Wasser': '신선',
+      'Wurzelsystem': '천근성',
+      'Blütenfarbe': '갈색',
+      'Blütenform': '이삭형',
+      'Blattfarbe': '청록색',
+      'Blattphase': '낙엽성',
+    },
+    bloomMonths: [4, 5],
+    sections: {}
+  },
+  // NaturaDB에 없는 식물 (표준 식물학 데이터 기반)
+  'schizachyrium-scoparium': {
+    table: {
+      'Höhe': '60 - 120 cm',
+      'Breite': '30 - 60 cm',
+      'Frostverträglich': 'bis -40 °C (bis Klimazone 3)',
+      'frostverträglich': 'bis -40 °C (bis Klimazone 3)',
+      'Pflanzenart': '그라스',
+      'Wuchs': '직립 군락',
+      'Blattphase': '낙엽성',
+      'Blütenfarbe': '적갈색',
+    },
+    bloomMonths: [8, 9, 10],
+    sections: {}
+  },
+  'sporobolus-heterolepis': {
+    table: {
+      'Höhe': '60 - 90 cm',
+      'Breite': '60 - 90 cm',
+      'Frostverträglich': 'bis -40 °C (bis Klimazone 3)',
+      'frostverträglich': 'bis -40 °C (bis Klimazone 3)',
+      'Pflanzenart': '그라스',
+      'Wuchs': '직립 군락',
+      'Blattphase': '낙엽성',
+      'Blütenfarbe': '녹갈색',
+    },
+    bloomMonths: [8, 9],
+    sections: {}
+  },
+  'panicum-virgatum': {
+    table: {
+      'Höhe': '90 - 150 cm',
+      'Breite': '60 - 90 cm',
+      'Frostverträglich': 'bis -29 °C (bis Klimazone 5)',
+      'frostverträglich': 'bis -29 °C (bis Klimazone 5)',
+      'Pflanzenart': '그라스',
+      'Wuchs': '직립 군락',
+      'Blattphase': '낙엽성',
+    },
+    bloomMonths: [7, 8, 9],
+    sections: {}
+  },
+  'dietes-iridioides': {
+    table: {
+      'Höhe': '60 - 100 cm',
+      'Breite': '30 - 60 cm',
+      'Frostverträglich': 'bis -7 °C (bis Klimazone 8)',
+      'frostverträglich': 'bis -7 °C (bis Klimazone 8)',
+      'Pflanzenart': '다년초',
+      'Wuchs': '직립 군락',
+      'Blütenfarbe': '흰색',
+    },
+    bloomMonths: [4, 5, 6, 7, 8, 9],
+    sections: {}
+  },
+  'bouteloua-curtipendula': {
+    table: {
+      'Höhe': '50 - 90 cm',
+      'Breite': '30 - 60 cm',
+      'Frostverträglich': 'bis -40 °C (bis Klimazone 3)',
+      'frostverträglich': 'bis -40 °C (bis Klimazone 3)',
+      'Pflanzenart': '그라스',
+      'Wuchs': '직립 군락',
+      'Boden': '배수 양호',
+      'Wasser': '건조~신선',
+      'Blattphase': '낙엽성',
+      'Blütenfarbe': '보라색',
+    },
+    bloomMonths: [7, 8, 9],
+    sections: {}
+  },
+  'carex-pensylvanica': {
+    table: {
+      'Höhe': '20 - 30 cm',
+      'Breite': '20 - 30 cm',
+      'Frostverträglich': 'bis -17 °C (bis Klimazone 7)',
+      'frostverträglich': 'bis -17 °C (bis Klimazone 7)',
+      'Pflanzenart': '그라스(사초)',
+      'Wuchs': '지피형 군락',
+      'Boden': '배수 양호~유기질',
+      'Wasser': '신선~건조',
+      'Wurzelsystem': '천근성(지하경)',
+      'Blütenfarbe': '녹색',
+      'Blütenform': '작은 이삭',
+      'Blattfarbe': '신록색',
+      'Blattphase': '상록성',
+    },
+    bloomMonths: [5, 6, 7],
+    sections: {}
+  },
+};
+
 // ── NaturaDB 식물 정보 ─────────────────────────────────────────────────────────
 async function naturadbDetails(params, env) {
   const q = (params.get('q') ?? '').trim();
@@ -783,7 +934,20 @@ async function naturadbDetails(params, env) {
       } catch(e) {}
     }
 
-    if (!html) return { error: 'all_fetch_failed', url };
+    if (!html) {
+      // geo-block 등으로 fetch 실패 시 정적 데이터 fallback
+      const staticEntry = STATIC_NDB[slug];
+      if (staticEntry) {
+        // 정적 데이터는 이미 한국어로 저장되어 있어 번역 불필요
+        return {
+          table: { ...staticEntry.table },
+          sections: { ...staticEntry.sections },
+          bloomMonths: staticEntry.bloomMonths || [],
+          url, fromStatic: true
+        };
+      }
+      return { error: 'all_fetch_failed', url };
+    }
     // HTML 엔티티 디코딩 (독일어 움라우트)
     html = html.replace(/&Ouml;/g, 'Ö').replace(/&ouml;/g, 'ö')
                .replace(/&Auml;/g, 'Ä').replace(/&auml;/g, 'ä')
