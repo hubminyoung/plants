@@ -1698,7 +1698,7 @@ function translateList(str, map) {
   if (!str) return '';
   return str.split(/[,;]+/).map(s => { const t=s.trim(); return map[t]||t; }).join(', ');
 }
-const SUN_KO   = { 'full sun':'양지', 'part shade':'반음지', 'full shade':'음지', 'part_shade':'반음지', 'full_sun':'양지', 'full_shade':'음지', 'part sun/part shade':'반음지', 'part sun':'반양지' };
+const SUN_KO   = { 'full sun':'양지', 'part shade':'반음지', 'full shade':'음지', 'part_shade':'반음지', 'full_sun':'양지', 'full_shade':'음지', 'part sun/part shade':'반음지', 'part sun':'반양지', 'partial sun':'반양지', 'partial shade':'반음지', 'shade':'음지', 'sun':'양지', 'sun to part shade':'양지~반음지', 'part sun to shade':'반양지~음지' };
 const WATER_KO = { minimum:'건조에 강함', average:'보통', frequent:'습윤 선호',
   'low':'건조에 강함', 'low water':'건조에 강함', 'infrequent':'건조에 강함',
   'high':'습윤 선호', 'moist':'습윤 선호',
