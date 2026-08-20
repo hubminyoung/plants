@@ -3060,11 +3060,24 @@ document.addEventListener('click', function(ev) {
     cv.width=S; cv.height=S;
     const ctx=cv.getContext('2d');
     ctx.fillStyle='#d0d0d0'; ctx.fillRect(0,0,S,S);
-    const blooming=activePl.filter(p=>p.bloom.includes(mn));
-    if(!blooming.length) return;
+
+    /* 이 달에 그릴 항목 수집 */
+    const items=[];
+    activePl.forEach(p=>{
+      if(p.bloom.includes(mn)) items.push({r:p.r, n:p.n, c:p.c});
+      /* 10월·2월: 겨울 꽃머리도 캔버스에 반영 */
+      if(p.wc && (mn===10||mn===2) && !p.bloom.includes(mn))
+        items.push({r:p.r*0.65, n:Math.max(3,Math.round(p.n*0.55)), c:p.wc});
+    });
+    if(!items.length) return;
+
+    /* 희소한 달만 적당히 보정: 50개 미만이면 최대 4배까지, 목표 120개 */
+    const rawTotal=items.reduce((s,p)=>s+p.n,0);
+    const scale=rawTotal<50 ? Math.min(4, 120/rawTotal) : 1;
+
     const rand=rng(mn*7919+31337);
     const pool=[];
-    blooming.forEach(p=>{ for(let i=0;i<p.n;i++) pool.push(p); });
+    items.forEach(p=>{ const cnt=Math.max(1,Math.round(p.n*scale)); for(let i=0;i<cnt;i++) pool.push(p); });
     for(let i=pool.length-1;i>0;i--){
       const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];
     }
