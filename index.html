@@ -1865,7 +1865,7 @@ function renderEcology() {
         <div class="eco-card-hd-right">
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
-            <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
+            <a href="${p.mbgTaxonId && !p.mbgTaxonId.startsWith('static:') ? `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId}&isprofile=0` : `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${encodeURIComponent(p.latName||p.name||'')}`}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
             <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${encodeURIComponent((p.latName||p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
             ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
             <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
@@ -2240,7 +2240,7 @@ function renderCare() {
           ${nameSecondary ? `<span class="care-card-lat">${nameSecondary}</span>` : ''}
         </div>
         <div class="eco-ext-links">
-          <a href="https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId||''}&isprofile=0" target="_blank" rel="noopener" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
+          <a href="${p.mbgTaxonId && !p.mbgTaxonId.startsWith('static:') ? `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId}&isprofile=0` : `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderListResults.aspx?basic=${encodeURIComponent(p.latName||p.name||'')}`}" target="_blank" rel="noopener" style="${p.mbgTaxonId?'':'opacity:0.3;pointer-events:none'}">🌺 MBG</a>
           <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
           ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener">🌸 KNA</a>` : ''}
         </div>

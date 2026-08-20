@@ -91,6 +91,92 @@ async function perenualCare(params, env) {
 
 const MBG_UA = { 'User-Agent': 'Mozilla/5.0 (compatible; PlantBot/1.0)' };
 
+// MBG는 비미국 Cloudflare IP에서 차단됨 → 정적 폴백
+const STATIC_MBG = {
+  'sporobolus-heterolepis': {
+    commonName: 'Prairie Dropseed', plantType: 'Ornamental Grass',
+    family: 'Poaceae', nativeRange: 'North America', zone: '3 to 9',
+    heightFeet: '2.00 to 3.00 feet', spreadFeet: '2.00 to 3.00 feet',
+    bloomTime: 'August to September', bloomColor: 'Green to Bronze',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Birds', tolerate: 'Drought, Clay Soil, Dry Soil',
+    suggestedUse: 'Naturalizing, Ground Cover', flower: '', leaf: '',
+    culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'eragrostis-spectabilis': {
+    commonName: 'Purple Lovegrass', plantType: 'Ornamental Grass',
+    family: 'Poaceae', nativeRange: 'Eastern North America', zone: '5 to 9',
+    heightFeet: '1.50 to 2.00 feet', spreadFeet: '1.50 to 2.00 feet',
+    bloomTime: 'August to October', bloomColor: 'Purple',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Birds', tolerate: 'Drought, Dry Soil, Poor Soil',
+    suggestedUse: 'Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'bouteloua-curtipendula': {
+    commonName: 'Side-oats Grama', plantType: 'Ornamental Grass',
+    family: 'Poaceae', nativeRange: 'North America', zone: '3 to 9',
+    heightFeet: '1.50 to 2.50 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'July to September', bloomColor: 'Purple',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Birds, Butterflies', tolerate: 'Drought, Clay Soil',
+    suggestedUse: 'Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'carex-pensylvanica': {
+    commonName: 'Pennsylvania Sedge', plantType: 'Ornamental Grass',
+    family: 'Cyperaceae', nativeRange: 'Eastern North America', zone: '3 to 8',
+    heightFeet: '0.50 to 1.00 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'April to May', bloomColor: 'Green',
+    sun: 'Part Shade to Full Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Birds, Butterflies', tolerate: 'Drought, Dry Soil, Heavy Shade',
+    suggestedUse: 'Ground Cover', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'schizachyrium-scoparium': {
+    commonName: 'Little Bluestem', plantType: 'Ornamental Grass',
+    family: 'Poaceae', nativeRange: 'North America', zone: '3 to 9',
+    heightFeet: '2.00 to 4.00 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'August to October', bloomColor: 'Bronze to Silver',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Birds, Butterflies', tolerate: 'Drought, Dry Soil, Clay Soil, Poor Soil',
+    suggestedUse: 'Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'dietes-iridioides': {
+    commonName: 'African Iris', plantType: 'Perennial',
+    family: 'Iridaceae', nativeRange: 'Southern Africa', zone: '8 to 11',
+    heightFeet: '2.00 to 3.00 feet', spreadFeet: '1.00 to 2.00 feet',
+    bloomTime: 'April to September', bloomColor: 'White',
+    sun: 'Full Sun to Part Shade', water: 'Medium', maintenance: 'Low',
+    attracts: '', tolerate: 'Drought',
+    suggestedUse: 'Hedge/Screen', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'sesleria-autumnalis': {
+    commonName: 'Autumn Moor Grass', plantType: 'Ornamental Grass',
+    family: 'Poaceae', nativeRange: 'Southeastern Europe', zone: '5 to 9',
+    heightFeet: '1.00 to 1.50 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'September to October', bloomColor: 'Silver-white',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: '', tolerate: 'Drought, Deer',
+    suggestedUse: 'Ground Cover, Border Front', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'briza-media': {
+    commonName: 'Quaking Grass', plantType: 'Ornamental Grass',
+    family: 'Poaceae', nativeRange: 'Europe, Western Asia', zone: '4 to 8',
+    heightFeet: '1.00 to 2.00 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'May to July', bloomColor: 'Green to Straw',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Birds', tolerate: 'Drought, Dry Soil, Poor Soil',
+    suggestedUse: 'Meadow, Cottage Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'carex-bromoides': {
+    commonName: 'Brome-like Sedge', plantType: 'Ornamental Grass',
+    family: 'Cyperaceae', nativeRange: 'Eastern North America', zone: '4 to 8',
+    heightFeet: '1.00 to 2.00 feet', spreadFeet: '1.50 to 2.00 feet',
+    bloomTime: 'April to May', bloomColor: 'Yellow-green',
+    sun: 'Full Sun to Part Shade', water: 'Medium to Wet', maintenance: 'Low',
+    attracts: 'Birds', tolerate: '',
+    suggestedUse: 'Naturalizing, Woodland', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+};
+
 // 분류학적으로 속명이 바뀐 경우 동의어 매핑 (소문자)
 const GENUS_SYNONYMS = {
   'cimicifuga':   'actaea',       // 2005 APG
@@ -106,6 +192,13 @@ const GENUS_SYNONYMS = {
 async function mbgSearch(params) {
   const q = (params.get('q') ?? '').trim();
   if (!q) return { taxonid: null };
+
+  // STATIC_MBG 폴백: MBG가 Cloudflare IP에서 차단될 경우 정적 데이터 사용
+  const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
+  const slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (STATIC_MBG[slug]) {
+    return { taxonid: `static:${slug}`, matchedName: q, fromStatic: true };
+  }
 
   let result = await mbgFetchSearch(q);
   if (result.taxonid) return result;
@@ -148,6 +241,14 @@ async function mbgFetchSearch(q) {
 async function mbgDetails(params) {
   const taxonid = (params.get('taxonid') ?? '').trim();
   if (!taxonid) throw new Error('taxonid required');
+
+  // STATIC_MBG: taxonid가 'static:slug' 형식이면 정적 데이터 반환
+  if (taxonid.startsWith('static:')) {
+    const slug = taxonid.slice(7);
+    const s = STATIC_MBG[slug];
+    if (s) return { ...s, fromStatic: true };
+    throw new Error(`STATIC_MBG에 '${slug}' 항목 없음`);
+  }
 
   const url = `https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
   const html = await (await fetch(url, { headers: MBG_UA })).text();
@@ -428,70 +529,84 @@ async function gaissmayerDetails(params) {
   const q = (params.get('q') ?? '').trim();
   if (!q) return { geselligkeit: null, pflanzAbstand: null };
 
-  // 학명 → URL 슬러그 변환 (재배종 제거 후)
   const base = q.replace(/\s*[''''][^'''']+['''']\s*/g, '').trim();
   const slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-  // 시도할 URL 목록: 직접 슬러그 → 검색
-  const urls = [
-    `https://www.staudengaertnerei-gaissmayer.de/stauden-shop/${slug}/`,
-    `https://www.staudengaertnerei-gaissmayer.de/stauden-shop/staudensuche/?suche=${encodeURIComponent(base)}`,
-  ];
-
-  let detailHtml = null;
-
-  for (const url of urls) {
-    const resp = await fetch(url, { headers: GSM_UA });
-    const html = await resp.text();
-
-    if (url.includes('staudensuche')) {
-      // 검색 결과에서 첫 번째 상품 링크 추출
-      const m = html.match(/href="(https?:\/\/www\.staudengaertnerei-gaissmayer\.de\/stauden-shop\/(?!staudensuche)[^"]{4,}\/)"/)
-             || html.match(/href="(\/stauden-shop\/(?!staudensuche|tag|category)[^"]{4,}\/)"/)
-             || html.match(/class="woocommerce-LoopProduct-link[^"]*"\s+href="([^"]+)"/);
-      if (!m) return { geselligkeit: null, pflanzAbstand: null, debug: 'no_search_link', preview: html.slice(0,300) };
-      const detailUrl = m[1].startsWith('http') ? m[1] : 'https://www.staudengaertnerei-gaissmayer.de' + m[1];
-      const dr = await fetch(detailUrl, { headers: GSM_UA });
-      detailHtml = await dr.text();
-      break;
-    } else if (resp.ok) {
-      // 직접 URL — Geselligkeit 없어도 일단 사용 시도
-      detailHtml = html;
-      break;
-    }
-  }
-
-  if (!detailHtml) return { geselligkeit: null, pflanzAbstand: null, debug: 'no_detail' };
-
   function extractField(html, label) {
-    // WooCommerce attribute table 패턴
     const re1 = new RegExp('<th[^>]*>\\s*' + label + '\\s*</th>\\s*<td[^>]*>([^<]+)', 'i');
     const m1 = html.match(re1);
     if (m1) return m1[1].trim();
-    // 일반 패턴
-    const re2 = new RegExp(label + '[^<]{0,30}<[^>]+>([^<]{1,80})', 'i');
+    const re2 = new RegExp(label + '[^<]{0,40}<[^>]+>([^<]{1,100})', 'i');
     const m2 = html.match(re2);
     return m2 ? m2[1].trim() : null;
   }
 
-  const geselligkeit = extractField(detailHtml, 'Geselligkeit');
-  const pflanzRaw    = extractField(detailHtml, 'Pflanzabstand');
-
-  let pflanzAbstand = pflanzRaw;
-  if (pflanzRaw) {
-    const cm  = pflanzRaw.match(/([\d,\.]+)\s*cm/i)?.[1]?.replace(',','.');
-    const stm = pflanzRaw.match(/([\d,\.]+)\s*St\./i)?.[1]?.replace(',','.');
-    if (cm || stm) pflanzAbstand = [cm ? cm+'cm' : null, stm ? stm+'개/m²' : null].filter(Boolean).join(' · ');
+  function parsePflanzabstand(raw) {
+    if (!raw) return null;
+    const cm  = raw.match(/([\d,\.]+)\s*cm/i)?.[1]?.replace(',','.');
+    const stm = raw.match(/([\d,\.]+)\s*St\./i)?.[1]?.replace(',','.');
+    if (cm || stm) return [cm ? cm+'cm' : null, stm ? stm+'개/m²' : null].filter(Boolean).join(' · ');
+    return raw.slice(0,50);
   }
 
-  // 못 찾으면 페이지 일부를 디버그로 반환
-  const hasGes = detailHtml.includes('Geselligkeit');
-  return {
-    geselligkeit:  geselligkeit  || null,
-    pflanzAbstand: pflanzAbstand || null,
-    debug: hasGes ? 'found_but_no_parse' : 'no_field_in_page',
-    preview: detailHtml.slice(detailHtml.indexOf('product') > 0 ? detailHtml.indexOf('product') : 0, 500),
-  };
+  // ── 1차: 구 도메인 직접 URL (staudengaertnerei-gaissmayer.de)
+  try {
+    const oldUrls = [
+      `https://www.staudengaertnerei-gaissmayer.de/stauden-shop/${slug}/`,
+      `https://www.staudengaertnerei-gaissmayer.de/stauden-shop/staudensuche/?suche=${encodeURIComponent(base)}`,
+    ];
+    for (const url of oldUrls) {
+      const resp = await fetch(url, { headers: GSM_UA });
+      if (!resp.ok) continue;
+      let html = await resp.text();
+      if (url.includes('staudensuche')) {
+        const m = html.match(/href="(https?:\/\/www\.staudengaertnerei-gaissmayer\.de\/stauden-shop\/(?!staudensuche)[^"]{4,}\/)"/)
+               || html.match(/class="woocommerce-LoopProduct-link[^"]*"\s+href="([^"]+)"/);
+        if (!m) continue;
+        const dr = await fetch(m[1].startsWith('http') ? m[1] : 'https://www.staudengaertnerei-gaissmayer.de' + m[1], { headers: GSM_UA });
+        html = await dr.text();
+      }
+      if (!html.includes('Geselligkeit')) continue;
+      return {
+        geselligkeit:  extractField(html, 'Geselligkeit') || null,
+        pflanzAbstand: parsePflanzabstand(extractField(html, 'Pflanzabstand')),
+      };
+    }
+  } catch(e) {}
+
+  // ── 2차: 신 도메인 검색 (gaissmayer.de)
+  try {
+    const searchUrl = `https://www.gaissmayer.de/web/shop/suche/produkte/?suche=${encodeURIComponent(base)}`;
+    const sr = await fetch(searchUrl, { headers: GSM_UA });
+    if (!sr.ok) return { geselligkeit: null, pflanzAbstand: null, debug: 'new_search_failed' };
+    const searchHtml = await sr.text();
+
+    // 첫 번째 결과 링크 추출
+    const linkM = searchHtml.match(/href="(https:\/\/www\.gaissmayer\.de\/web\/shop\/[^"]+\/\d+\/)" title="Detailansicht"/)
+               || searchHtml.match(/href="(https:\/\/www\.gaissmayer\.de\/web\/shop\/pflanzen-sortiment[^"]+\/\d+\/)"/)
+               || searchHtml.match(/href="(https:\/\/www\.gaissmayer\.de\/web\/shop\/[^"]+\/\d+\/)"[^>]*>[\s\S]{0,300}?Sumpf|Sumpf/);
+    if (!linkM) {
+      // 검색결과에서 높이/개화 데이터만 추출 (fallback)
+      const heightM = searchHtml.match(/(\d+)\s*cm[–-]\s*(\d+)\s*cm/);
+      return {
+        geselligkeit: null, pflanzAbstand: null,
+        heightCm: heightM ? `${heightM[1]} - ${heightM[2]} cm` : null,
+        debug: 'new_search_no_link'
+      };
+    }
+
+    const detailUrl = linkM[1];
+    const dr = await fetch(detailUrl, { headers: GSM_UA });
+    if (!dr.ok) return { geselligkeit: null, pflanzAbstand: null, debug: 'new_detail_failed' };
+    const detailHtml = await dr.text();
+
+    const geselligkeit  = extractField(detailHtml, 'Geselligkeit') || null;
+    const pflanzAbstand = parsePflanzabstand(extractField(detailHtml, 'Pflanzabstand'));
+
+    return { geselligkeit, pflanzAbstand, debug: detailHtml.includes('Geselligkeit') ? 'ok' : 'no_field' };
+  } catch(e) {
+    return { geselligkeit: null, pflanzAbstand: null, debug: e.message };
+  }
 }
 
 // ── 정원백과 (knagarden.info) — 한국 자생식물 fallback ───────────────────────────
@@ -888,6 +1003,63 @@ const STATIC_NDB = {
       'Blattphase': '상록성',
     },
     bloomMonths: [5, 6, 7],
+    sections: {}
+  },
+  'sesleria-autumnalis': {
+    table: {
+      'Höhe': '25 - 50 cm',
+      'Breite': '25 - 30 cm',
+      'Frostverträglich': 'bis -23 °C (bis Klimazone 6)',
+      'frostverträglich': 'bis -23 °C (bis Klimazone 6)',
+      'Pflanzenart': '그라스',
+      'Wuchs': '군락형 · 넓게 퍼짐',
+      'Boden': '배수 양호~부식토',
+      'Wasser': '신선~건조',
+      'Wurzelsystem': '천근성',
+      'Blütenfarbe': '흰색',
+      'Blütenform': '이삭형',
+      'Blattfarbe': '청록색',
+      'Blattphase': '상록성',
+    },
+    bloomMonths: [9, 10],
+    sections: {}
+  },
+  'briza-media': {
+    table: {
+      'Höhe': '20 - 40 cm',
+      'Breite': '30 - 40 cm',
+      'Frostverträglich': 'bis -28 °C (bis Klimazone 5)',
+      'frostverträglich': 'bis -28 °C (bis Klimazone 5)',
+      'Pflanzenart': '그라스',
+      'Wuchs': '직립 · 자파형',
+      'Boden': '배수 양호~부식토',
+      'Wasser': '신선~건조',
+      'Wurzelsystem': '천근성',
+      'Blütenfarbe': '녹색',
+      'Blütenform': '소형 이삭',
+      'Blattfarbe': '녹색',
+      'Blattphase': '상록성',
+    },
+    bloomMonths: [5, 6, 7],
+    sections: {}
+  },
+  'carex-bromoides': {
+    table: {
+      'Höhe': '25 - 90 cm',
+      'Breite': '40 - 60 cm',
+      'Frostverträglich': 'bis -28 °C (bis Klimazone 5)',
+      'frostverträglich': 'bis -28 °C (bis Klimazone 5)',
+      'Pflanzenart': '그라스(사초)',
+      'Wuchs': '군락형',
+      'Boden': '배수 양호~부식토',
+      'Wasser': '신선',
+      'Wurzelsystem': '천근성',
+      'Blütenfarbe': '노란색',
+      'Blütenform': '이삭형',
+      'Blattfarbe': '녹색',
+      'Blattphase': '상록성',
+    },
+    bloomMonths: [4, 5],
     sections: {}
   },
 };
