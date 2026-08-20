@@ -3028,7 +3028,7 @@ document.addEventListener('click', function(ev) {
     {name:'Ornithogalum umbellatum',                   bloom:[4,5],        wc:null,      c:'#e0e0e0', r:2.5, n:55 },
     {name:'Armeria maritima',                          bloom:[4,5,6],      wc:null,      c:'#e080a0', r:2.5, n:42 },
     {name:'Iberis sempervirens',                       bloom:[3,4,5],      wc:null,      c:'#f4f4f4', r:3,   n:35 },
-    {name:'Monarda bradburiana',                       bloom:[6,7],        wc:'#6a4a2a', c:'#e06080', r:8,   n:13 },
+    {name:'Monarda bradburiana',                       bloom:[6,7],        wc:'#1a1a1a', c:'#e06080', r:8,   n:13 },
     /* ── 구근 대형 ── */
     {name:"Allium 'Purple Sensation'",                 bloom:[5,6],        wc:null,      c:'#7744bb', r:11,  n:9  },
     /* ── 숙근 소~중형 ── */
@@ -3038,13 +3038,13 @@ document.addEventListener('click', function(ev) {
     {name:"Nepeta sibirica 'Chaudron'",                bloom:[6,7,8],      wc:null,      c:'#8899dd', r:5,   n:24 },
     {name:'Petrorhagia saxifraga',                     bloom:[6,7,8,9],    wc:null,      c:'#f0d8e8', r:2.5, n:50 },
     {name:'Ratibida columnifera',                      bloom:[6,7,8,9],    wc:'#d4c878', c:'#f5c020', r:6,   n:18 },
-    {name:"Achillea 'Coronation Gold'",                bloom:[6,7,8],      wc:'#c8b840', c:'#e8c020', r:7,   n:18 },
+    {name:"Achillea 'Coronation Gold'",                bloom:[6,7,8],      wc:'#1a1a1a', c:'#e8c020', r:7,   n:18 },
     {name:'Eremurus stenophyllus',                     bloom:[6,7],        wc:null,      c:'#f5d020', r:9,   n:7  },
     {name:"Calamintha 'White Cloud'",                  bloom:[7,8,9,10],   wc:null,      c:'#d8d8d8', r:3,   n:50 },
     {name:"Perovskia atriplicifolia 'Superba'",        bloom:[7,8,9],      wc:'#c0c0c0', c:'#aabbee', r:5.5, n:22 },
     {name:'Knautia macedonica',                        bloom:[6,7,8,9,10], wc:null,      c:'#cc2244', r:5,   n:26 },
-    {name:'Rudbeckia fulgida var. fulgida',            bloom:[7,8,9],      wc:'#8b6914', c:'#f5c010', r:7,   n:20 },
-    {name:"Agastache 'Blue Fortune'",                  bloom:[8,9],        wc:'#5a4a7a', c:'#7788dd', r:6,   n:22 },
+    {name:'Rudbeckia fulgida var. fulgida',            bloom:[7,8,9],      wc:'#1a1a1a', c:'#f5c010', r:7,   n:20 },
+    {name:"Agastache 'Blue Fortune'",                  bloom:[8,9],        wc:'#1a1a1a', c:'#7788dd', r:6,   n:22 },
     {name:"Symphyotrichum oblongifolium 'October Skies'", bloom:[9,10],   wc:'#8b5a2b', c:'#8899d8', r:7,   n:18 },
   ];
 
@@ -3089,7 +3089,8 @@ document.addEventListener('click', function(ev) {
     }
     pool.forEach((p,i)=>{
       const cell=cells[i%cells.length];
-      const r=p.r*2*(0.78+rand()*0.44);
+      /* seasonal_preview.html 기준: canvas 246px을 CSS 123px 표시(2x)와 동일하게 r*1 사용 */
+      const r=p.r*(0.78+rand()*0.44);
       const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*.65));
       const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
       ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
