@@ -105,7 +105,13 @@ async function getMbgTaxonMap() {
     .then(list => {
       const map = new Map();
       const toKey = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
-      for (const item of list) map.set(toKey(item.name), item.taxonid);
+      for (const item of list) {
+        const key = toKey(item.name);
+        map.set(key, item.taxonid);
+        // subsp./var./f. 제거한 단순화 키도 추가 (예: "crocus sieberi subsp. atticus 'firefly'" → "crocus sieberi 'firefly'")
+        const simplified = key.replace(/\s+(subsp|var|f|ssp|cv)\.?\s+\S+/i, '');
+        if (simplified !== key) map.set(simplified, item.taxonid);
+      }
       _mbgTaxonMap = map;
       return map;
     })
