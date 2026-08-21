@@ -91,6 +91,28 @@ async function perenualCare(params, env) {
 
 const MBG_UA = { 'User-Agent': 'Mozilla/5.0 (compatible; PlantBot/1.0)' };
 
+// ── MBG Taxonid Map (GitHub JSON 캐시) ───────────────────────────────────────
+// https://raw.githubusercontent.com/hubminyoung/plants/main/data/mbg_taxonids.json
+const MBG_TAXONID_MAP_URL = 'https://raw.githubusercontent.com/hubminyoung/plants/main/data/mbg_taxonids.json';
+let _mbgTaxonMap = null;
+let _mbgTaxonMapPromise = null;
+
+async function getMbgTaxonMap() {
+  if (_mbgTaxonMap) return _mbgTaxonMap;
+  if (_mbgTaxonMapPromise) return _mbgTaxonMapPromise;
+  _mbgTaxonMapPromise = fetch(MBG_TAXONID_MAP_URL)
+    .then(r => r.json())
+    .then(list => {
+      const map = new Map();
+      const toKey = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+      for (const item of list) map.set(toKey(item.name), item.taxonid);
+      _mbgTaxonMap = map;
+      return map;
+    })
+    .catch(() => new Map());
+  return _mbgTaxonMapPromise;
+}
+
 // MBG는 비미국 Cloudflare IP에서 차단됨 → 정적 폴백
 const STATIC_MBG = {
   'sporobolus-heterolepis': {
@@ -533,6 +555,16 @@ async function mbgSearch(params) {
       return { taxonid: `static:${slug}`, matchedName: q, fromStatic: true };
     }
   }
+
+  // GitHub JSON taxonid 조회 (MBG 라이브 차단 우회)
+  try {
+    const taxonMap = await getMbgTaxonMap();
+    const toKey = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    for (const candidate of [q, base, baseNoVar, baseSpecies]) {
+      const tid = taxonMap.get(toKey(candidate));
+      if (tid) return { taxonid: tid, matchedName: candidate, fromGithub: true };
+    }
+  } catch(_) {}
 
   // 라이브 MBG 검색 (차단되거나 타임아웃 시 exception → try/catch로 무시)
   try {
