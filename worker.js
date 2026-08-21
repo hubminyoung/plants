@@ -951,11 +951,9 @@ async function gaissmayerDetails(params) {
     if (!sr.ok) return { geselligkeit: null, pflanzAbstand: null, debug: 'new_search_failed' };
     const searchHtml = await sr.text();
 
-    // 첫 번째 결과 링크 추출
-    const linkM = searchHtml.match(/href="(https:\/\/www\.gaissmayer\.de\/web\/shop\/[^"]+\/\d+\/)" title="Detailansicht"/)
-               || searchHtml.match(/href="(https:\/\/www\.gaissmayer\.de\/web\/shop\/pflanzen-sortiment[^"]+\/\d+\/)"/)
-               || searchHtml.match(/href="(https:\/\/www\.gaissmayer\.de\/web\/shop\/[^"]+\/\d+\/)"[^>]*>[\s\S]{0,300}?Sumpf|Sumpf/);
-    if (!linkM) {
+    // 첫 번째 결과 링크 추출 (상대 URL, href와 title 사이에 다른 속성 있을 수 있음)
+    const linkM = searchHtml.match(/href="(\/web\/shop\/[^"]+\/\d+\/)"[^>]*title="Detailansicht"/);
+    if (!linkM || !linkM[1]) {
       // 검색결과에서 높이/개화 데이터만 추출 (fallback)
       const heightM = searchHtml.match(/(\d+)\s*cm[–-]\s*(\d+)\s*cm/);
       return {
@@ -965,7 +963,7 @@ async function gaissmayerDetails(params) {
       };
     }
 
-    const detailUrl = linkM[1];
+    const detailUrl = 'https://www.gaissmayer.de' + linkM[1];
     const dr = await fetch(detailUrl, { headers: GSM_UA });
     if (!dr.ok) return { geselligkeit: null, pflanzAbstand: null, debug: 'new_detail_failed' };
     const detailHtml = await dr.text();
