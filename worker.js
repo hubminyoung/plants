@@ -549,22 +549,28 @@ async function mbgSearch(params) {
   // 3) 속명+종소명 2단어만 (예: Crocus sieberi)
   const baseSpecies = base.split(/\s+/).slice(0, 2).join(' ');
 
-  for (const candidate of [q, base, baseNoVar, baseSpecies]) {
-    const slug = toSlug(candidate);
-    if (STATIC_MBG[slug]) {
-      return { taxonid: `static:${slug}`, matchedName: q, fromStatic: true };
-    }
-  }
-
-  // GitHub JSON taxonid 조회 (MBG 라이브 차단 우회)
+  // GitHub JSON taxonid 조회 (MBG 라이브 차단 우회) — STATIC_MBG보다 먼저 체크
+  let githubTaxonId = null;
+  let githubMatchedName = null;
   try {
     const taxonMap = await getMbgTaxonMap();
     const toKey = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
     for (const candidate of [q, base, baseNoVar, baseSpecies]) {
       const tid = taxonMap.get(toKey(candidate));
-      if (tid) return { taxonid: tid, matchedName: candidate, fromGithub: true };
+      if (tid) { githubTaxonId = tid; githubMatchedName = candidate; break; }
     }
   } catch(_) {}
+
+  for (const candidate of [q, base, baseNoVar, baseSpecies]) {
+    const slug = toSlug(candidate);
+    if (STATIC_MBG[slug]) {
+      // STATIC_MBG 히트: 실제 taxonid가 GitHub JSON에 있으면 그걸 사용 (MBG 링크 직접 연결)
+      if (githubTaxonId) return { taxonid: githubTaxonId, matchedName: githubMatchedName, fromStatic: true, staticSlug: slug };
+      return { taxonid: `static:${slug}`, matchedName: q, fromStatic: true };
+    }
+  }
+
+  if (githubTaxonId) return { taxonid: githubTaxonId, matchedName: githubMatchedName, fromGithub: true };
 
   // 라이브 MBG 검색 (차단되거나 타임아웃 시 exception → try/catch로 무시)
   try {
@@ -610,6 +616,7 @@ async function mbgFetchSearch(q) {
 
 async function mbgDetails(params) {
   const taxonid = (params.get('taxonid') ?? '').trim();
+  const staticSlug = (params.get('staticSlug') ?? '').trim();
   if (!taxonid) throw new Error('taxonid required');
 
   // STATIC_MBG: taxonid가 'static:slug' 형식이면 정적 데이터 반환
@@ -620,8 +627,18 @@ async function mbgDetails(params) {
     throw new Error(`STATIC_MBG에 '${slug}' 항목 없음`);
   }
 
-  const url = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
-  const html = await (await fetch(url, { headers: MBG_UA })).text();
+  let html;
+  try {
+    const url = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
+    const resp = await fetch(url, { headers: MBG_UA });
+    html = await resp.text();
+  } catch(_) { html = ''; }
+
+  // MBG 라이브가 차단된 경우(또는 'Common Name:' 없는 응답) → staticSlug 폴백
+  if (html.indexOf('Common Name:') < 0) {
+    if (staticSlug && STATIC_MBG[staticSlug]) return { ...STATIC_MBG[staticSlug], fromStatic: true };
+    return {};
+  }
 
   function ent(s) {
     return s.replace(/&amp;/g,'&').replace(/&nbsp;/g,' ').replace(/&#\d+;/g,'').replace(/&[a-z]+;/g,'').trim();

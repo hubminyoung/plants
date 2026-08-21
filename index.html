@@ -1045,7 +1045,7 @@ function parsePlants() {
 function mkPlant(name) {
   return {
     name, korName: '', latName: '', commonName: '', native: '', family: '',
-    mbgTaxonId: null, height: '', spreadStr: '', spreadM: null, flowerColors: [],
+    mbgTaxonId: null, mbgStaticSlug: null, height: '', spreadStr: '', spreadM: null, flowerColors: [],
     bloomMonths: [], sunlight: [], hardiness: '',
     watering: '', maintenance: '', nativeRange: '', plantType: '',
     culture: '', noteworthy: '', uses: '', problems: '', tolerate: '',
@@ -1183,6 +1183,7 @@ async function loadPlant(p) {
   const mbg = await wFetch('/api/mbg/search', { q: searchQ });
   if (mbg?.taxonid) {
     p.mbgTaxonId = mbg.taxonid;
+    if (mbg.staticSlug) p.mbgStaticSlug = mbg.staticSlug;
     await loadMbgDetail(p);
   } else {
     // MBG에 없으면 gardenia.net 시도
@@ -1414,7 +1415,9 @@ async function loadGaissmayerDetail(p) {
 
 async function loadMbgDetail(p) {
   if (!p.mbgTaxonId) return;
-  const det = await wFetch('/api/mbg/details', { taxonid: p.mbgTaxonId });
+  const params = { taxonid: p.mbgTaxonId };
+  if (p.mbgStaticSlug) params.staticSlug = p.mbgStaticSlug;
+  const det = await wFetch('/api/mbg/details', params);
   if (!det || det.error) return;
 
   const ftToM = v => +(v * 0.3048).toFixed(1);
