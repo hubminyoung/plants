@@ -104,7 +104,9 @@ async function getMbgTaxonMap() {
     .then(r => r.json())
     .then(list => {
       const map = new Map();
-      const toKey = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+      const toKey = s => s.toLowerCase()
+        .replace(/[‘’ʼ′]/g, "'")  // curly/special quotes → straight
+        .replace(/\s+/g, ' ').trim();
       for (const item of list) {
         const key = toKey(item.name);
         map.set(key, item.taxonid);
@@ -560,7 +562,7 @@ async function mbgSearch(params) {
   let githubMatchedName = null;
   try {
     const taxonMap = await getMbgTaxonMap();
-    const toKey = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const toKey = s => s.toLowerCase().replace(/[''ʼ′]/g, "'").replace(/\s+/g, ' ').trim();
     for (const candidate of [q, base, baseNoVar, baseSpecies]) {
       const tid = taxonMap.get(toKey(candidate));
       if (tid) { githubTaxonId = tid; githubMatchedName = candidate; break; }
