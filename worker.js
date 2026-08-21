@@ -903,6 +903,11 @@ async function gaissmayerDetails(params) {
   const slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
   function extractField(html, label) {
+    // Gaissmayer 신 도메인: <strong>LABEL[...btn...]</strong><p>VALUE</p>
+    const re0 = new RegExp('<strong>\\s*' + label + '[\\s\\S]*?<\\/strong>\\s*<p>([^<]+)<\\/p>', 'i');
+    const m0 = html.match(re0);
+    if (m0) return m0[1].trim();
+    // 구 도메인 테이블 형식
     const re1 = new RegExp('<th[^>]*>\\s*' + label + '\\s*</th>\\s*<td[^>]*>([^<]+)', 'i');
     const m1 = html.match(re1);
     if (m1) return m1[1].trim();
