@@ -1774,6 +1774,16 @@ const COLOR_KO = {
   'brown':'갈색','black':'검정색','bicolor':'이색','multicolor':'다색',
 };
 
+function mbgHref(p) {
+  if (p.mbgTaxonId && !p.mbgTaxonId.startsWith('static:'))
+    return 'https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=' + p.mbgTaxonId + '&isprofile=0';
+  var q = (p.latName || p.name || '')
+    .replace(/\s*[\u2018\u2019'''\u02BC][^\u2018\u2019'''\u02BC]+[\u2018\u2019'''\u02BC]/g, '')
+    .replace(/\s+(var|subsp|f|ssp)\.?\s+\S+.*$/i, '')
+    .trim().split(/\s+/).slice(0, 2).join(' ');
+  return 'https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=' + encodeURIComponent(q);
+}
+
 function renderEcology() {
   const el = document.getElementById('eco-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div>'; return; }
@@ -1882,7 +1892,7 @@ function renderEcology() {
         <div class="eco-card-hd-right">
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
-            <a href="${p.mbgTaxonId && !p.mbgTaxonId.startsWith(‘static:’) ? `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId}&isprofile=0` : `https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=${encodeURIComponent((p.latName||p.name||’’).replace(/\s*[‘’’’’][^’’’’’’’]+[‘’’’’’’]/g,’’).replace(/\s+(var|subsp|f|ssp)\.?\s+\S+.*$/i,’’).trim().split(/\s+/).slice(0,2).join(‘ ‘))}`}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?’’:’opacity:0.6’}">🌺 MBG</a>
+            <a href="${mbgHref(p)}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
             <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${encodeURIComponent((p.latName||p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
             ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
             <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
@@ -2311,7 +2321,7 @@ function renderCare() {
           ${nameSecondary ? `<span class="care-card-lat">${nameSecondary}</span>` : ''}
         </div>
         <div class="eco-ext-links">
-          <a href="${p.mbgTaxonId && !p.mbgTaxonId.startsWith(‘static:’) ? `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${p.mbgTaxonId}&isprofile=0` : `https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=${encodeURIComponent((p.latName||p.name||’’).replace(/\s*[‘’’’’][^’’’’’’’]+[‘’’’’’’]/g,’’).replace(/\s+(var|subsp|f|ssp)\.?\s+\S+.*$/i,’’).trim().split(/\s+/).slice(0,2).join(‘ ‘))}`}" target="_blank" rel="noopener" style="${p.mbgTaxonId?’’:’opacity:0.6’}">🌺 MBG</a>
+          <a href="${mbgHref(p)}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
           <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
           ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener">🌸 KNA</a>` : ''}
         </div>
