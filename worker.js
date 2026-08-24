@@ -1522,6 +1522,105 @@ const STATIC_NDB = {
   },
 
   // ── NaturaDB에서 직접 수집한 데이터 (지역 차단 대비) ─────────────────────────
+  // rudbeckia-fulgida (NaturaDB 실제 데이터, 2024-08 수집)
+  'rudbeckia-fulgida': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '직립, 군락형, 덤불형',
+      'Boden': '배수 양호~유기질',
+      'Nährstoffe': '영양 풍부',
+      'Wurzelsystem': '천근성',
+      'Blütenform': '두상화서',
+      'Blattfarbe': '녹색',
+      'Blattphase': '여름낙엽',
+      'Blattform': '난형, 거치형',
+    },
+    bloomMonths: [8, 9, 10],
+    sections: {}
+  },
+
+  // 식물학 데이터 (NaturaDB 접근 불가 식물)
+  'monarda-bradburyana': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '직립',
+      'Boden': '배수 양호',
+      'Nährstoffe': '보통',
+      'Wurzelsystem': '천근성',
+      'Blütenform': '윤상화, 관상화',
+      'Blattfarbe': '녹색',
+      'Blattphase': '여름낙엽',
+    },
+    bloomMonths: [6, 7],
+    sections: {}
+  },
+  'symphyotrichum-oblongifolium': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '덤불형, 퍼짐',
+      'Boden': '배수 양호',
+      'Nährstoffe': '저영양',
+      'Wurzelsystem': '천근성',
+      'Blütenform': '두상화서',
+      'Blattfarbe': '녹색',
+      'Blattphase': '여름낙엽',
+    },
+    bloomMonths: [9, 10],
+    sections: {}
+  },
+  'agastache': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '직립',
+      'Boden': '배수 양호',
+      'Nährstoffe': '보통',
+      'Wurzelsystem': '천근성',
+      'Blütenform': '수상화서',
+      'Blattphase': '여름낙엽',
+    },
+    bloomMonths: [7, 8, 9],
+    sections: {}
+  },
+  'calamintha': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '덤불형',
+      'Boden': '배수 양호',
+      'Nährstoffe': '저영양~보통',
+      'Wurzelsystem': '천근성',
+      'Blütenform': '원추형',
+      'Blattphase': '여름낙엽',
+    },
+    bloomMonths: [7, 8, 9, 10],
+    sections: {}
+  },
+  'eremurus-stenophyllus': {
+    table: {
+      'Pflanzenart': '다년초(근경)',
+      'Wuchs': '직립',
+      'Boden': '배수 양호',
+      'Nährstoffe': '보통',
+      'Wurzelsystem': '육질근',
+      'Blütenform': '수상화서',
+      'Blattphase': '여름낙엽',
+    },
+    bloomMonths: [5, 6],
+    sections: {}
+  },
+  'achillea': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '직립, 군락형',
+      'Boden': '배수 양호',
+      'Nährstoffe': '저영양',
+      'Wurzelsystem': '천근성',
+      'Blütenform': '두상화서, 평정화서',
+      'Blattfarbe': '회록색',
+      'Blattphase': '여름낙엽',
+    },
+    bloomMonths: [6, 7, 8],
+    sections: {}
+  },
   'crocus-tommasinianus': {
     table: {
       'Pflanzenart': '구근',
@@ -1730,7 +1829,13 @@ async function naturadbDetails(params, env) {
 
     if (!html) {
       // geo-block 등으로 fetch 실패 시 정적 데이터 fallback
-      const staticEntry = STATIC_NDB[slug];
+      // var./subsp./f. 제거한 slug도 시도 (예: crocus-tommasinianus-var-roseus → crocus-tommasinianus)
+      const toSlugFn = s => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const baseNoVar = base.replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+.*$/i, '').trim();
+      const baseSpeciesOnly = base.split(/\s+/).slice(0, 2).join(' ');
+      const staticEntry = STATIC_NDB[slug]
+        || STATIC_NDB[toSlugFn(baseNoVar)]
+        || STATIC_NDB[toSlugFn(baseSpeciesOnly)];
       if (staticEntry) {
         // 정적 데이터는 이미 한국어로 저장되어 있어 번역 불필요
         return {
