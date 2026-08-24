@@ -1460,6 +1460,73 @@ const STATIC_NDB = {
     bloomMonths: [4, 5],
     sections: {}
   },
+
+  // ── NaturaDB에서 직접 수집한 데이터 (지역 차단 대비) ─────────────────────────
+  'crocus-tommasinianus': {
+    table: {
+      'Pflanzenart': '구근',
+      'Wuchs': '직립',
+      'Boden': '배수 양호~보통',
+      'Nährstoffe': '저영양~보통',
+      'Kübel/Balkon geeignet': '적합',
+      'Wurzelsystem': '구근',
+      'Blütenform': '깔때기형, 관모양, 방사대칭',
+      'Blattfarbe': '녹색',
+      'Blattphase': '여름낙엽',
+      'Blattform': '선형, 풀잎형',
+      'Schneckenunempfindlich': '저항성 있음',
+    },
+    bloomMonths: [2, 3, 4],
+    sections: {}
+  },
+
+  'scilla-siberica': {
+    table: {
+      'Pflanzenart': '구근',
+      'Boden': '배수 양호~유기질',
+      'Nährstoffe': '영양 풍부',
+      'Kübel/Balkon geeignet': '적합',
+      'Wurzelsystem': '구근',
+      'Blütenform': '별모양, 꽃잎형',
+      'Blattfarbe': '녹색',
+      'Blattphase': '여름낙엽',
+      'Blattform': '선형, 둥근 끝',
+    },
+    bloomMonths: [3, 4],
+    sections: {}
+  },
+
+  // Nepeta sibirica 품종 공통 기반 (Souvenir d'André Chaudron 기준)
+  'nepeta-sibirica': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '군락형, 직립 꽃대',
+      'Boden': '배수 양호~보통',
+      'Nährstoffe': '보통',
+      'Wurzelsystem': '천근성',
+      'Blütenform': '원추형',
+      'Blütenduft': '있음',
+      'Blattfarbe': '녹색',
+      'Blattphase': '여름낙엽',
+      'Blattform': '넓은 피침형',
+    },
+    bloomMonths: [6, 7],
+    sections: {}
+  },
+
+  'armeria-maritima': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '쿠션형',
+      'Boden': '배수 양호',
+      'Nährstoffe': '저영양',
+      'Kübel/Balkon geeignet': '적합 (소형 화분)',
+      'Wurzelsystem': '심근성',
+      'Blattphase': '상록성',
+    },
+    bloomMonths: [5, 6, 7, 8, 9],
+    sections: {}
+  },
 };
 
 // ── NaturaDB 식물 정보 ─────────────────────────────────────────────────────────
