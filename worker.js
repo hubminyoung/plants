@@ -530,6 +530,61 @@ const STATIC_MBG = {
     attracts: 'Bees, Butterflies, Hummingbirds', tolerate: 'Drought, Heat, Poor Soil, Deer',
     suggestedUse: 'Border, Naturalizing', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
   },
+  // Crocus (구근 봄꽃)
+  'crocus-tommasinianus': {
+    commonName: 'Elfin crocus, Tommies', plantType: 'Bulb',
+    family: 'Iridaceae', nativeRange: 'SE. Europe (Balkans)', zone: '3 to 8',
+    heightFeet: '0.25 to 0.50 feet', spreadFeet: '0.08 to 0.25 feet',
+    bloomTime: 'February to April', bloomColor: 'Lavender to purple',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: 'Drought, Deer',
+    suggestedUse: 'Naturalizing, Rock Garden, Lawn', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'crocus-sieberi': {
+    commonName: 'Sieber crocus', plantType: 'Bulb',
+    family: 'Iridaceae', nativeRange: 'SE. Europe (Greece, Crete)', zone: '3 to 8',
+    heightFeet: '0.25 to 0.50 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'February to April', bloomColor: 'Lavender, violet, white with yellow throat',
+    sun: 'Full Sun to Part Shade', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: 'Drought, Deer',
+    suggestedUse: 'Naturalizing, Rock Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'scilla-siberica': {
+    commonName: 'Siberian squill', plantType: 'Bulb',
+    family: 'Asparagaceae', nativeRange: 'Europe to SW. Asia', zone: '2 to 8',
+    heightFeet: '0.25 to 0.50 feet', spreadFeet: '0.08 to 0.17 feet',
+    bloomTime: 'March to April', bloomColor: 'Blue',
+    sun: 'Full Sun to Part Shade', water: 'Medium', maintenance: 'Low',
+    attracts: 'Bees', tolerate: 'Deer',
+    suggestedUse: 'Naturalizing, Ground Cover', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'nepeta-sibirica': {
+    commonName: 'Siberian catmint', plantType: 'Perennial',
+    family: 'Lamiaceae', nativeRange: 'C. Asia to Siberia', zone: '3 to 7',
+    heightFeet: '2.00 to 2.50 feet', spreadFeet: '1.50 to 2.00 feet',
+    bloomTime: 'June to August', bloomColor: 'Blue-violet',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Deer, Rabbits',
+    suggestedUse: 'Border, Naturalizing, Herb Garden', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'armeria-maritima': {
+    commonName: 'Sea thrift, Sea pink', plantType: 'Perennial',
+    family: 'Plumbaginaceae', nativeRange: 'Coastal Europe, North Africa', zone: '4 to 8',
+    heightFeet: '0.50 to 1.00 feet', spreadFeet: '0.50 to 1.00 feet',
+    bloomTime: 'May to September', bloomColor: 'Pink, red, white',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies', tolerate: 'Drought, Salt, Deer',
+    suggestedUse: 'Rock Garden, Border, Edging', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
+  'ratibida-columnifera': {
+    commonName: 'Upright prairie coneflower, Mexican hat', plantType: 'Perennial',
+    family: 'Asteraceae', nativeRange: 'North America', zone: '3 to 9',
+    heightFeet: '1.50 to 3.00 feet', spreadFeet: '1.00 to 1.50 feet',
+    bloomTime: 'June to September', bloomColor: 'Yellow, red, bicolor',
+    sun: 'Full Sun', water: 'Dry to Medium', maintenance: 'Low',
+    attracts: 'Bees, Butterflies, Birds', tolerate: 'Drought, Heat, Poor Soil, Deer',
+    suggestedUse: 'Naturalizing, Prairie Garden, Border', flower: '', leaf: '', culture: '', noteworthy: '', problems: '', uses: '',
+  },
 };
 
 // 분류학적으로 속명이 바뀐 경우 동의어 매핑 (소문자)
@@ -578,7 +633,12 @@ async function mbgSearch(params) {
     }
   }
 
-  if (githubTaxonId) return { taxonid: githubTaxonId, matchedName: githubMatchedName, fromGithub: true };
+  if (githubTaxonId) return {
+    taxonid: githubTaxonId,
+    matchedName: githubMatchedName,
+    fromGithub: true,
+    staticSlug: toSlug(githubMatchedName),  // STATIC_MBG 폴백용 slug 전달
+  };
 
   // 라이브 MBG 검색 (차단되거나 타임아웃 시 exception → try/catch로 무시)
   try {
