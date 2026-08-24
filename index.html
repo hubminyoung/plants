@@ -1334,8 +1334,8 @@ async function loadNaturadbDetail(p) {
   if (t['Blattfarbe'])           p.ndbBlattfarbe   = t['Blattfarbe'];
   if (t['Blattphase'])           p.ndbBlattphase   = t['Blattphase'];
   if (t['Blattform'])            p.ndbBlattform    = t['Blattform'];
-  if (t['schneckenresistent'] || t['Schnecken'])
-    p.ndbSchnecken = t['schneckenresistent'] || t['Schnecken'];
+  if (t['schneckenresistent'] || t['Schnecken'] || t['Schneckenunempfindlich'])
+    p.ndbSchnecken = t['schneckenresistent'] || t['Schnecken'] || t['Schneckenunempfindlich'];
 
   if (s['Standort'])    p.ndbStandort    = s['Standort'];
   if (s['Ökologie'])    p.ndbOekologie   = s['Ökologie'];

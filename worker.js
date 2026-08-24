@@ -1516,7 +1516,29 @@ async function naturadbDetails(params, env) {
           url, fromStatic: true
         };
       }
-      return { error: 'all_fetch_failed', url };
+      // 속명(Genus)만으로 재시도 — 예: "Allium hollandicum" → "allium"
+      const baseWords = base.split(/\s+/);
+      if (baseWords.length > 1) {
+        const genusSlug = baseWords[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        const genusUrl = `https://www.naturadb.de/pflanzen/${genusSlug}/`;
+        try {
+          const gr = await fetch(genusUrl, { headers: NDB_HEADERS });
+          if (gr.ok) html = await gr.text();
+        } catch(e) {}
+        if (!html) {
+          try {
+            const gr = await fetch('https://corsproxy.io/?' + encodeURIComponent(genusUrl));
+            if (gr.ok) html = await gr.text();
+          } catch(e) {}
+        }
+        if (!html) {
+          try {
+            const gr = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(genusUrl)}`);
+            if (gr.ok) html = await gr.text();
+          } catch(e) {}
+        }
+      }
+      if (!html) return { error: 'all_fetch_failed', url };
     }
     // HTML 엔티티 디코딩 (독일어 움라우트)
     html = html.replace(/&Ouml;/g, 'Ö').replace(/&ouml;/g, 'ö')
@@ -1605,7 +1627,7 @@ async function naturadbDetails(params, env) {
   const TABLE_KEYS = ['Boden','Nährstoffe','PH-Wert','Kübel/Balkon geeignet',
     'Pflanzenart','Wuchs','Wurzelsystem','Blütenform','Blütenduft',
     'Blattfarbe','Blattphase','Blattform','schneckenresistent','Schnecken',
-    'windverträglich','schnittverträglich'];
+    'Schneckenunempfindlich','windverträglich','schnittverträglich'];
   await Promise.all([
     ...TABLE_KEYS.filter(k => table[k]).map(async k => {
       const t = await myMemoryTranslate(table[k], 'de|ko');
