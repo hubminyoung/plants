@@ -1564,6 +1564,45 @@ const STATIC_NDB = {
   },
 };
 
+// ── NaturaDB 검색: Ajax Search Pro + DuckDuckGo 병행 ─────────────────────────
+async function findNaturaDBUrl(q, NDB_HEADERS) {
+  const encoded = encodeURIComponent(q);
+
+  // 방법 1: Ajax Search Pro POST (직접 → corsproxy 우회)
+  const ajaxEndpoint = 'https://www.naturadb.de/wp-admin/admin-ajax.php';
+  const ajaxBody = `action=ajaxsearchpro_search&asid=1&p=0&n=10&q=${encoded}`;
+  for (const prefix of ['', 'https://corsproxy.io/?']) {
+    const ajaxUrl = prefix ? prefix + encodeURIComponent(ajaxEndpoint) : ajaxEndpoint;
+    try {
+      const r = await fetch(ajaxUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+        body: ajaxBody,
+      });
+      if (r.ok) {
+        const text = await r.text();
+        const m = text.match(/https?:\/\/www\.naturadb\.de\/pflanzen\/[a-z0-9-]+\//g);
+        if (m && m.length) return m[0];
+      }
+    } catch(e) {}
+  }
+
+  // 방법 2: DuckDuckGo 검색 (site:naturadb.de/pflanzen)
+  try {
+    const ddgQ = encodeURIComponent(`site:naturadb.de/pflanzen ${q}`);
+    const r = await fetch(`https://api.duckduckgo.com/?q=${ddgQ}&format=json&no_redirect=1&no_html=1`, {
+      headers: { 'User-Agent': NDB_HEADERS['User-Agent'] }
+    });
+    if (r.ok) {
+      const raw = await r.text();
+      const m = raw.match(/https?:\\\/\\\/www\.naturadb\.de\\\/pflanzen\\\/[a-z0-9-]+\\\//g);
+      if (m && m.length) return m[0].replace(/\\\//g, '/');
+    }
+  } catch(e) {}
+
+  return null;
+}
+
 // ── NaturaDB 식물 정보 ─────────────────────────────────────────────────────────
 async function naturadbDetails(params, env) {
   const q = (params.get('q') ?? '').trim();
@@ -1604,6 +1643,29 @@ async function naturadbDetails(params, env) {
         const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(ndbUrl)}`);
         if (r.ok) { html = await r.text(); fetchSource = 'allorigins'; }
       } catch(e) {}
+    }
+
+    if (!html) {
+      // 검색으로 실제 URL 찾기 (Ajax Search Pro + DuckDuckGo)
+      const foundUrl = await findNaturaDBUrl(q, NDB_HEADERS);
+      if (foundUrl) {
+        try {
+          const r = await fetch(foundUrl, { headers: NDB_HEADERS });
+          if (r.ok) { html = await r.text(); fetchSource = 'search'; }
+        } catch(e) {}
+        if (!html) {
+          try {
+            const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(foundUrl));
+            if (r.ok) { html = await r.text(); fetchSource = 'search-corsproxy'; }
+          } catch(e) {}
+        }
+        if (!html) {
+          try {
+            const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(foundUrl)}`);
+            if (r.ok) { html = await r.text(); fetchSource = 'search-allorigins'; }
+          } catch(e) {}
+        }
+      }
     }
 
     if (!html) {
