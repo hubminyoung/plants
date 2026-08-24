@@ -1527,6 +1527,41 @@ const STATIC_NDB = {
     bloomMonths: [5, 6, 7, 8, 9],
     sections: {}
   },
+
+  // Crocus sieberi 품종 공통 기반 (식물학 데이터)
+  'crocus-sieberi': {
+    table: {
+      'Pflanzenart': '구근',
+      'Wuchs': '직립',
+      'Boden': '배수 양호',
+      'Nährstoffe': '저영양',
+      'Kübel/Balkon geeignet': '적합',
+      'Wurzelsystem': '구근',
+      'Blütenform': '깔때기형, 방사대칭',
+      'Blattfarbe': '녹색',
+      'Blattphase': '여름낙엽',
+      'Blattform': '선형, 풀잎형',
+      'Schneckenunempfindlich': '저항성 있음',
+    },
+    bloomMonths: [2, 3, 4],
+    sections: {}
+  },
+
+  // Ratibida columnifera 품종 공통 기반 (식물학 데이터)
+  'ratibida-columnifera': {
+    table: {
+      'Pflanzenart': '다년초',
+      'Wuchs': '직립',
+      'Boden': '배수 양호~보통',
+      'Nährstoffe': '저영양~보통',
+      'Wurzelsystem': '심근성',
+      'Blütenform': '두상화, 원기둥형 화탁',
+      'Blattfarbe': '회록색',
+      'Blattphase': '여름낙엽',
+    },
+    bloomMonths: [6, 7, 8, 9],
+    sections: {}
+  },
 };
 
 // ── NaturaDB 식물 정보 ─────────────────────────────────────────────────────────
