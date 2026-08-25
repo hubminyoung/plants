@@ -1214,27 +1214,27 @@ async function loadGardeniaDetail(p) {
 
   const parseM = s => {
     if (!s) return null;
-    // "24-36 inches" → cm → m, "1-2 feet" → m
+    // "24-36 inches" → cm, "1-2 feet" → cm
     const inch = s.match(/([\d.]+)\s*[-–]\s*([\d.]+)\s*inch/i);
-    if (inch) return { min: +(+inch[1]*2.54/100).toFixed(2), max: +(+inch[2]*2.54/100).toFixed(2) };
+    if (inch) return { min: Math.round(+inch[1]*2.54), max: Math.round(+inch[2]*2.54) };
     const ft   = s.match(/([\d.]+)\s*[-–]\s*([\d.]+)\s*f(?:ee)?t/i);
-    if (ft)   return { min: +(+ft[1]*0.3048).toFixed(1), max: +(+ft[2]*0.3048).toFixed(1) };
+    if (ft)   return { min: Math.round(+ft[1]*30.48), max: Math.round(+ft[2]*30.48) };
     const si   = s.match(/([\d.]+)\s*inch/i);
-    if (si)   return { max: +(+si[1]*2.54/100).toFixed(2) };
+    if (si)   return { max: Math.round(+si[1]*2.54) };
     const sf   = s.match(/([\d.]+)\s*f(?:ee)?t/i);
-    if (sf)   return { max: +(+sf[1]*0.3048).toFixed(1) };
+    if (sf)   return { max: Math.round(+sf[1]*30.48) };
     return null;
   };
 
   if (det.height) {
     const r = parseM(det.height);
-    if (r?.max != null) p.height = r.min != null ? `${r.min}~${r.max}m` : `${r.max}m`;
+    if (r?.max != null) p.height = r.min != null ? `${r.min}~${r.max}cm` : `${r.max}cm`;
   }
   if (det.spread) {
     const r = parseM(det.spread);
     if (r?.max != null) {
-      p.spreadM   = r.max;
-      p.spreadStr = r.min != null ? `${r.min}~${r.max}m` : `${r.max}m`;
+      p.spreadM   = +(r.max / 100).toFixed(2);  // meters for circle size
+      p.spreadStr = r.min != null ? `${r.min}~${r.max}cm` : `${r.max}cm`;
     }
   }
   if (det.hardiness && !p.hardiness) {
@@ -1420,19 +1420,19 @@ async function loadMbgDetail(p) {
   const det = await wFetch('/api/mbg/details', params);
   if (!det || det.error) return;
 
-  const ftToM = v => +(v * 0.3048).toFixed(1);
+  const ftToCm = v => Math.round(v * 30.48);
 
   // Height: "0.50 to 1.00 feet"
   if (det.heightFeet) {
     const r = parseFeetRange(det.heightFeet);
-    if (r.max != null) p.height = r.min != null ? `${ftToM(r.min)}~${ftToM(r.max)}m` : `${ftToM(r.max)}m`;
+    if (r.max != null) p.height = r.min != null ? `${ftToCm(r.min)}~${ftToCm(r.max)}cm` : `${ftToCm(r.max)}cm`;
   }
   // Spread
   if (det.spreadFeet) {
     const r = parseFeetRange(det.spreadFeet);
     if (r.max != null) {
-      p.spreadM   = ftToM(r.max);
-      p.spreadStr = r.min != null ? `${ftToM(r.min)}~${ftToM(r.max)}m` : `${ftToM(r.max)}m`;
+      p.spreadM   = +(r.max * 0.3048).toFixed(2);  // meters for circle size
+      p.spreadStr = r.min != null ? `${ftToCm(r.min)}~${ftToCm(r.max)}cm` : `${ftToCm(r.max)}cm`;
     }
   }
   // Zone → hardiness
@@ -1678,14 +1678,14 @@ function parseCmRange(s) {
   // "40 - 60 cm" or "40-60 cm" or "80 cm"
   const rng = s.match(/([\d.,]+)\s*[-–~]\s*([\d.,]+)\s*cm/i);
   if (rng) {
-    const min = Math.round(parseFloat(rng[1].replace(',','.')) / 100 * 100) / 100;
-    const max = Math.round(parseFloat(rng[2].replace(',','.')) / 100 * 100) / 100;
-    return `${min}~${max}m`;
+    const min = Math.round(parseFloat(rng[1].replace(',','.')));
+    const max = Math.round(parseFloat(rng[2].replace(',','.')));
+    return `${min}~${max}cm`;
   }
   const single = s.match(/([\d.,]+)\s*cm/i);
   if (single) {
-    const v = Math.round(parseFloat(single[1].replace(',','.')) / 100 * 100) / 100;
-    return `${v}m`;
+    const v = Math.round(parseFloat(single[1].replace(',','.')));
+    return `${v}cm`;
   }
   return null;
 }
@@ -1839,7 +1839,7 @@ function renderEcology() {
       f('식물 종',    nld(p, p.ndbPflanzenart)),
       f('성장',       nld(p, p.ndbWuchs)),
       f('수고',       p.height     || ld(p,'')),
-      f('폭',         p.spreadStr  || (p.spreadM ? p.spreadM+'m' : ld(p,''))),
+      f('폭',         p.spreadStr  || (p.spreadM ? Math.round(p.spreadM*100)+'cm' : ld(p,''))),
       f('내한성',     p.hardiness || p.ndbHardiness || ld(p,'')),
       f('루트 시스템',nld(p, p.ndbWurzel)),
     ].join('');
