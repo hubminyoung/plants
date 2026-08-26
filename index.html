@@ -1810,9 +1810,15 @@ function renderEcology() {
   const nld = (p, v) => p.ndbFetching ? '<span class="loading-val">…</span>' : (v || '—');
 
   const cards = plants.map((p, pi) => {
-    const sq      = encodeURIComponent(p.latName || p.name);
-    const gsmBase = (p.latName || p.name).replace(/\s*['‘’][^'‘’]+['‘’]\s*/g,'').trim();
+    // 링크용 정제 이름: 재배종명 제거 → var./subsp. 키워드만 제거, 변종명 유지
+    const _linkBase = (p.latName || p.name)
+      .replace(/\s*[\u2018\u2019\u02BC\u2032'][^\u2018\u2019\u02BC\u2032']+[\u2018\u2019\u02BC\u2032']\s*/g, '')
+      .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi, '')
+      .replace(/\./g, '').replace(/\s+/g, ' ').trim();
+    const sq      = encodeURIComponent(_linkBase);
+    const gsmBase = _linkBase;
     const gsmSlug = encodeURIComponent(gsmBase);
+    const _ndbSlug = _linkBase.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
 
@@ -1922,7 +1928,7 @@ function renderEcology() {
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
             <a href="${mbgHref(p)}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
-            <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${encodeURIComponent((p.latName||p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
+            <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${_ndbSlug}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
             ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
             <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
             <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
@@ -2312,8 +2318,10 @@ function renderCare() {
   const ld = (p,v) => p.fetching ? '<span class="loading-val">…</span>' : (v||'—');
 
   const cards = plants.map((p, pi) => {
-    const sq = encodeURIComponent(p.latName || p.name);
-    const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
+    const sq = encodeURIComponent((p.latName || p.name)
+      .replace(/[\u2018\u2019\u02BC\u2032]/g,'')
+      .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi,'')
+      .replace(/\./g,'').replace(/\s+/g,' ').trim());
 
     function careAccordion(id, icon, title, text, badge) {
       if (!text && !p.fetching) return '';
