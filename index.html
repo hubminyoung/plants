@@ -1839,6 +1839,10 @@ function renderEcology() {
     const gsmBase = _linkBase;
     const gsmSlug = encodeURIComponent(gsmBase);
     const _ndbSlug = _linkBase.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+    // RHS 검색: cultivar 포함, var/subsp 키워드만 제거
+    const rhsQ = encodeURIComponent((p.latName || p.name)
+      .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi, '')
+      .replace(/\./g, '').replace(/\s+/g, ' ').trim());
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
 
@@ -1951,7 +1955,7 @@ function renderEcology() {
             <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${_ndbSlug}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
             ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
             <a href="${p.gaissmayerUrl||`https://www.gaissmayer.de/web/shop/suche/produkte/?suche=${gsmSlug}`}" target="_blank" rel="noopener" title="Gaissmayer${p.gaissmayerUrl?'':' 검색'}" style="${p.gaissmayerUrl?'':'opacity:0.5'}">🌱 Gsm</a>
-            <a href="${p.rhsUrl||`https://www.rhs.org.uk/plants/search-results?query=${sq}`}" target="_blank" rel="noopener" title="RHS${p.rhsUrl?'':' 검색'}" style="${p.rhsUrl?'':'opacity:0.5'}">🌹 RHS</a>
+            <a href="${p.rhsUrl||`https://www.rhs.org.uk/plants/search-results?query=${rhsQ}`}" target="_blank" rel="noopener" title="RHS${p.rhsUrl?'':' 검색'}" style="${p.rhsUrl?'':'opacity:0.5'}">🌹 RHS</a>
           </div>
         </div>
       </div>
