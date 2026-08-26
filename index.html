@@ -1796,7 +1796,7 @@ function renderEcology() {
 
   const cards = plants.map((p, pi) => {
     const sq      = encodeURIComponent(p.latName || p.name);
-    const gsmBase = (p.latName || p.name).replace(/\s*[‘’’][^’’’]+[‘’’]\s*/g,’’).trim();
+    const gsmBase = (p.latName || p.name).replace(/\s*['‘’][^'‘’]+['‘’]\s*/g,'').trim();
     const gsmSlug = encodeURIComponent(gsmBase);
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
