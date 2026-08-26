@@ -1063,6 +1063,7 @@ function mkPlant(name) {
     ndbWurzeldruck: '', ndbGiftig: '', ndbWildbienen: '',
     genusName: '', specificEpithet: '',
     gsmGiftklasse: '', gsmBienenfreundlich: '', gsmInsektenweide: '', gsmLebensbereich: '', gsmPflanzZeitpunkt: '',
+    gaissmayerUrl: '', rhsUrl: '',
     naturadbUrl: '', knaUrl: '',
     fetching: false, done: false
   };
@@ -1202,6 +1203,9 @@ async function loadPlant(p) {
   if (!p.gaissmayerFetched) {
     loadGaissmayerDetail(p);
   }
+
+  // RHS 직접 URL 검색 (항상 병렬)
+  loadRhsUrl(p);
 
   } catch(err) {
     console.error('[loadPlant]', p.name, err);
@@ -1424,8 +1428,16 @@ async function loadGaissmayerDetail(p) {
   if (det.insektenweide    && !p.gsmInsektenweide)    p.gsmInsektenweide    = det.insektenweide;
   if (det.lebensbereich    && !p.gsmLebensbereich)    p.gsmLebensbereich    = det.lebensbereich;
   if (det.pflanzZeitpunkt  && !p.gsmPflanzZeitpunkt)  p.gsmPflanzZeitpunkt  = det.pflanzZeitpunkt;
+  if (det.gaissmayerUrl && !p.gaissmayerUrl) p.gaissmayerUrl = det.gaissmayerUrl;
   p.gaissmayerFetched = true;
   if (det.geselligkeit || det.pflanzAbstand || det.giftklasse || det.lebensbereich) renderActiveTab();
+}
+
+async function loadRhsUrl(p) {
+  const q = p.latName || p.name;
+  if (!q) return;
+  const det = await wFetch('/api/rhs/search', { q });
+  if (det && det.rhsUrl) { p.rhsUrl = det.rhsUrl; renderActiveTab(); }
 }
 
 async function loadMbgDetail(p) {
@@ -1932,8 +1944,8 @@ function renderEcology() {
             <a href="${mbgHref(p)}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
             <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${_ndbSlug}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
             ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
-            <a href="https://www.gaissmayer.de/web/shop/suche/produkte?suche=${gsmSlug}" target="_blank" rel="noopener" title="Gaissmayer 검색">🌱 Gsm</a>
-            <a href="https://www.rhs.org.uk/plants/search-results?query=${sq}" target="_blank" rel="noopener" title="RHS">🌹</a>
+            <a href="${p.gaissmayerUrl||`https://www.gaissmayer.de/web/shop/suche/produkte/?suche=${gsmSlug}`}" target="_blank" rel="noopener" title="Gaissmayer${p.gaissmayerUrl?'':' 검색'}" style="${p.gaissmayerUrl?'':'opacity:0.5'}">🌱 Gsm</a>
+            <a href="${p.rhsUrl||`https://www.rhs.org.uk/plants/search-results?query=${sq}`}" target="_blank" rel="noopener" title="RHS${p.rhsUrl?'':' 검색'}" style="${p.rhsUrl?'':'opacity:0.5'}">🌹 RHS</a>
           </div>
         </div>
       </div>
@@ -2320,6 +2332,7 @@ function renderCare() {
   const ld = (p,v) => p.fetching ? '<span class="loading-val">…</span>' : (v||'—');
 
   const cards = plants.map((p, pi) => {
+    const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const sq = encodeURIComponent((p.latName || p.name)
       .replace(/[\u2018\u2019\u02BC\u2032]/g,'')
       .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi,'')
@@ -2343,14 +2356,17 @@ function renderCare() {
     }
 
     const sectHtml = [
-      careAccordion(`care-cult-${pi}`, '🌱', '재배법', p.culture, ''),
-      careAccordion(`care-note-${pi}`, '✨', '주목할 특징', p.noteworthy, ''),
-      careAccordion(`care-prob-${pi}`, '⚠️', '병해충/문제점', p.problems, ''),
-      careAccordion(`care-uses-${pi}`, '🎯', '활용', p.uses, ''),
-      careAccordion(`ndb-schnitt-${pi}`, '✂️', '가지치기', p.ndbSchnitt, 'NDB'),
-      careAccordion(`ndb-verm-${pi}`,    '🌱', '번식', p.ndbVermehrung, 'NDB'),
-      careAccordion(`ndb-pest-${pi}`,    '🐛', '병해충', p.ndbSchaedlinge, 'NDB'),
-      careAccordion(`ndb-fact-${pi}`,    '💡', '흥미로운 사실', p.ndbInteressantes, 'NDB'),
+      careAccordion(`care-cult-${pi}`, '🌱', '재배법', p.culture, 'MBG'),
+      careAccordion(`care-note-${pi}`, '✨', '주목할 특징', p.noteworthy, 'MBG'),
+      careAccordion(`care-prob-${pi}`, '⚠️', '병해충/문제점', p.problems, 'MBG'),
+      careAccordion(`care-uses-${pi}`, '🎯', '활용', p.uses, 'MBG'),
+      careAccordion(`ndb-standort-${pi}`, '📍', '입지', p.ndbStandort, 'NDB'),
+      careAccordion(`ndb-oeko-${pi}`,     '🦋', '생태', p.ndbOekologie, 'NDB'),
+      careAccordion(`ndb-verw-${pi}`,     '🎯', '용도', p.ndbVerwendung, 'NDB'),
+      careAccordion(`ndb-schnitt-${pi}`,  '✂️', '가지치기', p.ndbSchnitt, 'NDB'),
+      careAccordion(`ndb-verm-${pi}`,     '🌱', '번식', p.ndbVermehrung, 'NDB'),
+      careAccordion(`ndb-pest-${pi}`,     '🐛', '병해충', p.ndbSchaedlinge, 'NDB'),
+      careAccordion(`ndb-fact-${pi}`,     '💡', '흥미로운 사실', p.ndbInteressantes, 'NDB'),
     ].filter(Boolean).join('');
 
     return `<div class="care-card">
@@ -2362,6 +2378,8 @@ function renderCare() {
         <div class="eco-ext-links">
           <a href="${mbgHref(p)}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
           <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
+          <a href="${p.gaissmayerUrl||''}" target="_blank" rel="noopener" style="${p.gaissmayerUrl?'':'opacity:0.3;pointer-events:none'}">🌱 Gsm</a>
+          <a href="${p.rhsUrl||''}" target="_blank" rel="noopener" style="${p.rhsUrl?'':'opacity:0.3;pointer-events:none'}">🌹 RHS</a>
           ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener">🌸 KNA</a>` : ''}
         </div>
       </div>

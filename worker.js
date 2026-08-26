@@ -41,6 +41,7 @@ export default {
       else if (pathname === '/api/naturadb/test')    data = await naturadbTest(searchParams);
       else if (pathname === '/api/knagarden/details') data = await knagardenDetails(searchParams);
       else if (pathname === '/api/knagarden/debug')   data = await knagardenDebug(searchParams);
+      else if (pathname === '/api/rhs/search')         data = await rhsSearch(searchParams);
       else return new Response('Not found', { status: 404, headers: CORS });
 
       return new Response(JSON.stringify(data), {
@@ -993,6 +994,13 @@ async function gaissmayerDetails(params) {
 
   const base = q.replace(/\s*[''''][^'''']+['''']\s*/g, '').trim();
   const slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  // var./subsp. 키워드만 제거, 변종명 유지 (예: "Crocus tommasinianus var roseus" → "Crocus tommasinianus roseus")
+  const baseNoKeyword = base.replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s)/gi, '').replace(/\s+/g, ' ').trim();
+  // 변종 전체 제거 (예: "Crocus tommasinianus")
+  const baseNoVar = base.replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+.*$/i, '').trim();
+  // 검색 후보 (중복 제거): 변종명만 → 기본종 → 원본 (따옴표·점 제거)
+  const cleanQ = s => s.replace(/[''ʼ′"""]/g,'').replace(/\./g,'').replace(/\s+/g,' ').trim();
+  const searchCandidates = [...new Set([q, baseNoKeyword, baseNoVar, base].map(cleanQ))];
 
   function extractField(html, label) {
     // Gaissmayer 신 도메인: <strong>LABEL[...btn...]</strong><p>VALUE</p>
@@ -1016,11 +1024,12 @@ async function gaissmayerDetails(params) {
     return raw.slice(0,50);
   }
 
-  // ── 1차: 구 도메인 직접 URL (staudengaertnerei-gaissmayer.de)
+  // ── 1차: 구 도메인 직접 URL (staudengaertnerei-gaissmayer.de) — 후보 순서
   try {
+    const toSlugG = s => s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
     const oldUrls = [
-      `https://www.staudengaertnerei-gaissmayer.de/stauden-shop/${slug}/`,
-      `https://www.staudengaertnerei-gaissmayer.de/stauden-shop/staudensuche/?suche=${encodeURIComponent(base)}`,
+      ...searchCandidates.map(c => `https://www.staudengaertnerei-gaissmayer.de/stauden-shop/${toSlugG(c)}/`),
+      ...searchCandidates.map(c => `https://www.staudengaertnerei-gaissmayer.de/stauden-shop/staudensuche/?suche=${encodeURIComponent(c)}`),
     ];
     for (const url of oldUrls) {
       const resp = await fetch(url, { headers: GSM_UA });
@@ -1046,42 +1055,36 @@ async function gaissmayerDetails(params) {
     }
   } catch(e) {}
 
-  // ── 2차: 신 도메인 검색 (gaissmayer.de)
-  try {
-    const searchUrl = `https://www.gaissmayer.de/web/shop/suche/produkte/?suche=${encodeURIComponent(base)}`;
-    const sr = await fetch(searchUrl, { headers: GSM_UA });
-    if (!sr.ok) return { geselligkeit: null, pflanzAbstand: null, debug: 'new_search_failed' };
-    const searchHtml = await sr.text();
+  // ── 2차: 신 도메인 검색 (gaissmayer.de) — 후보 순서대로 시도
+  const makeGsmResult = (html) => ({
+    geselligkeit:     extractField(html, 'Geselligkeit') || null,
+    pflanzAbstand:    parsePflanzabstand(extractField(html, 'Pflanzabstand')),
+    giftklasse:       extractField(html, 'Giftklasse') || null,
+    bienenfreundlich: extractField(html, 'Bienenfreundlich') || null,
+    insektenweide:    extractField(html, 'Insektenweide') || null,
+    lebensbereich:    extractField(html, 'Lebensbereich') || null,
+    pflanzZeitpunkt:  extractField(html, 'Pflanz-Zeitpunkt') || extractField(html, 'Pflanzzeitpunkt') || null,
+  });
 
-    // 첫 번째 결과 링크 추출 (상대 URL, href와 title 사이에 다른 속성 있을 수 있음)
-    const linkM = searchHtml.match(/href="(\/web\/shop\/[^"]+\/\d+\/)"[^>]*title="Detailansicht"/);
-    if (!linkM || !linkM[1]) {
-      // 검색결과에서 높이/개화 데이터만 추출 (fallback)
-      const heightM = searchHtml.match(/(\d+)\s*cm[–-]\s*(\d+)\s*cm/);
-      return {
-        geselligkeit: null, pflanzAbstand: null,
-        heightCm: heightM ? `${heightM[1]} - ${heightM[2]} cm` : null,
-        debug: 'new_search_no_link'
-      };
-    }
+  for (const candidate of searchCandidates) {
+    try {
+      const searchUrl = `https://www.gaissmayer.de/web/shop/suche/produkte/?suche=${encodeURIComponent(candidate)}`;
+      const sr = await fetch(searchUrl, { headers: GSM_UA });
+      if (!sr.ok) continue;
+      const searchHtml = await sr.text();
 
-    const detailUrl = 'https://www.gaissmayer.de' + linkM[1];
-    const dr = await fetch(detailUrl, { headers: GSM_UA });
-    if (!dr.ok) return { geselligkeit: null, pflanzAbstand: null, debug: 'new_detail_failed' };
-    const detailHtml = await dr.text();
+      const linkM = searchHtml.match(/href="(\/web\/shop\/[^"]+\/\d+\/)"[^>]*title="Detailansicht"/);
+      if (!linkM) continue;  // 이 후보로는 결과 없음 → 다음 후보 시도
 
-    const geselligkeit     = extractField(detailHtml, 'Geselligkeit') || null;
-    const pflanzAbstand    = parsePflanzabstand(extractField(detailHtml, 'Pflanzabstand'));
-    const giftklasse       = extractField(detailHtml, 'Giftklasse') || null;
-    const bienenfreundlich = extractField(detailHtml, 'Bienenfreundlich') || null;
-    const insektenweide    = extractField(detailHtml, 'Insektenweide') || null;
-    const lebensbereich    = extractField(detailHtml, 'Lebensbereich') || null;
-    const pflanzZeitpunkt  = extractField(detailHtml, 'Pflanz-Zeitpunkt') || extractField(detailHtml, 'Pflanzzeitpunkt') || null;
+      const detailUrl = 'https://www.gaissmayer.de' + linkM[1];
+      const dr = await fetch(detailUrl, { headers: GSM_UA });
+      if (!dr.ok) continue;
+      const detailHtml = await dr.text();
 
-    return { geselligkeit, pflanzAbstand, giftklasse, bienenfreundlich, insektenweide, lebensbereich, pflanzZeitpunkt, debug: detailHtml.includes('Geselligkeit') ? 'ok' : 'no_field' };
-  } catch(e) {
-    return { geselligkeit: null, pflanzAbstand: null, debug: e.message };
+      return { ...makeGsmResult(detailHtml), debug: `matched:${candidate}`, gaissmayerUrl: detailUrl };
+    } catch(e) {}
   }
+  return { geselligkeit: null, pflanzAbstand: null, debug: 'all_candidates_failed' };
 }
 
 // ── 정원백과 (knagarden.info) — 한국 자생식물 fallback ───────────────────────────
@@ -1196,6 +1199,29 @@ async function knagardenDetails(params) {
 }
 
 // ── 정원백과 디버그 ───────────────────────────────────────────────────────────────
+
+// -- RHS URL search --
+async function rhsSearch(params) {
+  const q = (params.get('q') ?? '').trim();
+  if (!q) return { rhsUrl: null };
+  const RHS_UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36' };
+  const candidates = [q];
+  const base = q.replace(/\s*[\u0027\u2018\u2019\u02BC\u2032][^\u0027\u2018\u2019\u02BC\u2032]+[\u0027\u2018\u2019\u02BC\u2032]\s*/g, '').trim();
+  if (base && base !== q) candidates.push(base);
+  for (const candidate of candidates) {
+    try {
+      const searchUrl = `https://www.rhs.org.uk/plants/search-results?query=${encodeURIComponent(candidate)}`;
+      let html = null;
+      try { const r = await fetch(searchUrl, { headers: RHS_UA }); if (r.ok) html = await r.text(); } catch(e) {}
+      if (!html) { try { const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(searchUrl)); if (r.ok) html = await r.text(); } catch(e) {} }
+      if (!html) continue;
+      const m = html.match(/href="(\/plants\/\d+\/[^"]+\/details)"/);
+      if (m) return { rhsUrl: 'https://www.rhs.org.uk' + m[1] };
+    } catch(e) {}
+  }
+  return { rhsUrl: null };
+}
+
 async function knagardenDebug(params) {
   const testUrl = 'https://www.knagarden.info/plants?keywords=' + encodeURIComponent('범꼬리');
   const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(testUrl);
@@ -1794,10 +1820,12 @@ async function naturadbDetails(params, env) {
   const baseNoVar = base.replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+.*$/i, '').trim();
   const slugNoVar = toSlugFn(baseNoVar);
 
-  // URL 후보: 원본 → 변종명만(var 제거) → 기본종
-  const slugCandidates = [slug];
-  if (slugNoKeyword !== slug) slugCandidates.push(slugNoKeyword);
-  if (slugNoVar !== slug && slugNoVar !== slugNoKeyword) slugCandidates.push(slugNoVar);
+  // URL 후보: 재배종포함 → 원본 → 변종명만 → 기본종
+  // 1순위: 재배종명 포함 slug (e.g. molinia-caerulea-edith-dudszus)
+  const cultivarMatch = q.match(/[\u0027\u2018\u2019\u02BC\u2032]([^\u0027\u2018\u2019\u02BC\u2032]+)[\u0027\u2018\u2019\u02BC\u2032]/);
+  const cultivarSlug = cultivarMatch ? toSlugFn(cultivarMatch[1].trim()) : null;
+  const slugWithCultivar = cultivarSlug ? `${slugNoVar}-${cultivarSlug}` : null;
+  const slugCandidates = [...new Set([slugWithCultivar, slug, slugNoKeyword, slugNoVar].filter(Boolean))];
 
   const ndbUrl = `https://www.naturadb.de/pflanzen/${slug}/`;
   const url    = ndbUrl;
@@ -1819,20 +1847,26 @@ async function naturadbDetails(params, env) {
 
   let html = null;
   let fetchSource = 'direct';
+  let successUrl = null;
   try {
     // 1. slug 후보 순서대로 시도 (원본 → var 제거 → 기본종)
     for (const sc of slugCandidates) {
       const candidateUrl = `https://www.naturadb.de/pflanzen/${sc}/`;
       const result = await tryFetchUrl(candidateUrl);
-      if (result) { html = result.html; fetchSource = result.src; break; }
+      if (result) { html = result.html; fetchSource = result.src; successUrl = candidateUrl; break; }
     }
 
-    // 2. 검색으로 실제 URL 찾기 (Ajax Search Pro + DuckDuckGo)
+    // 2. 검색으로 실제 URL 찾기 — 후보 순서: roseus만 → 기본종 → 원본
+    // 따옴표·점·특수문자 제거 후 검색 (대소문자·부호로 검색 막힘 방지)
     if (!html) {
-      const foundUrl = await findNaturaDBUrl(q, NDB_HEADERS);
-      if (foundUrl) {
-        const result = await tryFetchUrl(foundUrl);
-        if (result) { html = result.html; fetchSource = 'search-' + result.src; }
+      const cleanQ = s => s.replace(/[''ʼ′"""]/g,'').replace(/\./g,'').replace(/\s+/g,' ').trim();
+      const queryCandidates = [...new Set([baseNoKeyword, baseNoVar, base].map(cleanQ))];
+      for (const qc of queryCandidates) {
+        const foundUrl = await findNaturaDBUrl(qc, NDB_HEADERS);
+        if (foundUrl) {
+          const result = await tryFetchUrl(foundUrl);
+          if (result) { html = result.html; fetchSource = 'search-' + result.src; break; }
+        }
       }
     }
 
@@ -1975,5 +2009,5 @@ async function naturadbDetails(params, env) {
     })
   ]);
 
-  return { table, sections, bloomMonths, url, fetchSource };
+  return { table, sections, bloomMonths, url: successUrl || url, fetchSource };
 }
