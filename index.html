@@ -1434,10 +1434,16 @@ async function loadGaissmayerDetail(p) {
 }
 
 async function loadRhsUrl(p) {
-  const q = p.latName || p.name;
-  if (!q) return;
-  const det = await wFetch('/api/rhs/search', { q });
-  if (det && det.rhsUrl) { p.rhsUrl = det.rhsUrl; renderActiveTab(); }
+  // Worker uses DuckDuckGo HTML search (no CORS server-side)
+  const name = p.latName || p.name;
+  if (!name) return;
+  try {
+    const data = await wFetch('/api/rhs/search', { q: name });
+    if (data && data.rhsUrl && !p.rhsUrl) {
+      p.rhsUrl = data.rhsUrl;
+      renderActiveTab();
+    }
+  } catch(e) {}
 }
 
 async function loadMbgDetail(p) {
