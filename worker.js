@@ -110,9 +110,12 @@ async function getMbgTaxonMap() {
       for (const item of list) {
         const key = toKey(item.name);
         map.set(key, item.taxonid);
-        // subsp./var./f. 제거한 단순화 키도 추가 (예: "crocus sieberi subsp. atticus 'firefly'" → "crocus sieberi 'firefly'")
+        // 중간: "var." 키워드만 제거 (예: "crocus tommasinianus var roseus" → "crocus tommasinianus roseus")
+        const noKeyword = key.replace(/\s+(subsp|var|f|ssp|cv)\.?(?=\s)/gi, '').replace(/\s+/g, ' ').trim();
+        if (noKeyword !== key) map.set(noKeyword, item.taxonid);
+        // subsp./var./f. + 변종명까지 제거한 단순화 키도 추가 (예: "crocus sieberi subsp. atticus 'firefly'" → "crocus sieberi 'firefly'")
         const simplified = key.replace(/\s+(subsp|var|f|ssp|cv)\.?\s+\S+/i, '');
-        if (simplified !== key) map.set(simplified, item.taxonid);
+        if (simplified !== key && simplified !== noKeyword) map.set(simplified, item.taxonid);
       }
       _mbgTaxonMap = map;
       return map;
@@ -607,9 +610,11 @@ async function mbgSearch(params) {
   const toSlug = s => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   // 1) 재배종명 제거
   const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
-  // 2) var./subsp./f./cv. 이하 제거 → 종소명까지만
+  // 2) "var."/"subsp." 키워드만 제거, 변종명 유지 (예: "Crocus tommasinianus var roseus" → "Crocus tommasinianus roseus")
+  const baseNoKeyword = base.replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s)/gi, '').replace(/\s+/g, ' ').trim();
+  // 3) var./subsp./f./cv. 이하 전부 제거 → 종소명까지만
   const baseNoVar = base.replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+.*$/i, '').trim();
-  // 3) 속명+종소명 2단어만 (예: Crocus sieberi)
+  // 4) 속명+종소명 2단어만 (예: Crocus sieberi)
   const baseSpecies = base.split(/\s+/).slice(0, 2).join(' ');
 
   // GitHub JSON taxonid 조회 (MBG 라이브 차단 우회) — STATIC_MBG보다 먼저 체크
@@ -618,13 +623,13 @@ async function mbgSearch(params) {
   try {
     const taxonMap = await getMbgTaxonMap();
     const toKey = s => s.toLowerCase().replace(/[''ʼ′]/g, "'").replace(/\s+/g, ' ').trim();
-    for (const candidate of [q, base, baseNoVar, baseSpecies]) {
+    for (const candidate of [q, base, baseNoKeyword, baseNoVar, baseSpecies]) {
       const tid = taxonMap.get(toKey(candidate));
       if (tid) { githubTaxonId = tid; githubMatchedName = candidate; break; }
     }
   } catch(_) {}
 
-  for (const candidate of [q, base, baseNoVar, baseSpecies]) {
+  for (const candidate of [q, base, baseNoKeyword, baseNoVar, baseSpecies]) {
     const slug = toSlug(candidate);
     if (STATIC_MBG[slug]) {
       // STATIC_MBG 히트: 실제 taxonid가 GitHub JSON에 있으면 그걸 사용 (MBG 링크 직접 연결)

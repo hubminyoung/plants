@@ -1795,8 +1795,8 @@ function renderEcology() {
   const nld = (p, v) => p.ndbFetching ? '<span class="loading-val">…</span>' : (v || '—');
 
   const cards = plants.map((p, pi) => {
-    const sq      = encodeURIComponent(p.latName || p.korName || p.name);
-    const gsmBase = (p.latName || p.name).replace(/\s*['‘’][^'‘’]+['‘’]\s*/g,'').trim();
+    const sq      = encodeURIComponent(p.latName || p.name);
+    const gsmBase = (p.latName || p.name).replace(/\s*[‘’’][^’’’]+[‘’’]\s*/g,’’).trim();
     const gsmSlug = encodeURIComponent(gsmBase);
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
@@ -2286,7 +2286,7 @@ function renderCare() {
   const ld = (p,v) => p.fetching ? '<span class="loading-val">…</span>' : (v||'—');
 
   const cards = plants.map((p, pi) => {
-    const sq = encodeURIComponent(p.latName || p.korName || p.name);
+    const sq = encodeURIComponent(p.latName || p.name);
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
 
     function careAccordion(id, icon, title, text, badge) {
