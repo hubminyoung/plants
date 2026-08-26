@@ -993,7 +993,9 @@ function parsePlants() {
     .replace(/\bssp\./g, 'ssp')
     .replace(/\bsp\./g, 'sp')
     .replace(/\bcv\./g, 'cv')
-    .replace(/^\s*\*+\s*/gm, '');
+    .replace(/^\s*\*+\s*/gm, '')
+    // Title Case 학명 정규화: "Sesleria Autumnalis" → "Sesleria autumnalis"
+    .replace(/([A-Z][a-z]{2,})[ \t]+([A-Z][a-z]{2,})/g, (m, g, s) => `${g} ${s.toLowerCase()}`);
 
   // 1. 학명 패턴: 반드시 이명법(속명+종명) 또는 속명+'품종명' 구조 필요
   //    → East, Shade, Garden 같은 일반 영단어 단독은 제외
