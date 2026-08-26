@@ -750,10 +750,12 @@ async function mbgDetails(params) {
     water:        fieldVal('Water'),
     maintenance:  fieldVal('Maintenance'),
     suggestedUse: fieldVal('Suggested Use'),
-    flower:       fieldVal('Flower'),
-    leaf:         fieldVal('Leaf'),
-    attracts:     fieldVal('Attracts'),
-    tolerate:     fieldVal('Tolerate'),
+    flower:         fieldVal('Flower'),
+    leaf:           fieldVal('Leaf'),
+    attracts:       fieldVal('Attracts'),
+    tolerate:       fieldVal('Tolerate'),
+    genusName:      fieldVal('Genus Name'),
+    specificEpithet:fieldVal('Specific Epithet Name'),
     culture:      sectionText('Culture'),
     noteworthy:   sectionText('Noteworthy Characteristics'),
     problems:     sectionText('Problems'),
@@ -1033,8 +1035,13 @@ async function gaissmayerDetails(params) {
       }
       if (!html.includes('Geselligkeit')) continue;
       return {
-        geselligkeit:  extractField(html, 'Geselligkeit') || null,
-        pflanzAbstand: parsePflanzabstand(extractField(html, 'Pflanzabstand')),
+        geselligkeit:     extractField(html, 'Geselligkeit') || null,
+        pflanzAbstand:    parsePflanzabstand(extractField(html, 'Pflanzabstand')),
+        giftklasse:       extractField(html, 'Giftklasse') || null,
+        bienenfreundlich: extractField(html, 'Bienenfreundlich') || null,
+        insektenweide:    extractField(html, 'Insektenweide') || null,
+        lebensbereich:    extractField(html, 'Lebensbereich') || null,
+        pflanzZeitpunkt:  extractField(html, 'Pflanz-Zeitpunkt') || extractField(html, 'Pflanzzeitpunkt') || null,
       };
     }
   } catch(e) {}
@@ -1063,10 +1070,15 @@ async function gaissmayerDetails(params) {
     if (!dr.ok) return { geselligkeit: null, pflanzAbstand: null, debug: 'new_detail_failed' };
     const detailHtml = await dr.text();
 
-    const geselligkeit  = extractField(detailHtml, 'Geselligkeit') || null;
-    const pflanzAbstand = parsePflanzabstand(extractField(detailHtml, 'Pflanzabstand'));
+    const geselligkeit     = extractField(detailHtml, 'Geselligkeit') || null;
+    const pflanzAbstand    = parsePflanzabstand(extractField(detailHtml, 'Pflanzabstand'));
+    const giftklasse       = extractField(detailHtml, 'Giftklasse') || null;
+    const bienenfreundlich = extractField(detailHtml, 'Bienenfreundlich') || null;
+    const insektenweide    = extractField(detailHtml, 'Insektenweide') || null;
+    const lebensbereich    = extractField(detailHtml, 'Lebensbereich') || null;
+    const pflanzZeitpunkt  = extractField(detailHtml, 'Pflanz-Zeitpunkt') || extractField(detailHtml, 'Pflanzzeitpunkt') || null;
 
-    return { geselligkeit, pflanzAbstand, debug: detailHtml.includes('Geselligkeit') ? 'ok' : 'no_field' };
+    return { geselligkeit, pflanzAbstand, giftklasse, bienenfreundlich, insektenweide, lebensbereich, pflanzZeitpunkt, debug: detailHtml.includes('Geselligkeit') ? 'ok' : 'no_field' };
   } catch(e) {
     return { geselligkeit: null, pflanzAbstand: null, debug: e.message };
   }
@@ -1773,7 +1785,20 @@ async function naturadbDetails(params, env) {
   if (!q) return { error: 'q required' };
 
   const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
-  const slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const toSlugFn = s => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const slug = toSlugFn(base);
+  // var./subsp. 키워드만 제거, 변종명 유지 (예: "Crocus tommasinianus var roseus" → "crocus-tommasinianus-roseus")
+  const baseNoKeyword = base.replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s)/gi, '').replace(/\s+/g, ' ').trim();
+  const slugNoKeyword = toSlugFn(baseNoKeyword);
+  // 변종 전체 제거 (예: "crocus-tommasinianus")
+  const baseNoVar = base.replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+.*$/i, '').trim();
+  const slugNoVar = toSlugFn(baseNoVar);
+
+  // URL 후보: 원본 → 변종명만(var 제거) → 기본종
+  const slugCandidates = [slug];
+  if (slugNoKeyword !== slug) slugCandidates.push(slugNoKeyword);
+  if (slugNoVar !== slug && slugNoVar !== slugNoKeyword) slugCandidates.push(slugNoVar);
+
   const ndbUrl = `https://www.naturadb.de/pflanzen/${slug}/`;
   const url    = ndbUrl;
 
@@ -1784,62 +1809,39 @@ async function naturadbDetails(params, env) {
     'Cache-Control': 'no-cache',
   };
 
+  // URL 하나에 대해 direct → corsproxy → allorigins 순으로 시도
+  const tryFetchUrl = async (targetUrl) => {
+    try { const r = await fetch(targetUrl, { headers: NDB_HEADERS }); if (r.ok) return { html: await r.text(), src: 'direct' }; } catch(e) {}
+    try { const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(targetUrl)); if (r.ok) return { html: await r.text(), src: 'corsproxy' }; } catch(e) {}
+    try { const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`); if (r.ok) return { html: await r.text(), src: 'allorigins' }; } catch(e) {}
+    return null;
+  };
+
   let html = null;
   let fetchSource = 'direct';
   try {
-    // 1. 직접 요청
-    try {
-      const r = await fetch(ndbUrl, { headers: NDB_HEADERS });
-      if (r.ok) { html = await r.text(); fetchSource = 'direct'; }
-    } catch(e) {}
-
-    // 2. corsproxy.io 우회 (직접 실패 시)
-    if (!html) {
-      try {
-        const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(ndbUrl));
-        if (r.ok) { html = await r.text(); fetchSource = 'corsproxy'; }
-      } catch(e) {}
+    // 1. slug 후보 순서대로 시도 (원본 → var 제거 → 기본종)
+    for (const sc of slugCandidates) {
+      const candidateUrl = `https://www.naturadb.de/pflanzen/${sc}/`;
+      const result = await tryFetchUrl(candidateUrl);
+      if (result) { html = result.html; fetchSource = result.src; break; }
     }
 
-    // 3. allorigins.win 우회 (2차 fallback)
+    // 2. 검색으로 실제 URL 찾기 (Ajax Search Pro + DuckDuckGo)
     if (!html) {
-      try {
-        const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(ndbUrl)}`);
-        if (r.ok) { html = await r.text(); fetchSource = 'allorigins'; }
-      } catch(e) {}
-    }
-
-    if (!html) {
-      // 검색으로 실제 URL 찾기 (Ajax Search Pro + DuckDuckGo)
       const foundUrl = await findNaturaDBUrl(q, NDB_HEADERS);
       if (foundUrl) {
-        try {
-          const r = await fetch(foundUrl, { headers: NDB_HEADERS });
-          if (r.ok) { html = await r.text(); fetchSource = 'search'; }
-        } catch(e) {}
-        if (!html) {
-          try {
-            const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(foundUrl));
-            if (r.ok) { html = await r.text(); fetchSource = 'search-corsproxy'; }
-          } catch(e) {}
-        }
-        if (!html) {
-          try {
-            const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(foundUrl)}`);
-            if (r.ok) { html = await r.text(); fetchSource = 'search-allorigins'; }
-          } catch(e) {}
-        }
+        const result = await tryFetchUrl(foundUrl);
+        if (result) { html = result.html; fetchSource = 'search-' + result.src; }
       }
     }
 
     if (!html) {
       // geo-block 등으로 fetch 실패 시 정적 데이터 fallback
-      // var./subsp./f. 제거한 slug도 시도 (예: crocus-tommasinianus-var-roseus → crocus-tommasinianus)
-      const toSlugFn = s => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      const baseNoVar = base.replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+.*$/i, '').trim();
       const baseSpeciesOnly = base.split(/\s+/).slice(0, 2).join(' ');
       const staticEntry = STATIC_NDB[slug]
-        || STATIC_NDB[toSlugFn(baseNoVar)]
+        || STATIC_NDB[slugNoKeyword]
+        || STATIC_NDB[slugNoVar]
         || STATIC_NDB[toSlugFn(baseSpeciesOnly)];
       if (staticEntry) {
         // 정적 데이터는 이미 한국어로 저장되어 있어 번역 불필요

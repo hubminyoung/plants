@@ -1058,6 +1058,9 @@ function mkPlant(name) {
     ndbBlutenform: '', ndbBlattfarbe: '', ndbBlattphase: '', ndbBlattform: '',
     ndbSchnecken: '', ndbOekologie: '', ndbVerwendung: '',
     ndbSchnitt: '', ndbVermehrung: '', ndbSchaedlinge: '', ndbInteressantes: '',
+    ndbWurzeldruck: '', ndbGiftig: '', ndbWildbienen: '',
+    genusName: '', specificEpithet: '',
+    gsmGiftklasse: '', gsmBienenfreundlich: '', gsmInsektenweide: '', gsmLebensbereich: '', gsmPflanzZeitpunkt: '',
     naturadbUrl: '', knaUrl: '',
     fetching: false, done: false
   };
@@ -1336,6 +1339,11 @@ async function loadNaturadbDetail(p) {
   if (t['Blattform'])            p.ndbBlattform    = t['Blattform'];
   if (t['schneckenresistent'] || t['Schnecken'] || t['Schneckenunempfindlich'])
     p.ndbSchnecken = t['schneckenresistent'] || t['Schnecken'] || t['Schneckenunempfindlich'];
+  if (t['Verträgt Wurzeldruck'] || t['verträgt Wurzeldruck'])
+    p.ndbWurzeldruck = t['Verträgt Wurzeldruck'] || t['verträgt Wurzeldruck'];
+  if (t['ist giftig'] || t['Giftig'])
+    p.ndbGiftig = t['ist giftig'] || t['Giftig'];
+  if (t['Wildbienen'])  p.ndbWildbienen  = t['Wildbienen'];
 
   if (s['Standort'])    p.ndbStandort    = s['Standort'];
   if (s['Ökologie'])    p.ndbOekologie   = s['Ökologie'];
@@ -1409,8 +1417,13 @@ async function loadGaissmayerDetail(p) {
     if (cm)  p.pflanzAbstand = +cm;
     if (stm && !p.pflanzCount) p.pflanzCount = +stm;
   }
+  if (det.giftklasse       && !p.gsmGiftklasse)       p.gsmGiftklasse       = det.giftklasse;
+  if (det.bienenfreundlich && !p.gsmBienenfreundlich) p.gsmBienenfreundlich = det.bienenfreundlich;
+  if (det.insektenweide    && !p.gsmInsektenweide)    p.gsmInsektenweide    = det.insektenweide;
+  if (det.lebensbereich    && !p.gsmLebensbereich)    p.gsmLebensbereich    = det.lebensbereich;
+  if (det.pflanzZeitpunkt  && !p.gsmPflanzZeitpunkt)  p.gsmPflanzZeitpunkt  = det.pflanzZeitpunkt;
   p.gaissmayerFetched = true;
-  if (det.geselligkeit || det.pflanzAbstand) renderActiveTab();
+  if (det.geselligkeit || det.pflanzAbstand || det.giftklasse || det.lebensbereich) renderActiveTab();
 }
 
 async function loadMbgDetail(p) {
@@ -1463,9 +1476,11 @@ async function loadMbgDetail(p) {
   p.problems     = det.problems     || '';
   p.tolerate     = det.tolerate     || '';
   p.suggestedUse = det.suggestedUse || '';
-  p.flower       = det.flower       || '';
-  p.leaf         = det.leaf         || '';
-  p.attracts     = det.attracts     || '';
+  p.flower          = det.flower          || '';
+  p.leaf            = det.leaf            || '';
+  p.attracts        = det.attracts        || '';
+  if (det.genusName)      p.genusName      = det.genusName;
+  if (det.specificEpithet) p.specificEpithet = det.specificEpithet;
   if (det.commonName && !p.commonName) p.commonName = det.commonName;
   renderChips(); renderActiveTab();
   // culture / problems 자동 번역 (비동기, 완료 후 재렌더)
@@ -1817,20 +1832,24 @@ function renderEcology() {
 
     // ── 기본정보
     const s1 = [
-      f('일반명',      p.commonName  || ld(p,'')),
-      f('유형',        p.plantType   || nld(p, p.ndbPflanzenart)),
-      f('과명',        p.family      || ld(p,'')),
+      f('일반명',      p.commonName      || ld(p,'')),
+      f('유형',        p.plantType       || nld(p, p.ndbPflanzenart)),
+      f('과명',        p.family          || ld(p,'')),
+      f('속명',        p.genusName       || ''),
+      f('종소명',      p.specificEpithet || ''),
       f('자생/원산지', origin),
     ].join('');
 
     // ── 서식처
     const s2 = [
-      f('일조',     sunStr),
-      f('수분요구', waterKoLookup(p.watering) || ld(p, '')),
-      f('바닥',     nld(p, p.ndbBoden)),
-      f('영양소',   nld(p, p.ndbNaehrstoffe)),
-      f('pH 값',    nld(p, p.ndbPH)),
-      f('컨테이너', nld(p, p.ndbKuebel)),
+      f('일조',         sunStr),
+      f('수분요구',     waterKoLookup(p.watering) || ld(p, '')),
+      f('바닥',         nld(p, p.ndbBoden)),
+      f('영양소',       nld(p, p.ndbNaehrstoffe)),
+      f('pH 값',        nld(p, p.ndbPH)),
+      f('컨테이너',     nld(p, p.ndbKuebel)),
+      f('뿌리압박내성', nld(p, p.ndbWurzeldruck)),
+      f('서식처유형',   p.gsmLebensbereich || ''),
     ].join('');
     const standortTxt = p.ndbStandort || '';
 
@@ -1858,14 +1877,21 @@ function renderEcology() {
 
     // ── 생태
     const oekologieTxt = p.ndbOekologie || '';
+    const giftigVal = p.ndbGiftig || p.gsmGiftklasse || '';
+    const bienenVal = [p.ndbWildbienen, p.gsmBienenfreundlich, p.gsmInsektenweide].filter(Boolean).join(' / ') || '';
     const s5 = [
       f('유인 생물', translateList(p.attracts, ATTRACTS_KO) || ld(p,'')),
       f('내성',      translateList(p.tolerate, TOLERATE_KO) || ld(p,'')),
+      giftigVal  ? f('독성',     giftigVal)  : '',
+      bienenVal  ? f('야생벌/꿀벌', bienenVal) : '',
     ].join('');
 
     // ── 관리/용도
     const verwendungTxt = p.ndbVerwendung || '';
-    const s6 = f('관리요구', MAINT_KO[p.maintenance] || ld(p, p.maintenance));
+    const s6 = [
+      f('관리요구',  MAINT_KO[p.maintenance] || ld(p, p.maintenance)),
+      p.gsmPflanzZeitpunkt ? f('식재적기', p.gsmPflanzZeitpunkt) : '',
+    ].join('');
 
     // ── 식재적용 (KV 입력)
     const pflanzIdx = plants.indexOf(p);
