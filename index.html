@@ -438,6 +438,10 @@ table.dtbl tr:last-child td { border-bottom: none; }
 #bc-canvas { position:relative;width:3000px;height:2000px;background:#f0f0e8; }
 #bc-bg-hint { position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;font-size:0.9rem;text-align:center;line-height:2;pointer-events:auto; }
 #bc-bg-img { display:block;max-width:100%;user-select:none;pointer-events:none; }
+.bc-bg-layer { position:absolute;cursor:move;z-index:1;border:1.5px dashed #aab8a0;box-sizing:border-box; }
+.bc-bg-layer:hover { border-color:#52b788; }
+.bc-bg-del { position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;z-index:5; }
+.bc-bg-resize { position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 40%,rgba(82,183,136,.8) 40%);z-index:5; }
 .bc-node { position:absolute;background:#fff;border:1.5px solid #c0d8b0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15);min-width:100px;width:130px;cursor:move;user-select:none;z-index:10;display:flex;flex-direction:column;overflow:hidden; }
 .bc-node.bc-selected { border-color:#52b788;box-shadow:0 0 0 2px #aeeac8; }
 .bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:#f0f8ec;border-radius:8px 8px 0 0;font-size:0.7rem;font-weight:700;color:#2d5a1b;cursor:move; }
@@ -688,12 +692,12 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <button class="btn btn-sm" id="bc-arrow-btn" onclick="bcToggleArrow()" title="화살표 연결 모드">↗ 화살표</button>
     <span style="flex:1"></span>
     <span class="bc-hint">도면/연출이미지 Ctrl+V로 붙여넣기</span>
-    <button class="btn btn-sm" onclick="bcClearBg()" title="배경 이미지 제거">🗑 배경</button>
+    <label class="btn btn-sm" title="컨셉이미지 추가 (여러 장 가능)" style="cursor:pointer">+ 컨셉<input type="file" accept="image/*" multiple style="display:none" onchange="bcBgFileInput(event)"></label> <button class="btn btn-sm" onclick="bcClearBg()" title="컨셉 전체 삭제">🗑 컨셉</button>
+    <button class="btn btn-sm btn-primary" onclick="bcExportWord()" title="구상판을 Word 파일로 저장">Word 저장</button>
   </div>
   <div id="bc-outer">
     <div id="bc-canvas">
       <div id="bc-bg-hint">도면 또는 연출이미지를<br>Ctrl+V로 붙여넣거나<br><label style="cursor:pointer;text-decoration:underline;color:#52b788">파일 선택<input type="file" accept="image/*" style="display:none" onchange="bcBgFileInput(event)"></label></div>
-      <img id="bc-bg-img" style="display:none;position:absolute;left:0;top:0;max-width:none;max-height:none">
       <svg id="bc-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible"></svg>
     </div>
   </div>
@@ -2935,37 +2939,69 @@ document.addEventListener('keydown', function(ev) {
 
 // ── 식재 구상판 캔버스 ────────────────────────────────────────────────────────
 const BC = {
-  bg: null,       // background data URL
-  nodes: [],      // [{id, pi, x, y, w, imgIdx, ax, ay}]
+  bgs: [],        // [{id, dataUrl, x, y, w, h}] - 컨셉 이미지 레이어들
+  bgNextId: 1,
+  nodes: [],      // [{id, pi, x, y, w, h, imgIdx, ax, ay}]
   nextId: 1,
   arrowMode: false,
-  drag: null,     // {type:'node'|'resize'|'arrow', id, sx,sy, ox,oy,ow}
+  drag: null,     // {type:'node'|'resize'|'arrow'|'bg'|'bg-resize', id, sx,sy, ox,oy,ow,oh}
   selectedId: null,
 };
 
 // ── 배경 이미지 ──────────────────────────────────────────────────────────────
 function bcSetBg(dataUrl) {
-  BC.bg = dataUrl;
-  const img = document.getElementById('bc-bg-img');
-  const hint = document.getElementById('bc-bg-hint');
-  if (!img) return;
-  img.src = dataUrl;
-  img.style.display = 'block';
-  if (hint) hint.style.display = 'none';
+  const tmp = new Image();
+  tmp.onload = function() {
+    const maxW = 800, maxH = 600;
+    let w = tmp.naturalWidth || 600, h = tmp.naturalHeight || 400;
+    if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+    if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+    const offset = BC.bgs.length * 30;
+    BC.bgs.push({ id: BC.bgNextId++, dataUrl, x: 20 + offset, y: 20 + offset, w, h });
+    bcRenderBgs();
+  };
+  tmp.src = dataUrl;
 }
-function bcClearBg() {
-  BC.bg = null;
-  const img = document.getElementById('bc-bg-img');
+function bcRenderBgs() {
+  const canvas = document.getElementById('bc-canvas');
+  if (!canvas) return;
   const hint = document.getElementById('bc-bg-hint');
-  if (img) { img.src=''; img.style.display='none'; }
+  if (hint) hint.style.display = BC.bgs.length ? 'none' : 'flex';
+  // 기존 레이어 제거
+  [...canvas.querySelectorAll('.bc-bg-layer')].forEach(el => el.remove());
+  // 각 레이어 렌더
+  BC.bgs.forEach(b => {
+    const el = document.createElement('div');
+    el.className = 'bc-bg-layer';
+    el.dataset.bgid = b.id;
+    el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
+    el.innerHTML = `<img src="${b.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none">
+      <div class="bc-bg-del" onclick="bcDelBg(${b.id})" title="삭제">✕</div>
+      <div class="bc-bg-resize" data-bgid="${b.id}"></div>`;
+    el.addEventListener('mousedown', e => bcBgDragStart(e, b.id));
+    el.querySelector('.bc-bg-resize').addEventListener('mousedown', e => bcBgResizeStart(e, b.id));
+    canvas.insertBefore(el, canvas.firstChild);
+  });
+}
+// 하위호환용 alias
+function bcRenderBg() { bcRenderBgs(); }
+function bcClearBg() {
+  BC.bgs = [];
+  [...document.querySelectorAll('.bc-bg-layer')].forEach(el => el.remove());
+  const hint = document.getElementById('bc-bg-hint');
   if (hint) hint.style.display='flex';
 }
+function bcDelBg(id) {
+  BC.bgs = BC.bgs.filter(b => b.id !== id);
+  bcRenderBgs();
+}
 function bcBgFileInput(ev) {
-  const file = ev.target.files[0];
-  if (!file) return;
-  const r = new FileReader();
-  r.onload = e => bcSetBg(e.target.result);
-  r.readAsDataURL(file);
+  [...ev.target.files].forEach(file => {
+    const r = new FileReader();
+    r.onload = e => bcSetBg(e.target.result);
+    r.readAsDataURL(file);
+  });
+  ev.target.value = '';
 }
 
 // ── Ctrl+V 붙여넣기 (보드탭 활성 시 배경에 적용) ──────────────────────────
@@ -2985,6 +3021,23 @@ document.addEventListener('paste', function(ev) {
   r.onload = e => { bcSetBg(e.target.result); showToast('배경 이미지 설정됨 ✓'); };
   r.readAsDataURL(file);
 });
+
+// ── 컨셉이미지 레이어 드래그/리사이즈 ────────────────────────────────────────
+function bcBgDragStart(e, bgId) {
+  if (e.target.classList.contains('bc-bg-resize') || e.target.classList.contains('bc-bg-del')) return;
+  e.preventDefault(); e.stopPropagation();
+  const b = BC.bgs.find(x => x.id === bgId);
+  if (!b) return;
+  const pos = evPos(e);
+  BC.drag = { type:'bg', id: bgId, sx: pos.x, sy: pos.y, ox: b.x, oy: b.y };
+}
+function bcBgResizeStart(e, bgId) {
+  e.preventDefault(); e.stopPropagation();
+  const b = BC.bgs.find(x => x.id === bgId);
+  if (!b) return;
+  const pos = evPos(e);
+  BC.drag = { type:'bg-resize', id: bgId, sx: pos.x, sy: pos.y, ow: b.w, oh: b.h };
+}
 
 // ── 노드 추가/삭제 ──────────────────────────────────────────────────────────
 function bcAddNode(pi) {
@@ -3023,6 +3076,68 @@ function bcCycleImg(id, dir) {
   bcRenderNode(n);
 }
 
+// ── Word 내보내기 ────────────────────────────────────────────────────────────
+async function bcExportWord() {
+  showToast('캡처 중... 잠시 기다려주세요');
+  if (!window.html2canvas) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+  }
+  if (!window.docx) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/docx@8.5.0/build/index.js';
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+  }
+  const boardEl = document.getElementById('bc-canvas');
+  let imgDataUrl;
+  try {
+    const cvs = await html2canvas(boardEl, { backgroundColor:'#f0f0e8', scale:1.2, useCORS:true, logging:false });
+    imgDataUrl = cvs.toDataURL('image/png');
+  } catch(err) { showToast('캡처 실패: ' + err.message); return; }
+
+  const b64 = imgDataUrl.split(',')[1];
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+
+  const { Document, Packer, Paragraph, ImageRun, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel } = window.docx;
+  const imgH = Math.round(620 * boardEl.offsetHeight / Math.max(boardEl.offsetWidth, 1));
+
+  const headerRow = new TableRow({ children: ['수종명','학명','수고','내한성','개화','특성'].map(h =>
+    new TableCell({ children:[new Paragraph({ children:[new TextRun({text:h, bold:true})], alignment:AlignmentType.CENTER })] })
+  )});
+  const dataRows = BC.nodes.map(n => {
+    const p = plants[n.pi] || {};
+    return new TableRow({ children: [
+      p.korName||p.name||'', p.latName||'', p.height||'',
+      p.hardiness ? 'Z'+p.hardiness : '',
+      (p.bloomMonths||[]).map(m=>m+'월').join(', '),
+      p.plantType||p.habit||''
+    ].map(txt => new TableCell({ children:[new Paragraph(String(txt))] }))});
+  });
+
+  const doc = new Document({ sections:[{ children:[
+    new Paragraph({ text:'식재 구상판', heading: HeadingLevel.HEADING_1 }),
+    new Paragraph({ children:[new ImageRun({ data: arr, transformation:{ width: 620, height: imgH } })] }),
+    new Paragraph(''),
+    new Paragraph({ text:'식재 수종 목록', heading: HeadingLevel.HEADING_2 }),
+    BC.nodes.length
+      ? new Table({ rows:[headerRow, ...dataRows], width:{ size:100, type:WidthType.PERCENTAGE } })
+      : new Paragraph('수종 없음'),
+  ]}]});
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='식재구상판.docx'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+  showToast('Word 저장 완료 ✓');
+}
+
 // ── 화살표 모드 ──────────────────────────────────────────────────────────────
 function bcToggleArrow() {
   BC.arrowMode = !BC.arrowMode;
@@ -3034,7 +3149,8 @@ function bcToggleArrow() {
 function bcRender() {
   const canvas = document.getElementById('bc-canvas');
   if (!canvas) return;
-  // Remove old nodes (keep bg-hint, bc-bg-img, bc-svg)
+  if (BC.bgs.length) bcRenderBgs();
+  // Remove old nodes (keep bg-hint, bc-bg-layer, bc-svg)
   [...canvas.querySelectorAll('.bc-node,.bc-arrow-pt')].forEach(el => el.remove());
   // Render SVG arrows
   const svg = document.getElementById('bc-svg');
@@ -3187,6 +3303,16 @@ function bcOnMove(e) {
     const el = document.getElementById('bc-n-'+n.id);
     if (el) { el.style.width = n.w+'px'; if(n.h) el.style.height = n.h+'px'; }
     bcUpdateArrows();
+  } else if (BC.drag.type === 'bg') {
+    const b = BC.bgs.find(x => x.id === BC.drag.id); if(!b) return;
+    b.x = Math.max(0, BC.drag.ox + dx); b.y = Math.max(0, BC.drag.oy + dy);
+    const el = document.querySelector(`.bc-bg-layer[data-bgid="${b.id}"]`);
+    if (el) el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
+  } else if (BC.drag.type === 'bg-resize') {
+    const b = BC.bgs.find(x => x.id === BC.drag.id); if(!b) return;
+    b.w = Math.max(100, BC.drag.ow + dx); b.h = Math.max(60, BC.drag.oh + dy);
+    const el = document.querySelector(`.bc-bg-layer[data-bgid="${b.id}"]`);
+    if (el) el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
   } else if (BC.drag.type === 'arrow') {
     n.ax = BC.drag.ox + dx; n.ay = BC.drag.oy + dy;
     bcUpdateArrows();
