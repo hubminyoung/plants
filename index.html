@@ -434,16 +434,16 @@ table.dtbl tr:last-child td { border-bottom: none; }
 /* ── 구상판 캔버스 ── */
 .bc-toolbar { display:flex;align-items:center;gap:0.4rem;padding:0.6rem 1rem;border-bottom:1px solid #e8f0e4;flex-wrap:wrap; }
 .bc-hint { font-size:0.72rem;color:#aaa; }
-#bc-outer { flex:1;overflow:auto;background:#e8e8e0;min-height:500px;position:relative; }
-#bc-canvas { position:relative;display:inline-block;min-width:100%;min-height:500px;background:#f0f0e8; }
+#bc-outer { flex:1;overflow:auto;background:#e8e8e0;min-height:500px;position:relative;cursor:grab; }
+#bc-canvas { position:relative;width:3000px;height:2000px;background:#f0f0e8; }
 #bc-bg-hint { position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;font-size:0.9rem;text-align:center;line-height:2;pointer-events:auto; }
 #bc-bg-img { display:block;max-width:100%;user-select:none;pointer-events:none; }
-.bc-node { position:absolute;background:#fff;border:1.5px solid #c0d8b0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15);min-width:100px;width:130px;cursor:move;user-select:none;z-index:10; }
+.bc-node { position:absolute;background:#fff;border:1.5px solid #c0d8b0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15);min-width:100px;width:130px;cursor:move;user-select:none;z-index:10;display:flex;flex-direction:column;overflow:hidden; }
 .bc-node.bc-selected { border-color:#52b788;box-shadow:0 0 0 2px #aeeac8; }
 .bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:#f0f8ec;border-radius:8px 8px 0 0;font-size:0.7rem;font-weight:700;color:#2d5a1b;cursor:move; }
 .bc-node-del { background:none;border:none;color:#c44;cursor:pointer;font-size:1rem;line-height:1;padding:0 2px; }
-.bc-node-img { width:100%;aspect-ratio:4/3;object-fit:cover;display:block; }
-.bc-node-img-ph { width:100%;aspect-ratio:4/3;background:#f0f0e8;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:2rem; }
+.bc-node-img { width:100%;height:100px;flex:1;min-height:60px;object-fit:cover;display:block; }
+.bc-node-img-ph { width:100%;height:100px;flex:1;min-height:60px;background:#f0f0e8;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:2rem; }
 .bc-node-nav { display:flex;align-items:center;justify-content:center;gap:2px;padding:2px;background:#fafdf8;border-top:1px solid #e8f0e4; }
 .bc-nav-btn { background:#e8f0e4;border:none;border-radius:4px;width:22px;height:18px;font-size:0.75rem;cursor:pointer;color:#4a6a3a; }
 .bc-nav-btn:hover { background:#c8e8c0; }
@@ -693,7 +693,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
   <div id="bc-outer">
     <div id="bc-canvas">
       <div id="bc-bg-hint">도면 또는 연출이미지를<br>Ctrl+V로 붙여넣거나<br><label style="cursor:pointer;text-decoration:underline;color:#52b788">파일 선택<input type="file" accept="image/*" style="display:none" onchange="bcBgFileInput(event)"></label></div>
-      <img id="bc-bg-img" style="display:none">
+      <img id="bc-bg-img" style="display:none;position:absolute;left:0;top:0;max-width:none;max-height:none">
       <svg id="bc-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible"></svg>
     </div>
   </div>
@@ -1794,7 +1794,7 @@ function renderActiveTab() {
     case 'density':  calcDensity();    break;
     case 'ai':       renderAISel();    break;
     case 'care':     renderCare();     break;
-    case 'board':    bcRender();       break;
+    case 'board':    bcInitPan(); bcRender(); break;
   }
 }
 
@@ -3140,6 +3140,33 @@ function bcArrowDragStart(e, id) {
   const pos = evPos(e);
   BC.drag = { type:'arrow', id, sx:pos.x, sy:pos.y, ox:n.ax, oy:n.ay };
 }
+
+// ── 캔버스 패닝 (빈 공간 드래그) ───────────────────────────────────────────
+let _bcPan = null;
+let _bcPanInit = false;
+function bcInitPan() {
+  if (_bcPanInit) return;
+  const outer = document.getElementById('bc-outer');
+  if (!outer) return;
+  _bcPanInit = true;
+  outer.addEventListener('mousedown', function(e) {
+    const ids = ['bc-outer','bc-canvas','bc-bg-img','bc-bg-hint'];
+    if (!ids.includes(e.target.id) && !e.target.closest('.bc-arrow-pt')) return;
+    if (BC.drag) return;
+    _bcPan = { sx: e.clientX, sy: e.clientY, sl: this.scrollLeft, st: this.scrollTop };
+    this.style.cursor = 'grabbing';
+  });
+}
+document.addEventListener('mousemove', function(e) {
+  if (!_bcPan) return;
+  const outer = document.getElementById('bc-outer');
+  if (!outer) return;
+  outer.scrollLeft = _bcPan.sl - (e.clientX - _bcPan.sx);
+  outer.scrollTop  = _bcPan.st - (e.clientY - _bcPan.sy);
+});
+document.addEventListener('mouseup', function() {
+  if (_bcPan) { _bcPan = null; const o = document.getElementById('bc-outer'); if(o) o.style.cursor='grab'; }
+});
 
 function bcOnMove(e) {
   if (!BC.drag) return;
