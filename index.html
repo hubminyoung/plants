@@ -1623,6 +1623,10 @@ async function loadMbgDetail(p) {
     return;
   }
 
+  applyMbgDet(p, det);
+}
+
+function applyMbgDet(p, det) {
   const ftToCm = v => Math.round(v * 30.48);
 
   // Height: "0.50 to 1.00 feet"
@@ -1634,31 +1638,23 @@ async function loadMbgDetail(p) {
   if (det.spreadFeet) {
     const r = parseFeetRange(det.spreadFeet);
     if (r.max != null) {
-      p.spreadM   = +(r.max * 0.3048).toFixed(2);  // meters for circle size
+      p.spreadM   = +(r.max * 0.3048).toFixed(2);
       p.spreadStr = r.min != null ? `${ftToCm(r.min)}~${ftToCm(r.max)}cm` : `${ftToCm(r.max)}cm`;
     }
   }
-  // Zone → hardiness
   if (det.zone) {
     const zm = det.zone.match(/(\d+)\s+to\s+(\d+)/);
     p.hardiness = zm ? `${zm[1]}–${zm[2]}` : det.zone.replace(/zone\s*/i,'').trim();
   }
-  // Sun: "Full sun to part shade" → array of values
   if (det.sun) {
     p.sunlight = det.sun.toLowerCase().split(/\s+to\s+|,\s*/).map(s => s.trim()).filter(Boolean);
   }
-  // Water / Maintenance
   if (det.water)       p.watering    = det.water.toLowerCase();
   if (det.maintenance) p.maintenance = det.maintenance.toLowerCase();
-  // Flower colors extracted from bloom description
   if (det.bloomColor)  p.flowerColors = mbgExtractColors(det.bloomColor);
-  // Bloom months: "May to June" → [5, 6]
   if (det.bloomTime)   p.bloomMonths  = mbgMonthsToNums(det.bloomTime);
-  // Family (if not already from forest service)
   if (!p.family && det.family) p.family = det.family;
-  // MBG-specific fields
   p.nativeRange = det.nativeRange || '';
-  // plantType: DB 한글이 있으면 유지, 없으면 MBG 번역값 사용
   if (!p.plantType) p.plantType = translatePlantType(det.plantType || '');
   p.culture      = det.culture      || '';
   p.noteworthy   = det.noteworthy   || '';
@@ -1666,14 +1662,13 @@ async function loadMbgDetail(p) {
   p.problems     = det.problems     || '';
   p.tolerate     = det.tolerate     || '';
   p.suggestedUse = det.suggestedUse || '';
-  p.flower          = det.flower          || '';
-  p.leaf            = det.leaf            || '';
-  p.attracts        = det.attracts        || '';
-  if (det.genusName)      p.genusName      = det.genusName;
+  p.flower       = det.flower       || '';
+  p.leaf         = det.leaf         || '';
+  p.attracts     = det.attracts     || '';
+  if (det.genusName)       p.genusName       = det.genusName;
   if (det.specificEpithet) p.specificEpithet = det.specificEpithet;
   if (det.commonName && !p.commonName) p.commonName = det.commonName;
   renderChips(); renderActiveTab();
-  // culture / problems 자동 번역 (비동기, 완료 후 재렌더)
   const toTranslate = [];
   if (p.culture)  toTranslate.push(translateText(p.culture).then(t  => { if (t !== p.culture)  { p.culture  = t; renderActiveTab(); } }));
   if (p.problems) toTranslate.push(translateText(p.problems).then(t => { if (t !== p.problems) { p.problems = t; renderActiveTab(); } }));
@@ -2121,7 +2116,7 @@ function renderEcology() {
         <div class="eco-card-hd-right">
           ${eiveHtml(eiveVals)}
           <div class="eco-ext-links">
-            <a href="${mbgHref(p)}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
+            <a href="${mbgHref(p)}" target="_blank" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
             <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${_ndbSlug}/`}" target="_blank" rel="noopener" title="NaturaDB" style="${p.naturadbUrl?'':'opacity:0.5'}">🌿 NDB</a>
             ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
             <a href="${p.gaissmayerUrl||`https://www.gaissmayer.de/web/shop/suche/produkte/?suche=${gsmSlug}`}" target="_blank" rel="noopener" title="Gaissmayer${p.gaissmayerUrl?'':' 검색'}" style="${p.gaissmayerUrl?'':'opacity:0.5'}">🌱 Gsm</a>
@@ -2564,7 +2559,7 @@ function renderCare() {
           ${nameSecondary ? `<span class="care-card-lat">${nameSecondary}</span>` : ''}
         </div>
         <div class="eco-ext-links">
-          <a href="${mbgHref(p)}" target="_blank" rel="noopener" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
+          <a href="${mbgHref(p)}" target="_blank" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
           <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
           <a href="${p.gaissmayerUrl||''}" target="_blank" rel="noopener" style="${p.gaissmayerUrl?'':'opacity:0.3;pointer-events:none'}">🌱 Gsm</a>
           <a href="${p.rhsUrl||''}" target="_blank" rel="noopener" style="${p.rhsUrl?'':'opacity:0.3;pointer-events:none'}">🌹 RHS</a>
