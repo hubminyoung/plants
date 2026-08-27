@@ -1067,6 +1067,7 @@ function mkPlant(name) {
     ndbSchnitt: '', ndbVermehrung: '', ndbSchaedlinge: '', ndbInteressantes: '',
     ndbWurzeldruck: '', ndbGiftig: '', ndbWildbienen: '',
     rhsCultivation: '', rhsPropagation: '', rhsPruning: '', rhsPests: '', rhsDiseases: '', rhsLocations: '',
+    rhsMaxHeight: '', rhsMaxSpread: '', rhsHardiness: '', rhsMoisture: '', rhsAspect: '', rhsFamily: '', rhsHabit: '', rhsRange: '', rhsFoliage: '', rhsSoilTypes: '',
     genusName: '', specificEpithet: '',
     gsmGiftklasse: '', gsmBienenfreundlich: '', gsmInsektenweide: '', gsmLebensbereich: '', gsmPflanzZeitpunkt: '',
     gaissmayerUrl: '', rhsUrl: '',
@@ -1455,18 +1456,84 @@ async function loadRhsUrl(p) {
   } catch(e) {}
 }
 
+// RHS H값 → USDA zone 변환
+const RHS_TO_USDA = { H1a:13, H1b:12, H1c:11, H2:10, H3:9, H4:8, H5:7, H6:6, H7:5 };
+
+// RHS "0.5-1 metres" → cm 문자열
+function rhsMetresToCm(s) {
+  if (!s) return '';
+  const m = s.match(/([\d.]+)(?:\s*[–-]\s*([\d.]+))?\s*met/i);
+  if (!m) return s;
+  const lo = Math.round(parseFloat(m[1]) * 100);
+  const hi = m[2] ? Math.round(parseFloat(m[2]) * 100) : null;
+  return hi ? `${lo}~${hi}cm` : `${lo}cm`;
+}
+
+// RHS Aspect → sunlight 배열
+function rhsAspectToSun(aspect) {
+  if (!aspect) return [];
+  const a = aspect.toLowerCase();
+  if (a.includes('south')) return ['full sun'];
+  if (a.includes('north') && !a.includes('south')) return ['full shade'];
+  return ['part shade'];
+}
+
+// RHS Moisture → watering 문자열
+function rhsMoistureToWater(m) {
+  if (!m) return '';
+  const s = m.toLowerCase();
+  if (s.includes('poorly')) return 'high';
+  if (s.includes('well') && s.includes('moist')) return 'moderate';
+  if (s.includes('well')) return 'low';
+  return '';
+}
+
 async function loadRhsDetail(p) {
   const url = p.rhsUrl;
   if (!url) return;
   try {
     const d = await wFetch('/api/rhs/details', { url });
     if (!d || d.error) return;
+    // Care text sections
     if (d.rhsCultivation) p.rhsCultivation = d.rhsCultivation;
     if (d.rhsPropagation) p.rhsPropagation = d.rhsPropagation;
     if (d.rhsPruning)     p.rhsPruning     = d.rhsPruning;
     if (d.rhsPests)       p.rhsPests       = d.rhsPests;
     if (d.rhsDiseases)    p.rhsDiseases    = d.rhsDiseases;
     if (d.rhsLocations)   p.rhsLocations   = d.rhsLocations;
+    // Store raw RHS attribute fields
+    if (d.rhsMaxHeight) p.rhsMaxHeight = d.rhsMaxHeight;
+    if (d.rhsMaxSpread) p.rhsMaxSpread = d.rhsMaxSpread;
+    if (d.rhsHardiness) p.rhsHardiness = d.rhsHardiness;
+    if (d.rhsMoisture)  p.rhsMoisture  = d.rhsMoisture;
+    if (d.rhsAspect)    p.rhsAspect    = d.rhsAspect;
+    if (d.rhsFamily)    p.rhsFamily    = d.rhsFamily;
+    if (d.rhsHabit)     p.rhsHabit     = d.rhsHabit;
+    if (d.rhsRange)     p.rhsRange     = d.rhsRange;
+    if (d.rhsFoliage)   p.rhsFoliage   = d.rhsFoliage;
+    if (d.rhsSoilTypes) p.rhsSoilTypes = d.rhsSoilTypes;
+    // Map to unified plant fields (only if not already set by higher-priority source)
+    if (!p.height && d.rhsMaxHeight)     p.height    = rhsMetresToCm(d.rhsMaxHeight);
+    if (!p.spreadStr && d.rhsMaxSpread) {
+      const cm = rhsMetresToCm(d.rhsMaxSpread);
+      p.spreadStr = cm;
+      // extract numeric max for spreadM
+      const mMax = d.rhsMaxSpread.match(/([\d.]+)\s*met/i);
+      if (mMax) p.spreadM = parseFloat(mMax[1]);
+    }
+    if (!p.hardiness && d.rhsHardiness) {
+      const usda = RHS_TO_USDA[d.rhsHardiness.trim()];
+      p.hardiness = usda ? String(usda) : d.rhsHardiness;
+    }
+    if ((!p.sunlight || !p.sunlight.length) && d.rhsAspect) {
+      p.sunlight = rhsAspectToSun(d.rhsAspect);
+    }
+    if (!p.watering && d.rhsMoisture) {
+      p.watering = rhsMoistureToWater(d.rhsMoisture);
+    }
+    if (!p.family && d.rhsFamily)       p.family     = d.rhsFamily;
+    if (!p.plantType && d.rhsHabit)     p.plantType  = d.rhsHabit;
+    if (!p.nativeRange && d.rhsRange)   p.nativeRange = d.rhsRange;
     renderActiveTab();
   } catch(e) {}
 }
@@ -1530,7 +1597,7 @@ async function loadMbgDetail(p) {
     }
   } catch(_) {}
 
-  // 2순위: Worker 경유 (Cloudflare IP → MBG 차단될 수 있음)
+  // 2순위: Worker KV 캐시 (Chrome 스크래핑 데이터)
   if (!det) {
     const params = { taxonid: p.mbgTaxonId };
     if (p.mbgStaticSlug) params.staticSlug = p.mbgStaticSlug;
@@ -1538,7 +1605,23 @@ async function loadMbgDetail(p) {
     if (res && !res.error && Object.keys(res).length > 0) det = res;
   }
 
-  if (!det) return;
+  if (!det) {
+    // KV에도 없음 → Worker KV 큐에 추가 (Claude in Chrome 배치 처리용)
+    window._mbgQueue = window._mbgQueue || [];
+    const taxonid = p.mbgTaxonId;
+    const name = p.latName || p.name;
+    if (taxonid && !taxonid.startsWith('static:') && !window._mbgQueue.find(x => x.taxonid === taxonid)) {
+      window._mbgQueue.push({ name, taxonid });
+      // Worker KV에도 저장 (다음 "MBG 업데이트" 명령 시 자동 처리)
+      const pw = localStorage.getItem('appPassword') || '';
+      fetch(CFG.worker + '/api/mbg/queue/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(pw ? {'x-app-password': pw} : {}) },
+        body: JSON.stringify([{ taxonid, name }])
+      }).catch(() => {});
+    }
+    return;
+  }
 
   const ftToCm = v => Math.round(v * 30.48);
 
