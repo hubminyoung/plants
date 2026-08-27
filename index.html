@@ -431,6 +431,26 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .board-add-row { padding:0.5rem 1rem;border-top:1px solid #e8f0e4;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;background:#fafdf8; }
 .board-add-row select { font-size:0.78rem;padding:0.25rem 0.45rem;border:1px solid #c0d8b0;border-radius:6px;background:#fff;color:#4a6a3a; }
 .board-empty { padding:3rem;text-align:center;color:#8aaa7a; }
+/* ── 구상판 캔버스 ── */
+.bc-toolbar { display:flex;align-items:center;gap:0.4rem;padding:0.6rem 1rem;border-bottom:1px solid #e8f0e4;flex-wrap:wrap; }
+.bc-hint { font-size:0.72rem;color:#aaa; }
+#bc-outer { flex:1;overflow:auto;background:#e8e8e0;min-height:500px;position:relative; }
+#bc-canvas { position:relative;display:inline-block;min-width:100%;min-height:500px;background:#f0f0e8; }
+#bc-bg-hint { position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;font-size:0.9rem;text-align:center;line-height:2;pointer-events:auto; }
+#bc-bg-img { display:block;max-width:100%;user-select:none;pointer-events:none; }
+.bc-node { position:absolute;background:#fff;border:1.5px solid #c0d8b0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15);min-width:100px;width:130px;cursor:move;user-select:none;z-index:10; }
+.bc-node.bc-selected { border-color:#52b788;box-shadow:0 0 0 2px #aeeac8; }
+.bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:#f0f8ec;border-radius:8px 8px 0 0;font-size:0.7rem;font-weight:700;color:#2d5a1b;cursor:move; }
+.bc-node-del { background:none;border:none;color:#c44;cursor:pointer;font-size:1rem;line-height:1;padding:0 2px; }
+.bc-node-img { width:100%;aspect-ratio:4/3;object-fit:cover;display:block; }
+.bc-node-img-ph { width:100%;aspect-ratio:4/3;background:#f0f0e8;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:2rem; }
+.bc-node-nav { display:flex;align-items:center;justify-content:center;gap:2px;padding:2px;background:#fafdf8;border-top:1px solid #e8f0e4; }
+.bc-nav-btn { background:#e8f0e4;border:none;border-radius:4px;width:22px;height:18px;font-size:0.75rem;cursor:pointer;color:#4a6a3a; }
+.bc-nav-btn:hover { background:#c8e8c0; }
+.bc-node-info { padding:4px 6px;font-size:0.65rem;color:#6a8a5a;border-top:1px solid #e8f0e4;line-height:1.4; }
+.bc-resize { position:absolute;right:-4px;bottom:-4px;width:14px;height:14px;background:#52b788;border-radius:3px;cursor:se-resize;z-index:11; }
+.bc-arrow-pt { position:absolute;width:12px;height:12px;background:#f59e0b;border:2px solid #fff;border-radius:50%;cursor:crosshair;z-index:12;transform:translate(-50%,-50%); }
+#bc-arrow-btn.active { background:#52b788;color:#fff; }
 </style>
 </head>
 <body>
@@ -662,15 +682,19 @@ table.dtbl tr:last-child td { border-bottom: none; }
 </div>
 
 <div id="pane-board" class="tab-pane">
-  <div class="board-toolbar">
-    <button class="btn btn-sm btn-primary" onclick="addBoardZone()">+ 존 추가</button>
+  <div class="bc-toolbar">
+    <button class="btn btn-sm btn-primary" onclick="bcAddFromList()">+ 수종 추가</button>
+    <button class="btn btn-sm" onclick="bcAddAll()" title="목록의 모든 수종 추가">전체 추가</button>
+    <button class="btn btn-sm" id="bc-arrow-btn" onclick="bcToggleArrow()" title="화살표 연결 모드">↗ 화살표</button>
     <span style="flex:1"></span>
-    <button class="btn btn-sm" onclick="window.print()" style="font-size:0.8rem;" title="인쇄">🖨️ 인쇄</button>
+    <span class="bc-hint">도면/연출이미지 Ctrl+V로 붙여넣기</span>
+    <button class="btn btn-sm" onclick="bcClearBg()" title="배경 이미지 제거">🗑 배경</button>
   </div>
-  <div class="board-zones" id="board-zones">
-    <div class="board-empty">
-      <div style="font-size:2.5rem;margin-bottom:0.6rem;">🖼️</div>
-      <p style="font-size:0.88rem;">식재 구상판입니다.<br>+ 존 추가로 구역을 만들고<br>경관 이미지와 식물 이미지를 모아보세요.</p>
+  <div id="bc-outer">
+    <div id="bc-canvas">
+      <div id="bc-bg-hint">도면 또는 연출이미지를<br>Ctrl+V로 붙여넣거나<br><label style="cursor:pointer;text-decoration:underline;color:#52b788">파일 선택<input type="file" accept="image/*" style="display:none" onchange="bcBgFileInput(event)"></label></div>
+      <img id="bc-bg-img" style="display:none">
+      <svg id="bc-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible"></svg>
     </div>
   </div>
 </div>
@@ -1770,6 +1794,7 @@ function renderActiveTab() {
     case 'density':  calcDensity();    break;
     case 'ai':       renderAISel();    break;
     case 'care':     renderCare();     break;
+    case 'board':    bcRender();       break;
   }
 }
 
@@ -2908,542 +2933,258 @@ document.addEventListener('keydown', function(ev) {
   else if (ev.key === 'Escape') ecoCloseLightbox();
 });
 
-// ── 식재 구상판 ───────────────────────────────────────────────────────────────
-const boardZones = [];
-let boardActiveZoneId = null; // 마지막 포커스된 존
+// ── 식재 구상판 캔버스 ────────────────────────────────────────────────────────
+const BC = {
+  bg: null,       // background data URL
+  nodes: [],      // [{id, pi, x, y, w, imgIdx, ax, ay}]
+  nextId: 1,
+  arrowMode: false,
+  drag: null,     // {type:'node'|'resize'|'arrow', id, sx,sy, ox,oy,ow}
+  selectedId: null,
+};
 
-// 이미지 Ctrl+V 붙여넣기
+// ── 배경 이미지 ──────────────────────────────────────────────────────────────
+function bcSetBg(dataUrl) {
+  BC.bg = dataUrl;
+  const img = document.getElementById('bc-bg-img');
+  const hint = document.getElementById('bc-bg-hint');
+  if (!img) return;
+  img.src = dataUrl;
+  img.style.display = 'block';
+  if (hint) hint.style.display = 'none';
+}
+function bcClearBg() {
+  BC.bg = null;
+  const img = document.getElementById('bc-bg-img');
+  const hint = document.getElementById('bc-bg-hint');
+  if (img) { img.src=''; img.style.display='none'; }
+  if (hint) hint.style.display='flex';
+}
+function bcBgFileInput(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => bcSetBg(e.target.result);
+  r.readAsDataURL(file);
+}
+
+// ── Ctrl+V 붙여넣기 (보드탭 활성 시 배경에 적용) ──────────────────────────
 document.addEventListener('paste', function(ev) {
-  // 생태탭 식물 이미지 붙여넣기
-  if (document.getElementById('pane-ecology').classList.contains('active')) {
-    const items = [...(ev.clipboardData?.items || [])];
-    const imgItem = items.find(it => it.type.startsWith('image/'));
-    if (imgItem) {
-      if (ecoActivePlant === null) { showToast('이미지를 붙여넣을 식물을 먼저 클릭하세요.'); return; }
-      const file = imgItem.getAsFile();
-      const reader = new FileReader();
-      reader.onload = e => ecoAddImgData(ecoActivePlant, e.target.result);
-      reader.readAsDataURL(file);
-      return;
-    }
-  }
-  if (!document.getElementById('pane-board').classList.contains('active')) return;
-  const items = [...(ev.clipboardData?.items || [])];
-  const imgItem = items.find(it => it.type.startsWith('image/'));
+  // 기존 이미지탭/생태탭 붙여넣기
+  const activePaste = document.querySelector('.tab-pane.active');
+  if (activePaste?.id === 'pane-images') return; // 이미지탭은 별도 처리
+  if (activePaste?.id !== 'pane-board') return;
+  if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  const items = [...(ev.clipboardData?.items||[])];
+  const imgItem = items.find(i => i.type.startsWith('image/'));
   if (!imgItem) return;
-  let targetId = boardActiveZoneId;
-  if (!targetId && boardZones.length === 1) targetId = boardZones[0].id;
-  if (!targetId) { showToast('이미지를 붙여넣을 존을 먼저 클릭하세요.'); return; }
-  const z = boardZones.find(z => z.id === targetId);
-  if (!z) return;
-  const file = imgItem.getAsFile();
-  const reader = new FileReader();
-  reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); showToast('이미지 추가됨 ✓'); };
-  reader.readAsDataURL(file);
-});
-
-// HTML attribute 안전 인코딩
-function escA(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-function addBoardZone() {
-  boardZones.push({ id: 'z' + Date.now(), name: '새 존', conceptImgs: [], plantItems: [] });
-  renderBoardZones();
-}
-
-function removeBoardZone(id) {
-  const i = boardZones.findIndex(z => z.id === id);
-  if (i >= 0) { boardZones.splice(i, 1); renderBoardZones(); }
-}
-
-function renameBoardZone(id, val) {
-  const z = boardZones.find(z => z.id === id);
-  if (z) z.name = val;
-}
-
-function boardConceptDragover(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
-function boardConceptDragleave(ev) { ev.currentTarget.classList.remove('drag-over'); }
-
-function boardConceptDrop(ev, zoneId) {
   ev.preventDefault();
-  ev.currentTarget.classList.remove('drag-over');
-  const z = boardZones.find(z => z.id === zoneId);
-  if (!z) return;
-  const files = [...(ev.dataTransfer.files || [])].filter(f => f.type.startsWith('image/'));
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); };
-    reader.readAsDataURL(file);
-  });
-  const url = ev.dataTransfer.getData('text/uri-list') || ev.dataTransfer.getData('text/plain');
-  if (!files.length && url && /^https?:/.test(url.trim())) {
-    z.conceptImgs.push(url.trim()); renderBoardZones();
-  }
-}
-
-function addConceptUrl(zoneId) {
-  const url = prompt('경관 이미지 URL을 입력하세요:');
-  if (!url || !url.trim()) return;
-  const z = boardZones.find(z => z.id === zoneId);
-  if (z) { z.conceptImgs.push(url.trim()); renderBoardZones(); }
-}
-
-function boardConceptFileInput(zoneId) {
-  const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
-  inp.onchange = () => {
-    const z = boardZones.find(z => z.id === zoneId);
-    if (!z) return;
-    [...inp.files].forEach(file => {
-      const reader = new FileReader();
-      reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); };
-      reader.readAsDataURL(file);
-    });
-  };
-  inp.click();
-}
-
-async function boardGenerateAI(zoneId) {
-  const z = boardZones.find(z => z.id === zoneId);
-  if (!z) return;
-  const plantNames = z.plantItems.map(pi => {
-    const p = plants.find(pl => pl.name === pi.name);
-    return p?.latName || pi.name;
-  }).slice(0, 5).join(', ');
-  const zoneName = z.name || '정원';
-  const prompt = `A Korean native plant garden design, ${zoneName} zone, featuring ${plantNames || 'native wildflowers'}, naturalistic planting style, landscape architecture concept, photorealistic`;
-
-  const hfToken = localStorage.getItem('hfToken') || '';
-  if (!hfToken) {
-    const t = window.prompt('Hugging Face API 토큰을 입력하세요 (hf_... ):');
-    if (!t) return;
-    localStorage.setItem('hfToken', t.trim());
-  }
-
-  // AI 생성 중 표시
-  const btn = document.getElementById('ai-gen-btn-' + zoneId);
-  if (btn) { btn.disabled = true; btn.textContent = '생성 중…'; }
-
-  try {
-    const resp = await fetch('https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('hfToken') || ''), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inputs: prompt, parameters: { width: 768, height: 512 } }),
-    });
-    if (!resp.ok) throw new Error(await resp.text());
-    const blob = await resp.blob();
-    const reader = new FileReader();
-    reader.onload = e => { z.conceptImgs.push(e.target.result); renderBoardZones(); showToast('AI 이미지 생성 완료 ✓'); };
-    reader.readAsDataURL(blob);
-  } catch(e) {
-    showToast('AI 생성 실패: ' + e.message.slice(0, 60));
-    if (btn) { btn.disabled = false; btn.textContent = '✨ AI 이미지'; }
-  }
-}
-
-function removeConceptImg(zoneId, idx) {
-  const z = boardZones.find(z => z.id === zoneId);
-  if (z) { z.conceptImgs.splice(idx, 1); renderBoardZones(); }
-}
-
-function resizeConceptImg(zoneId, idx, delta) {
-  const z = boardZones.find(z => z.id === zoneId);
-  if (!z) return;
-  const entry = z.conceptImgs[idx];
-  const curW = (typeof entry === 'object' && entry.w) ? entry.w : 220;
-  const newW = Math.max(80, Math.min(700, curW + delta));
-  z.conceptImgs[idx] = { src: typeof entry === 'string' ? entry : entry.src, w: newW };
-  renderBoardZones();
-}
-
-function assignPlantToBoard(zoneId, plantName) {
-  if (!plantName) return;
-  const z = boardZones.find(z => z.id === zoneId);
-  if (!z || z.plantItems.find(pi => pi.name === plantName)) return;
-  z.plantItems.push({ name: plantName, imgIdx: 0 });
-  // 검색창 초기화
-  const inp = document.querySelector(`.board-plant-search[data-bps-zone="${CSS.escape(zoneId)}"]`);
-  if (inp) { inp.value = ''; }
-  const sug = document.getElementById('bps-' + zoneId);
-  if (sug) sug.style.display = 'none';
-  renderBoardZones();
-}
-
-// 인덱스 기반 (plant 이름 이스케이프 불필요)
-function cycleBoardPlantImg(zoneId, piIdx, dir) {
-  const z = boardZones.find(z => z.id === zoneId);
-  if (!z) return;
-  const pi = z.plantItems[piIdx];
-  if (!pi) return;
-  const p = plants.find(pl => pl.name === pi.name);
-  const total = p?.images?.length || 1;
-  pi.imgIdx = ((pi.imgIdx || 0) + dir + total) % total;
-  renderBoardZones();
-}
-
-function removePlantFromBoard(zoneId, piIdx) {
-  const z = boardZones.find(z => z.id === zoneId);
-  if (!z) return;
-  z.plantItems.splice(piIdx, 1);
-  renderBoardZones();
-}
-
-// 식물 검색 자동완성
-function boardPlantSearch(input, zoneId) {
-  const q = input.value.trim().toLowerCase();
-  const z = boardZones.find(z => z.id === zoneId);
-  const inZone = new Set(z?.plantItems.map(pi => pi.name) || []);
-  const sugEl = document.getElementById('bps-' + zoneId);
-  if (!sugEl) return;
-
-  const matches = plants.filter(p => !inZone.has(p.name) && (
-    q === '' ||
-    (p.korName || '').toLowerCase().includes(q) ||
-    (p.latName || '').toLowerCase().includes(q) ||
-    p.name.toLowerCase().includes(q)
-  )).slice(0, 12);
-
-  if (!matches.length) { sugEl.style.display = 'none'; return; }
-
-  sugEl.innerHTML = matches.map(p => {
-    const kor = (p.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
-    const lat = p.latName || p.name;
-    return `<div class="board-sug-item"
-      data-zone-id="${escA(zoneId)}" data-plant-name="${escA(p.name)}">
-      ${kor ? `${kor} <small>${lat}</small>` : `<span>${lat}</span>`}
-    </div>`;
-  }).join('');
-
-  sugEl.querySelectorAll('.board-sug-item').forEach(el => {
-    el.addEventListener('mousedown', ev => {
-      ev.preventDefault(); // blur 방지
-      assignPlantToBoard(el.dataset.zoneId, el.dataset.plantName);
-    });
-  });
-  sugEl.style.display = 'block';
-}
-
-function renderBoardZones() {
-  const el = document.getElementById('board-zones');
-  if (!el) return;
-  if (!boardZones.length) {
-    el.innerHTML = '<div class="board-empty"><div style="font-size:2.5rem;margin-bottom:0.6rem;">🖼️</div><p style="font-size:0.88rem;">식재 구상판입니다.<br>+ 존 추가로 구역을 만들고<br>경관 이미지와 식물 이미지를 모아보세요.</p></div>';
-    return;
-  }
-  el.innerHTML = boardZones.map(z => renderBoardZoneHtml(z)).join('');
-}
-
-function renderBoardZoneHtml(z) {
-  const zid = escA(z.id);
-  const isActive = boardActiveZoneId === z.id;
-
-  // 경관 이미지 (크기 조절 가능, 여러 장)
-  const conceptHtml = z.conceptImgs.map((entry, i) => {
-    const src = typeof entry === 'string' ? entry : entry.src;
-    const w   = typeof entry === 'object' && entry.w ? entry.w : 220;
-    return `<div class="board-concept-img-wrap" style="width:${w}px;min-width:80px;max-width:700px;resize:horizontal;overflow:hidden;position:relative;flex-shrink:0">
-      <img class="board-concept-img" src="${escA(src)}" style="width:100%;height:auto;min-height:60px;object-fit:cover;display:block;cursor:zoom-in;" onclick="window.open('${escA(src)}','_blank')" title="원본 보기">
-      <button class="board-concept-img-del" onclick="removeConceptImg('${zid}',${i})" style="display:flex;">×</button>
-      <div style="position:absolute;bottom:2px;left:3px;display:flex;gap:2px;">
-        <button onclick="resizeConceptImg('${zid}',${i},-40)" style="background:rgba(0,0,0,0.4);color:#fff;border:none;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer;">−</button>
-        <button onclick="resizeConceptImg('${zid}',${i},60)"  style="background:rgba(0,0,0,0.4);color:#fff;border:none;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer;">＋</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  // 식물 카드
-  const plantCardsHtml = z.plantItems.map((pi, piIdx) => {
-    const p     = plants.find(pl => pl.name === pi.name);
-    const imgs  = p?.images || [];
-    const total = imgs.length;
-    const idx   = Math.min(pi.imgIdx || 0, Math.max(0, total - 1));
-    const src   = imgs[idx] || '';
-    const kor   = (p?.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
-    const lat   = p?.latName || pi.name;
-
-    const imgContent = src
-      ? `<img class="bpc-img" src="${escA(src)}"
-           data-zone-id="${zid}" data-pi-idx="${piIdx}" data-dir="1"
-           title="클릭: 다음 이미지 (${idx+1}/${total})">`
-      : `<div class="board-no-img">이미지<br>없음</div>`;
-
-    const navBtns = total > 1 ? `
-      <button class="bpc-btn" data-zone-id="${zid}" data-pi-idx="${piIdx}" data-dir="-1" title="이전">‹</button>
-      <button class="bpc-btn" data-zone-id="${zid}" data-pi-idx="${piIdx}" data-dir="1"  title="다음">›</button>` : '';
-
-    return `<div class="board-plant-card">
-      <div class="bpc-img-wrap">
-        ${imgContent}
-        ${total > 1 ? `<span class="bpc-idx">${idx+1}/${total}</span>` : ''}
-        <div class="bpc-btns">
-          ${navBtns}
-          <button class="bpc-btn bpc-del" data-zone-id="${zid}" data-pi-idx="${piIdx}" title="제거">×</button>
-        </div>
-      </div>
-      <div class="bpc-name">${kor || lat}${kor ? `<br><i style="color:#8aaa7a;font-size:0.6rem">${lat}</i>` : ''}</div>
-    </div>`;
-  }).join('');
-
-  return `<div class="board-zone-card${isActive ? ' bz-active' : ''}" onclick="boardActiveZoneId='${zid}';document.querySelectorAll('.board-zone-card').forEach(e=>e.classList.remove('bz-active'));this.classList.add('bz-active')">
-    <div class="board-zone-header">
-      <input class="board-zone-name" value="${escA(z.name)}"
-        onchange="renameBoardZone('${zid}',this.value)" onclick="event.stopPropagation()">
-      <button class="btn btn-sm" style="padding:0.15rem 0.45rem;font-size:0.75rem;color:#c44;"
-        onclick="event.stopPropagation();if(confirm('이 존을 삭제할까요?'))removeBoardZone('${zid}')">🗑</button>
-    </div>
-
-    <div class="board-concept-area">
-      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.4rem;flex-wrap:wrap;">
-        <span class="board-concept-label" style="margin:0;">📸 개념 이미지</span>
-        <button class="btn btn-sm" style="font-size:0.68rem;padding:0.15rem 0.4rem;color:#4a8a5a;border-color:#b0d0a0;" onclick="event.stopPropagation();boardConceptFileInput('${zid}')">📂 파일</button>
-        <button class="btn btn-sm" style="font-size:0.68rem;padding:0.15rem 0.4rem;color:#4a8a5a;border-color:#b0d0a0;" onclick="event.stopPropagation();addConceptUrl('${zid}')">🔗 URL</button>
-        <button id="ai-gen-btn-${zid}" class="btn btn-sm" style="font-size:0.68rem;padding:0.15rem 0.4rem;color:#7a4ab0;border-color:#c0a0e0;" onclick="event.stopPropagation();boardGenerateAI('${zid}')">✨ AI 생성</button>
-        ${isActive ? '<span style="font-size:0.62rem;color:#52b788;margin-left:auto;">← 포커스됨 · Ctrl+V로 붙여넣기</span>' : ''}
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;min-height:60px;">
-        ${conceptHtml}
-        <div class="board-concept-drop" style="min-width:90px;height:auto;align-self:stretch;"
-          ondragover="boardConceptDragover(event)"
-          ondragleave="boardConceptDragleave(event)"
-          ondrop="event.stopPropagation();boardConceptDrop(event,'${zid}')">
-          🖼<br><span style="font-size:0.6rem;opacity:0.7;">드롭</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="board-plant-area" style="border-top:1px solid #eaf0e6;">
-      ${plantCardsHtml || '<div style="color:#b0c8a0;font-size:0.78rem;padding:0.7rem 0.5rem;">아래에서 식물을 추가하세요</div>'}
-    </div>
-
-    <div class="board-add-row">
-      <span style="font-size:0.75rem;color:#6a8a5a;white-space:nowrap;">🌿 식물 추가:</span>
-      <div style="position:relative;display:inline-block;">
-        <input type="text" class="board-plant-search" placeholder="🔍 이름 검색…"
-          data-bps-zone="${zid}"
-          oninput="boardPlantSearch(this,'${zid}')"
-          onfocus="boardPlantSearch(this,'${zid}')"
-          onblur="setTimeout(()=>{const e=document.getElementById('bps-${z.id}');if(e)e.style.display='none'},150)"
-          onclick="event.stopPropagation()">
-        <div class="board-sug-list" id="bps-${z.id}"></div>
-      </div>
-    </div>
-  </div>`;
-}
-
-// 이벤트 위임: 구상판 클릭 처리 (plant 이름 문자열 불필요)
-document.addEventListener('click', function(ev) {
-  // 식물 이미지 클릭 → 다음 이미지
-  const img = ev.target.closest('.bpc-img');
-  if (img && img.dataset.piIdx !== undefined) {
-    cycleBoardPlantImg(img.dataset.zoneId, +img.dataset.piIdx, +img.dataset.dir || 1);
-    return;
-  }
-  // 이전/다음 버튼
-  const btn = ev.target.closest('.bpc-btn:not(.bpc-del)');
-  if (btn && btn.dataset.dir && btn.dataset.piIdx !== undefined) {
-    cycleBoardPlantImg(btn.dataset.zoneId, +btn.dataset.piIdx, +btn.dataset.dir);
-    return;
-  }
-  // 삭제 버튼
-  const del = ev.target.closest('.bpc-del');
-  if (del && del.dataset.piIdx !== undefined) {
-    removePlantFromBoard(del.dataset.zoneId, +del.dataset.piIdx);
-  }
+  const file = imgItem.getAsFile();
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => { bcSetBg(e.target.result); showToast('배경 이미지 설정됨 ✓'); };
+  r.readAsDataURL(file);
 });
 
+// ── 노드 추가/삭제 ──────────────────────────────────────────────────────────
+function bcAddNode(pi) {
+  const canvas = document.getElementById('bc-canvas');
+  const cw = canvas?.offsetWidth || 600;
+  const ch = canvas?.offsetHeight || 500;
+  const x = 40 + (BC.nodes.length % 5) * 140;
+  const y = 40 + Math.floor(BC.nodes.length / 5) * 200;
+  const node = { id: BC.nextId++, pi, x, y, w: 130, imgIdx: 0,
+    ax: Math.round(cw/2), ay: Math.round(ch/2) };
+  BC.nodes.push(node);
+  bcRender();
+}
+function bcAddFromList() {
+  if (!plants.length) { showToast('먼저 식물을 추가해주세요'); return; }
+  const names = plants.map((p,i)=>`${i}: ${p.korName||p.latName||p.name}`).join('\n');
+  const input = prompt('추가할 수종 번호 (0부터):\n'+names);
+  if (input === null) return;
+  const idx = parseInt(input.trim());
+  if (isNaN(idx) || idx < 0 || idx >= plants.length) return;
+  bcAddNode(idx);
+}
+function bcAddAll() {
+  plants.forEach((_,i) => bcAddNode(i));
+}
+function bcDelNode(id) {
+  BC.nodes = BC.nodes.filter(n => n.id !== id);
+  bcRender();
+}
+function bcCycleImg(id, dir) {
+  const n = BC.nodes.find(x => x.id === id);
+  if (!n) return;
+  const p = plants[n.pi];
+  if (!p?.images?.length) return;
+  n.imgIdx = ((n.imgIdx || 0) + dir + p.images.length) % p.images.length;
+  bcRenderNode(n);
+}
 
+// ── 화살표 모드 ──────────────────────────────────────────────────────────────
+function bcToggleArrow() {
+  BC.arrowMode = !BC.arrowMode;
+  const btn = document.getElementById('bc-arrow-btn');
+  if (btn) btn.classList.toggle('active', BC.arrowMode);
+}
 
-// ── 이미지 갤러리 드래그 스크롤 ──────────────────────────────
-(function() {
-  let isDown = false, startX, scrollLeft, activeEl = null;
-  document.addEventListener('mousedown', e => {
-    const g = e.target.closest('.img-gallery');
-    if (!g) return;
-    isDown = true; activeEl = g;
-    startX = e.pageX - g.offsetLeft;
-    scrollLeft = g.scrollLeft;
-    g.style.cursor = 'grabbing';
-    e.preventDefault();
-  });
-  document.addEventListener('mouseleave', () => { isDown = false; if(activeEl) activeEl.style.cursor='grab'; });
-  document.addEventListener('mouseup',    () => { isDown = false; if(activeEl) activeEl.style.cursor='grab'; });
-  document.addEventListener('mousemove',  e => {
-    if (!isDown || !activeEl) return;
-    e.preventDefault();
-    const x = e.pageX - activeEl.offsetLeft;
-    const walk = (x - startX) * 2;
-    activeEl.scrollLeft = scrollLeft - walk;
-  });
-  // 터치 지원
-  document.addEventListener('touchstart', e => {
-    const g = e.target.closest('.img-gallery');
-    if (!g) return;
-    isDown = true; activeEl = g;
-    startX = e.touches[0].pageX - g.offsetLeft;
-    scrollLeft = g.scrollLeft;
-  }, { passive: true });
-  document.addEventListener('touchend',  () => { isDown = false; });
-  document.addEventListener('touchmove', e => {
-    if (!isDown || !activeEl) return;
-    const x = e.touches[0].pageX - activeEl.offsetLeft;
-    activeEl.scrollLeft = scrollLeft - (x - startX) * 2;
-  }, { passive: true });
-  // 이미지 클릭으로 갤러리 스크롤 (클릭한 이미지를 중앙으로)
-  document.addEventListener('click', e => {
-    const img = e.target.closest('.img-gallery img');
-    if (!img) return;
-    const gallery = img.closest('.img-gallery');
-    if (!gallery) return;
-    const imgCenter = img.offsetLeft + img.offsetWidth / 2;
-    const galleryHalf = gallery.offsetWidth / 2;
-    gallery.scrollTo({ left: imgCenter - galleryHalf, behavior: 'smooth' });
-  });
-})();
-
-/* ── 개화 분포도 탭 ─────────────────────────────────────────────────── */
-(function(){
-  const MN  = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  const DOT = new Set([2,3,4,5,6,7,8,9,10]);
-  const WIN = new Set([10,11,12,1,2]);
-
-  /* 기준 식물 DB (wc·r 참조용) */
-  const pl = [
-    /* ── 구근 · 소구근 ── */
-    {name:'Crocus tommasinianus var. roseus',          bloom:[2,3],        wc:null,      c:'#c8a4d8', r:2,   n:130},
-    {name:"Crocus sieberi 'Firefly'",                  bloom:[2,3],        wc:null,      c:'#e8d0f0', r:2,   n:105},
-    {name:'Narcissus (early yellow)',                  bloom:[3,4],        wc:null,      c:'#f5d020', r:3.5, n:45 },
-    {name:'Scilla sibirica',                           bloom:[3,4],        wc:null,      c:'#5575e8', r:2,   n:100},
-    {name:'Narcissus (late white)',                    bloom:[4,5],        wc:null,      c:'#ebebeb', r:3.5, n:38 },
-    {name:'Ornithogalum umbellatum',                   bloom:[4,5],        wc:null,      c:'#e0e0e0', r:2.5, n:55 },
-    {name:'Armeria maritima',                          bloom:[4,5,6],      wc:null,      c:'#e080a0', r:2.5, n:42 },
-    {name:'Iberis sempervirens',                       bloom:[3,4,5],      wc:null,      c:'#f4f4f4', r:3,   n:35 },
-    {name:'Monarda bradburiana',                       bloom:[6,7],        wc:'#1a1a1a', c:'#e06080', r:8,   n:13 },
-    /* ── 구근 대형 ── */
-    {name:"Allium 'Purple Sensation'",                 bloom:[5,6],        wc:null,      c:'#7744bb', r:11,  n:9  },
-    /* ── 숙근 소~중형 ── */
-    {name:'Sisyrinchium angustifolium Lucerne',        bloom:[5,6,7],      wc:null,      c:'#6070cc', r:3.5, n:28 },
-    {name:"Oenothera fruticosa 'Fireworks'",           bloom:[6,7,8],      wc:null,      c:'#f0c010', r:5,   n:20 },
-    {name:'Coreopsis lanceolata',                      bloom:[6,7,8],      wc:null,      c:'#f5d020', r:6,   n:20 },
-    {name:"Nepeta sibirica 'Chaudron'",                bloom:[6,7,8],      wc:null,      c:'#8899dd', r:5,   n:24 },
-    {name:'Petrorhagia saxifraga',                     bloom:[6,7,8,9],    wc:null,      c:'#f0d8e8', r:2.5, n:50 },
-    {name:'Ratibida columnifera',                      bloom:[6,7,8,9],    wc:'#d4c878', c:'#f5c020', r:6,   n:18 },
-    {name:"Achillea 'Coronation Gold'",                bloom:[6,7,8],      wc:'#1a1a1a', c:'#e8c020', r:7,   n:18 },
-    {name:'Eremurus stenophyllus',                     bloom:[6,7],        wc:null,      c:'#f5d020', r:9,   n:7  },
-    {name:"Calamintha 'White Cloud'",                  bloom:[7,8,9,10],   wc:null,      c:'#d8d8d8', r:3,   n:50 },
-    {name:"Perovskia atriplicifolia 'Superba'",        bloom:[7,8,9],      wc:'#c0c0c0', c:'#aabbee', r:5.5, n:22 },
-    {name:'Knautia macedonica',                        bloom:[6,7,8,9,10], wc:null,      c:'#cc2244', r:5,   n:26 },
-    {name:'Rudbeckia fulgida var. fulgida',            bloom:[7,8,9],      wc:'#1a1a1a', c:'#f5c010', r:7,   n:20 },
-    {name:"Agastache 'Blue Fortune'",                  bloom:[8,9],        wc:'#1a1a1a', c:'#7788dd', r:6,   n:22 },
-    {name:"Symphyotrichum oblongifolium 'October Skies'", bloom:[9,10],   wc:'#8b5a2b', c:'#8899d8', r:7,   n:18 },
-  ];
-
-  /* 전역 노출 → Excel 동절기 구조미 판단에 사용 */
-  window.SP_PLANTS = pl;
-  window.SP_WIN    = WIN;
-
-  function rng(s){ s=s>>>0; return()=>{s=(s*1664525+1013904223)>>>0;return s/0xffffffff;}; }
-
-  /* activePl: [{name,bloom,wc,c,r,n}] */
-  function drawGrid(cv, mn, activePl) {
-    const S=246;
-    cv.width=S; cv.height=S;
-    const ctx=cv.getContext('2d');
-    ctx.fillStyle='#d0d0d0'; ctx.fillRect(0,0,S,S);
-
-    /* 이 달에 그릴 항목 수집 */
-    const items=[];
-    activePl.forEach(p=>{
-      if(p.bloom.includes(mn)) items.push({r:p.r, n:p.n, c:p.c});
-    });
-    if(!items.length) return;
-
-    /* 희소한 달만 적당히 보정: 50개 미만이면 최대 4배까지, 목표 120개 */
-    const rawTotal=items.reduce((s,p)=>s+p.n,0);
-    const scale=rawTotal<50 ? Math.min(4, 120/rawTotal) : 1;
-
-    const rand=rng(mn*7919+31337);
-    const pool=[];
-    items.forEach(p=>{ const cnt=Math.max(1,Math.round(p.n*scale)); for(let i=0;i<cnt;i++) pool.push(p); });
-    for(let i=pool.length-1;i>0;i--){
-      const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];
+// ── 렌더링 ──────────────────────────────────────────────────────────────────
+function bcRender() {
+  const canvas = document.getElementById('bc-canvas');
+  if (!canvas) return;
+  // Remove old nodes (keep bg-hint, bc-bg-img, bc-svg)
+  [...canvas.querySelectorAll('.bc-node,.bc-arrow-pt')].forEach(el => el.remove());
+  // Render SVG arrows
+  const svg = document.getElementById('bc-svg');
+  if (svg) {
+    svg.innerHTML = BC.nodes.map(n => {
+      const cx = n.x + n.w/2, cy = n.y + 80;
+      return `<line x1="${cx}" y1="${cy}" x2="${n.ax}" y2="${n.ay}" stroke="#52b788" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr)"/>`;
+    }).join('');
+    // Arrowhead marker
+    if (BC.nodes.length) {
+      svg.innerHTML = `<defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#52b788"/></marker></defs>` + svg.innerHTML;
     }
-    const total=pool.length;
-    const COLS=Math.ceil(Math.sqrt(total*1.6));
-    const ROWS=Math.ceil(total/COLS);
-    const cw=S/COLS, ch=S/ROWS;
-    const cells=[];
-    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) cells.push({cx:(c+.5)*cw,cy:(r+.5)*ch});
-    for(let i=cells.length-1;i>0;i--){
-      const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]];
-    }
-    pool.forEach((p,i)=>{
-      const cell=cells[i%cells.length];
-      /* seasonal_preview.html 기준: canvas 246px을 CSS 123px 표시(2x)와 동일하게 r*1 사용 */
-      const r=p.r*(0.78+rand()*0.44);
-      const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*.65));
-      const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
-      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
-      ctx.fillStyle=p.c; ctx.fill();
+    // Arrow endpoints (draggable)
+    BC.nodes.forEach(n => {
+      const pt = document.createElement('div');
+      pt.className = 'bc-arrow-pt';
+      pt.style.cssText = `left:${n.ax}px;top:${n.ay}px`;
+      pt.setAttribute('data-id', n.id);
+      pt.addEventListener('mousedown', e => bcArrowDragStart(e, n.id));
+      pt.addEventListener('touchstart', e => bcArrowDragStart(e, n.id), {passive:false});
+      canvas.appendChild(pt);
     });
   }
+  BC.nodes.forEach(n => bcRenderNode(n));
+}
 
-  function buildTable(activePl) {
-    const tb=document.getElementById('dv-tb');
-    tb.innerHTML='';
-    /* 닷 레이블 행 */
-    const lr=document.createElement('tr'); lr.className='dot-lbl';
-    lr.appendChild(document.createElement('td'));
-    MN.forEach((_,i)=>{ const td=document.createElement('td'); if(DOT.has(i+1)) td.textContent=MN[i]; lr.appendChild(td); });
-    tb.appendChild(lr);
-    /* 닷 그리드 행 */
-    const dr=document.createElement('tr'); dr.className='dot-row';
-    dr.appendChild(document.createElement('td'));
-    MN.forEach((_,i)=>{
-      const mn=i+1, td=document.createElement('td');
-      if(DOT.has(mn)){ const cv=document.createElement('canvas'); cv._mn=mn; td.appendChild(cv); drawGrid(cv,mn,activePl); }
-      dr.appendChild(td);
-    });
-    tb.appendChild(dr);
-    /* 월 헤더 행 */
-    const hr=document.createElement('tr'); hr.className='mhd';
-    hr.appendChild(document.createElement('th'));
-    MN.forEach((_,i)=>{ const th=document.createElement('th'); th.textContent=MN[i]; if([1,2,10,11,12].includes(i+1)) th.classList.add('w'); hr.appendChild(th); });
-    tb.appendChild(hr);
-    /* 식물 행 */
-    activePl.forEach(p=>{
-      const row=document.createElement('tr'); row.className='pr';
-      const nc=document.createElement('td'); nc.className='nc'; nc.textContent=p.name; row.appendChild(nc);
-      MN.forEach((_,i)=>{
-        const mn=i+1, cell=document.createElement('td'); cell.className='bc';
-        if(p.bloom.includes(mn)){
-          const b=document.createElement('div'); b.className='dv-bar';
-          const fl=!p.bloom.includes(mn===1?12:mn-1), ll=!p.bloom.includes(mn===12?1:mn+1);
-          let lft, rgt;
-          if(mn===10){ lft=fl?'1px':'0'; rgt='50%'; }
-          else if(mn===2&&fl){ lft='50%'; rgt=ll?'1px':'0'; }
-          else { lft=fl?'1px':'0'; rgt=ll?'1px':'0'; }
-          b.style.cssText=`background:${p.c};left:${lft};right:${rgt};border-radius:${fl?'2px':'0'} ${ll?'2px':'0'} ${ll?'2px':'0'} ${fl?'2px':'0'}`;
-          cell.appendChild(b);
-        }
-        if(p.wc && WIN.has(mn) && (mn===10||!p.bloom.includes(mn))){
-          const wb=document.createElement('div'); wb.className='dv-wbar';
-          const lft=mn===10?'50%':'0', rgt=mn===2?'50%':'0';
-          wb.style.cssText=`background:${p.wc};left:${lft};right:${rgt};border-radius:${mn===10?'2px':'0'} ${mn===2?'2px':'0'} ${mn===2?'2px':'0'} ${mn===10?'2px':'0'}`;
-          cell.appendChild(wb);
-        }
-        row.appendChild(cell);
-      });
-      tb.appendChild(row);
-    });
+function bcRenderNode(n) {
+  const canvas = document.getElementById('bc-canvas');
+  if (!canvas) return;
+  let el = document.getElementById('bc-n-'+n.id);
+  const p = plants[n.pi];
+  const name = p?.korName || p?.latName || p?.name || '?';
+  const imgs = p?.images || [];
+  const imgIdx = Math.min(n.imgIdx||0, Math.max(0, imgs.length-1));
+  const src = imgs[imgIdx] || '';
+  const info = [p?.height, p?.hardiness ? 'Z'+p.hardiness : '', p?.bloomMonths?.length ? (p.bloomMonths[0])+'월' : ''].filter(Boolean).join(' · ');
+  const navHtml = imgs.length > 1
+    ? `<div class="bc-node-nav">
+        <button class="bc-nav-btn" onclick="bcCycleImg(${n.id},-1)">‹</button>
+        <span style="font-size:0.62rem;color:#8aaa7a">${imgIdx+1}/${imgs.length}</span>
+        <button class="bc-nav-btn" onclick="bcCycleImg(${n.id},1)">›</button>
+       </div>` : '';
+  const imgHtml = src
+    ? `<img class="bc-node-img" src="${src}" onerror="this.style.display='none'">`
+    : `<div class="bc-node-img-ph">🌿</div>`;
+
+  const html = `<div class="bc-node-hd">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90%">${name}</span>
+      <button class="bc-node-del" onclick="bcDelNode(${n.id})">✕</button>
+    </div>
+    ${imgHtml}
+    ${navHtml}
+    ${info ? `<div class="bc-node-info">${info}</div>` : ''}
+    <div class="bc-resize" data-id="${n.id}"></div>`;
+
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'bc-node';
+    el.id = 'bc-n-' + n.id;
+    canvas.appendChild(el);
   }
+  el.innerHTML = html;
+  el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px`;
+  if (BC.selectedId === n.id) el.classList.add('bc-selected');
+  // Drag on header
+  const hd = el.querySelector('.bc-node-hd');
+  hd?.addEventListener('mousedown', e => bcNodeDragStart(e, n.id));
+  hd?.addEventListener('touchstart', e => bcNodeDragStart(e, n.id), {passive:false});
+  // Resize
+  const rz = el.querySelector('.bc-resize');
+  rz?.addEventListener('mousedown', e => bcResizeDragStart(e, n.id));
+  rz?.addEventListener('touchstart', e => bcResizeDragStart(e, n.id), {passive:false});
+}
 
-  /* 전역 노출 */
-  window.SP_PLANTS = pl;
-  window.SP_WIN    = WIN;
-  window.dvRebuild = buildTable;
+// ── 드래그 로직 ──────────────────────────────────────────────────────────────
+function evPos(e) {
+  const t = e.touches?.[0] || e;
+  const canvas = document.getElementById('bc-canvas');
+  const rect = canvas?.getBoundingClientRect() || {left:0, top:0};
+  return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+}
 
-  /* 초기 빌드 (기준 DB) */
-  buildTable(pl);
-})();
+function bcNodeDragStart(e, id) {
+  e.preventDefault(); e.stopPropagation();
+  const n = BC.nodes.find(x => x.id === id);
+  if (!n) return;
+  BC.selectedId = id;
+  const pos = evPos(e);
+  BC.drag = { type:'node', id, sx:pos.x, sy:pos.y, ox:n.x, oy:n.y };
+  document.getElementById('bc-n-'+id)?.classList.add('bc-selected');
+}
+function bcResizeDragStart(e, id) {
+  e.preventDefault(); e.stopPropagation();
+  const n = BC.nodes.find(x => x.id === id);
+  if (!n) return;
+  const pos = evPos(e);
+  BC.drag = { type:'resize', id, sx:pos.x, sy:pos.y, ow:n.w };
+}
+function bcArrowDragStart(e, id) {
+  e.preventDefault(); e.stopPropagation();
+  const n = BC.nodes.find(x => x.id === id);
+  if (!n) return;
+  const pos = evPos(e);
+  BC.drag = { type:'arrow', id, sx:pos.x, sy:pos.y, ox:n.ax, oy:n.ay };
+}
+
+function bcOnMove(e) {
+  if (!BC.drag) return;
+  e.preventDefault();
+  const pos = evPos(e);
+  const dx = pos.x - BC.drag.sx, dy = pos.y - BC.drag.sy;
+  const n = BC.nodes.find(x => x.id === BC.drag.id);
+  if (!n) return;
+  if (BC.drag.type === 'node') {
+    n.x = Math.max(0, BC.drag.ox + dx);
+    n.y = Math.max(0, BC.drag.oy + dy);
+    const el = document.getElementById('bc-n-'+n.id);
+    if (el) el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px`;
+    bcUpdateArrows();
+  } else if (BC.drag.type === 'resize') {
+    n.w = Math.max(80, BC.drag.ow + dx);
+    const el = document.getElementById('bc-n-'+n.id);
+    if (el) el.style.width = n.w+'px';
+    bcUpdateArrows();
+  } else if (BC.drag.type === 'arrow') {
+    n.ax = BC.drag.ox + dx; n.ay = BC.drag.oy + dy;
+    bcUpdateArrows();
+  }
+}
+function bcOnUp() { BC.drag = null; }
+function bcUpdateArrows() {
+  const svg = document.getElementById('bc-svg');
+  if (!svg) return;
+  const marker = BC.nodes.length ? `<defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#52b788"/></marker></defs>` : '';
+  const lines = BC.nodes.map(n => {
+    const cx = n.x + n.w/2, cy = n.y + 80;
+    return `<line x1="${cx}" y1="${cy}" x2="${n.ax}" y2="${n.ay}" stroke="#52b788" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr)"/>`;
+  }).join('');
+  svg.innerHTML = marker + lines;
+  // Update arrow point positions
+  BC.nodes.forEach(n => {
+    const pt = document.querySelector(`.bc-arrow-pt[data-id="${n.id}"]`);
+    if (pt) { pt.style.left = n.ax+'px'; pt.style.top = n.ay+'px'; }
+  });
+}
+
+document.addEventListener('mousemove', bcOnMove);
+document.addEventListener('mouseup', bcOnUp);
+document.addEventListener('touchmove', e => { if(BC.drag) bcOnMove(e); }, {passive:false});
+document.addEventListener('touchend', bcOnUp);
 
 /* 검색된 plants → 개화 분포도 변환 */
 function renderDotView() {
