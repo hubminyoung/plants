@@ -134,6 +134,9 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 }
 .img-gallery::-webkit-scrollbar { height: 4px; }
 .img-gallery::-webkit-scrollbar-thumb { background: #c0d8b8; border-radius: 2px; }
+.gal-img-wrap { position: relative; display: inline-block; }
+.gal-img-wrap:hover .gal-del-btn { opacity: 1; }
+.gal-del-btn { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.55); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; opacity: 0; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2; }
 .gal-img {
   width: 140px; height: 105px; object-fit: cover;
   border-radius: 6px; flex-shrink: 0; cursor: pointer;
@@ -1778,7 +1781,8 @@ function renderImages() {
     <div class="img-section-bar">
       <span>Commons · iNaturalist · GBIF — ${plants.length}종</span>
       <button class="btn btn-primary btn-sm" onclick="openGoogleAll()">🔍 Google 이미지 전체 검색</button>
-    </div>` + plants.map(imgRow).join('');
+      <span style="font-size:0.72rem;color:#aaa">식물 클릭 후 Ctrl+V로 붙여넣기</span>
+    </div>` + plants.map((p,i) => imgRow(p,i)).join('');
 }
 
 function pNames(p) {
@@ -1789,35 +1793,69 @@ function pNames(p) {
   return { primary, secondary };
 }
 
-function imgRow(p) {
+function imgRow(p, pi) {
   const { primary, secondary } = pNames(p);
   const searchQ = encodeURIComponent(primary + (secondary ? ' ' + secondary : ''));
 
   let badges = '';
   if (p.native) {
-    const cls = p.native.includes('자생') ? 'nat-자생' : p.native.includes('귀화') ? 'nat-귀화' : 'nat-재배';
+    const cls = p.native.includes('자생') ? 'nat-귀화' : p.native.includes('귀화') ? 'nat-귀화' : 'nat-재배';
     badges += `<span class="badge-native ${cls}">${p.native}</span>`;
   }
   if (p.family) badges += ` <span class="badge-native" style="background:#f0f0f0;color:#555">${p.family}</span>`;
 
   const imgs = p.images?.length ? p.images : (p.imageUrl ? [p.imageUrl] : []);
   const gallery = imgs.length
-    ? imgs.map(url => {
+    ? imgs.map((url, ii) => {
         const safe = url.replace(/'/g,'%27');
-        return `<img class="gal-img" src="${url}" loading="lazy" onclick="window.open('${safe}','_blank')" onerror="this.parentElement?.remove()">`;
+        return `<div class="gal-img-wrap" data-pi="${pi}" data-ii="${ii}">
+          <img class="gal-img" src="${url}" loading="lazy" onclick="ecoOpenLightbox(${pi},${ii})" onerror="this.closest('.gal-img-wrap')?.remove()">
+          <button class="gal-del-btn" onclick="imgTabRemove(${pi},${ii})" title="삭제">✕</button>
+        </div>`;
       }).join('')
     : `<div class="gal-placeholder">🌿</div>`;
 
-  return `<div class="img-plant-row">
+  return `<div class="img-plant-row" data-pi="${pi}" onclick="imgSetActive(${pi})">
     <div class="img-plant-header">
-      <a class="img-plant-name" href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener">${primary}</a>
+      <a class="img-plant-name" href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener" onclick="event.stopPropagation()">${primary}</a>
       ${secondary ? `<span class="img-plant-lat">| <em>${secondary}</em></span>` : ''}
       ${badges ? `<span style="margin-left:auto;display:flex;gap:0.3rem;align-items:center">${badges}</span>` : ''}
-      ${p.fetching ? '<span style="font-size:0.68rem;color:#aaa;margin-left:auto">로딩중…</span>' : ''}
+      <label class="btn btn-sm" style="cursor:pointer;padding:2px 8px;font-size:0.72rem;margin-left:0.4rem" title="파일 또는 구글 이미지에서 복사 후 Ctrl+V" onclick="event.stopPropagation();imgSetActive(${pi})">
+        + 추가
+        <input type="file" accept="image/*" style="display:none" onchange="ecoAddImgFile(event,${pi})">
+      </label>
     </div>
-    <div class="img-gallery">${gallery}</div>
+    <div class="img-gallery" id="img-gallery-${pi}">${gallery}</div>
   </div>`;
 }
+
+let _imgActivePi = 0;
+function imgSetActive(pi) { _imgActivePi = pi; }
+
+function imgTabRemove(pi, ii) {
+  ecoRemoveImg(pi, ii);
+}
+
+// 이미지 탭 붙여넣기 (구글 이미지에서 복사 → Ctrl+V)
+document.addEventListener('paste', function(e) {
+  if (document.getElementById('pane-images')?.style.display === 'none') return;
+  if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      const pi = _imgActivePi;
+      if (pi < 0 || pi >= plants.length) return;
+      const reader = new FileReader();
+      reader.onload = ev => ecoAddImgData(pi, ev.target.result);
+      reader.readAsDataURL(file);
+      e.preventDefault();
+      return;
+    }
+  }
+});
 
 function openGoogleAll() {
   const rows = plants.map(p => {
