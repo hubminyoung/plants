@@ -448,7 +448,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .bc-nav-btn { background:#e8f0e4;border:none;border-radius:4px;width:22px;height:18px;font-size:0.75rem;cursor:pointer;color:#4a6a3a; }
 .bc-nav-btn:hover { background:#c8e8c0; }
 .bc-node-info { padding:4px 6px;font-size:0.65rem;color:#6a8a5a;border-top:1px solid #e8f0e4;line-height:1.4; }
-.bc-resize { position:absolute;right:-4px;bottom:-4px;width:14px;height:14px;background:#52b788;border-radius:3px;cursor:se-resize;z-index:11; }
+.bc-resize { position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 40%, #52b788 40%); border-radius:0 0 8px 0; }
 .bc-arrow-pt { position:absolute;width:12px;height:12px;background:#f59e0b;border:2px solid #fff;border-radius:50%;cursor:crosshair;z-index:12;transform:translate(-50%,-50%); }
 #bc-arrow-btn.active { background:#52b788;color:#fff; }
 </style>
@@ -2993,7 +2993,7 @@ function bcAddNode(pi) {
   const ch = canvas?.offsetHeight || 500;
   const x = 40 + (BC.nodes.length % 5) * 140;
   const y = 40 + Math.floor(BC.nodes.length / 5) * 200;
-  const node = { id: BC.nextId++, pi, x, y, w: 130, imgIdx: 0,
+  const node = { id: BC.nextId++, pi, x, y, w: 130, h: 0, imgIdx: 0,
     ax: Math.round(cw/2), ay: Math.round(ch/2) };
   BC.nodes.push(node);
   bcRender();
@@ -3097,7 +3097,7 @@ function bcRenderNode(n) {
     canvas.appendChild(el);
   }
   el.innerHTML = html;
-  el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px`;
+  el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px${n.h?';height:'+n.h+'px':''}`;  
   if (BC.selectedId === n.id) el.classList.add('bc-selected');
   // Drag on header
   const hd = el.querySelector('.bc-node-hd');
@@ -3131,7 +3131,7 @@ function bcResizeDragStart(e, id) {
   const n = BC.nodes.find(x => x.id === id);
   if (!n) return;
   const pos = evPos(e);
-  BC.drag = { type:'resize', id, sx:pos.x, sy:pos.y, ow:n.w };
+  BC.drag = { type:'resize', id, sx:pos.x, sy:pos.y, ow:n.w, oh:n.h||0 };
 }
 function bcArrowDragStart(e, id) {
   e.preventDefault(); e.stopPropagation();
@@ -3156,8 +3156,9 @@ function bcOnMove(e) {
     bcUpdateArrows();
   } else if (BC.drag.type === 'resize') {
     n.w = Math.max(80, BC.drag.ow + dx);
+    n.h = BC.drag.oh ? Math.max(60, BC.drag.oh + dy) : 0;
     const el = document.getElementById('bc-n-'+n.id);
-    if (el) el.style.width = n.w+'px';
+    if (el) { el.style.width = n.w+'px'; if(n.h) el.style.height = n.h+'px'; }
     bcUpdateArrows();
   } else if (BC.drag.type === 'arrow') {
     n.ax = BC.drag.ox + dx; n.ay = BC.drag.oy + dy;
