@@ -767,6 +767,11 @@ const CFG = {
   if (!pw) showPasswordPrompt();
 })();
 
+// ── Service Worker 등록 (MBG CORS 프록시) ─────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/plants/sw.js').catch(() => {});
+}
+
 // Enter = 검색, Shift+Enter = 줄바꿈
 document.getElementById('plantInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -1466,12 +1471,74 @@ async function loadRhsDetail(p) {
   } catch(e) {}
 }
 
+// MBG HTML 클라이언트 파싱 (Service Worker 프록시 사용 시)
+function parseMbgHtmlClient(html) {
+  function ent(s){ return s.replace(/&amp;/g,'&').replace(/&nbsp;/g,' ').replace(/&#\d+;/g,'').replace(/&[a-z]+;/g,'').trim(); }
+  function stripTags(s){ return s.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); }
+  const profileIdx = html.indexOf('Common Name:');
+  if (profileIdx < 0) return null;
+  const profile = html.slice(profileIdx, profileIdx + 8000);
+  function field(label) {
+    const re = new RegExp(label + ':\\s*(?:<[^>]+>\\s*)*([^<\\n]+)','i');
+    const m = profile.match(re);
+    return m ? ent(m[1]).replace(/\s*(Culture|Problems|Uses|Noteworthy Characteristics)\s*$/i,'').trim() : '';
+  }
+  function section(heading) {
+    const re = new RegExp('<h[2-6][^>]*>\\s*' + heading + '\\s*<\\/h[2-6]>\\s*<p[^>]*>([\\s\\S]*?)<\\/p>','i');
+    const m = html.match(re);
+    return m ? ent(stripTags(m[1])).slice(0,800) : '';
+  }
+  return {
+    commonName:   field('Common Name'),
+    plantType:    field('Type'),
+    family:       field('Family'),
+    nativeRange:  field('Native Range'),
+    zone:         field('Zone'),
+    heightFeet:   field('Height'),
+    spreadFeet:   field('Spread'),
+    bloomTime:    field('Bloom Time'),
+    bloomColor:   field('Bloom Description'),
+    sun:          field('Sun'),
+    water:        field('Water'),
+    maintenance:  field('Maintenance'),
+    flower:       field('Flower'),
+    leaf:         field('Leaf'),
+    attracts:     field('Attracts'),
+    tolerate:     field('Tolerate'),
+    suggestedUse: field('Garden locations'),
+    culture:      section('Culture'),
+    noteworthy:   section('Noteworthy Characteristics'),
+    problems:     section('Problems'),
+    uses:         section('Uses'),
+  };
+}
+
 async function loadMbgDetail(p) {
   if (!p.mbgTaxonId) return;
-  const params = { taxonid: p.mbgTaxonId };
-  if (p.mbgStaticSlug) params.staticSlug = p.mbgStaticSlug;
-  const det = await wFetch('/api/mbg/details', params);
-  if (!det || det.error) return;
+
+  // 1순위: Service Worker 프록시 (사용자 IP로 MBG 접근, 차단 없음)
+  let det = null;
+  try {
+    const swReg = await navigator.serviceWorker?.ready;
+    if (swReg) {
+      const r = await Promise.race([
+        fetch(`/plants/proxy/mbg?taxonid=${p.mbgTaxonId}`),
+        new Promise((_,rj) => setTimeout(() => rj(new Error('sw timeout')), 12000))
+      ]);
+      const html = await r.text();
+      if (html.includes('Common Name:')) det = parseMbgHtmlClient(html);
+    }
+  } catch(_) {}
+
+  // 2순위: Worker 경유 (Cloudflare IP → MBG 차단될 수 있음)
+  if (!det) {
+    const params = { taxonid: p.mbgTaxonId };
+    if (p.mbgStaticSlug) params.staticSlug = p.mbgStaticSlug;
+    const res = await wFetch('/api/mbg/details', params);
+    if (res && !res.error && Object.keys(res).length > 0) det = res;
+  }
+
+  if (!det) return;
 
   const ftToCm = v => Math.round(v * 30.48);
 
@@ -2386,17 +2453,25 @@ function renderCare() {
     }
 
     const sectHtml = [
-      careAccordion(`care-cult-${pi}`, '🌱', '재배법', p.culture || p.rhsCultivation, p.culture ? 'MBG' : 'RHS'),
+      // MBG (1순위 - 가장 정확)
+      careAccordion(`care-cult-${pi}`, '🌱', '재배법', p.culture, 'MBG'),
       careAccordion(`care-note-${pi}`, '✨', '주목할 특징', p.noteworthy, 'MBG'),
       careAccordion(`care-prob-${pi}`, '⚠️', '병해충/문제점', p.problems, 'MBG'),
-      careAccordion(`care-uses-${pi}`, '🎯', '활용', p.uses || p.rhsLocations, p.uses ? 'MBG' : 'RHS'),
+      careAccordion(`care-uses-${pi}`, '🎯', '활용', p.uses, 'MBG'),
+      // NDB (독일어 DB)
       careAccordion(`ndb-standort-${pi}`, '📍', '입지', p.ndbStandort, 'NDB'),
       careAccordion(`ndb-oeko-${pi}`,     '🦋', '생태', p.ndbOekologie, 'NDB'),
       careAccordion(`ndb-verw-${pi}`,     '🎯', '용도', p.ndbVerwendung, 'NDB'),
-      careAccordion(`ndb-schnitt-${pi}`,  '✂️', '가지치기', p.ndbSchnitt || p.rhsPruning, p.ndbSchnitt ? 'NDB' : 'RHS'),
-      careAccordion(`ndb-verm-${pi}`,     '🌱', '번식', p.ndbVermehrung || p.rhsPropagation, p.ndbVermehrung ? 'NDB' : 'RHS'),
-      careAccordion(`ndb-pest-${pi}`,     '🐛', '병해충', p.ndbSchaedlinge || p.rhsPests || p.rhsDiseases, p.ndbSchaedlinge ? 'NDB' : 'RHS'),
+      careAccordion(`ndb-schnitt-${pi}`,  '✂️', '가지치기', p.ndbSchnitt, 'NDB'),
+      careAccordion(`ndb-verm-${pi}`,     '🌱', '번식', p.ndbVermehrung, 'NDB'),
+      careAccordion(`ndb-pest-${pi}`,     '🐛', '병해충', p.ndbSchaedlinge, 'NDB'),
       careAccordion(`ndb-fact-${pi}`,     '💡', '흥미로운 사실', p.ndbInteressantes, 'NDB'),
+      // RHS (별도 섹션)
+      careAccordion(`rhs-cult-${pi}`,  '🌱', '재배법', p.rhsCultivation, 'RHS'),
+      careAccordion(`rhs-prop-${pi}`,  '🌱', '번식', p.rhsPropagation, 'RHS'),
+      careAccordion(`rhs-prun-${pi}`,  '✂️', '가지치기', p.rhsPruning, 'RHS'),
+      careAccordion(`rhs-pest-${pi}`,  '🐛', '병해충/질병', p.rhsPests || p.rhsDiseases, 'RHS'),
+      careAccordion(`rhs-loc-${pi}`,   '🏡', '식재 유형', p.rhsLocations, 'RHS'),
     ].filter(Boolean).join('');
 
     return `<div class="care-card">
