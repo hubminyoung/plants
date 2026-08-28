@@ -1901,7 +1901,7 @@ function pNames(p) {
 
 function imgRow(p, pi) {
   const { primary, secondary } = pNames(p);
-  const searchQ = encodeURIComponent(primary + (secondary ? ' ' + secondary : ''));
+  const searchQ = encodeURIComponent(secondary || primary);
 
   let badges = '';
   if (p.native) {
