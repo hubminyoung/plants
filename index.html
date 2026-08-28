@@ -2974,10 +2974,32 @@ function ecoAddImgData(idx, dataUrl) {
   if (!p) return;
   if (!p.images) p.images = [];
   if (p.images.length >= 10) { showToast('이미지는 최대 10장입니다.'); return; }
-  p.images.push(dataUrl);
-  plantsToLS();
-  renderActiveTab();
-  showToast('이미지 추가됨 ✓');
+  // 큰 이미지는 800px로 리사이즈해서 localStorage 용량 절약
+  if (dataUrl.startsWith('data:')) {
+    const img = new Image();
+    img.onload = function() {
+      const MAX = 800;
+      let finalUrl = dataUrl;
+      if (img.width > MAX || img.height > MAX) {
+        const canvas = document.createElement('canvas');
+        const ratio = Math.min(MAX/img.width, MAX/img.height);
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        finalUrl = canvas.toDataURL('image/jpeg', 0.82);
+      }
+      p.images.push(finalUrl);
+      try { plantsToLS(); } catch(e) { showToast('⚠️ 저장 용량 부족 - 이번 세션에만 유지'); }
+      renderActiveTab();
+      showToast('이미지 추가됨 ✓');
+    };
+    img.src = dataUrl;
+  } else {
+    p.images.push(dataUrl);
+    try { plantsToLS(); } catch(e) {}
+    renderActiveTab();
+    showToast('이미지 추가됨 ✓');
+  }
 }
 
 function ecoAddImgFile(event, idx) {
