@@ -713,10 +713,6 @@ table.dtbl tr:last-child td { border-bottom: none; }
       <span id="eco-lb-counter"></span>
       <button onclick="ecoLightboxNav(1)">›</button>
       <span id="eco-lb-spacer"></span>
-      <button onclick="ecoLbZoomBy(-0.25)" title="축소 (스크롤↓)">－</button>
-      <span id="eco-lb-zoom-pct">100%</span>
-      <button onclick="ecoLbZoomBy(0.25)" title="확대 (스크롤↑)">＋</button>
-      <button onclick="ecoLbZoomFit()" title="화면에 맞춤">맞춤</button>
       <button id="eco-lightbox-close" onclick="ecoCloseLightbox()">✕</button>
     </div>
     <div id="eco-lb-viewport">
@@ -734,6 +730,10 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <button class="btn btn-sm" onclick="bcAddAll()" title="목록의 모든 수종 추가">전체 추가</button>
     <button class="btn btn-sm" id="bc-arrow-btn" onclick="bcToggleArrow()" title="카드→도면 인출선 표시/숨김">↗ 인출선</button>
     <span style="flex:1"></span>
+    <button class="btn btn-sm btn-ghost" onclick="bcZoomBy(-0.15)" title="축소 (Ctrl+휠↓)">－</button>
+    <span id="bc-zoom-pct" style="color:rgba(255,255,255,.7);font-size:0.75rem;min-width:36px;text-align:center">100%</span>
+    <button class="btn btn-sm btn-ghost" onclick="bcZoomBy(0.15)" title="확대 (Ctrl+휠↑)">＋</button>
+    <button class="btn btn-sm btn-ghost" onclick="bcZoomReset()" title="원래 크기">맞춤</button>
     <span class="bc-hint">도면/연출이미지 Ctrl+V로 붙여넣기</span>
     <label class="btn btn-sm" title="컨셉이미지 추가 (여러 장 가능)" style="cursor:pointer">+ 컨셉<input type="file" accept="image/*" multiple style="display:none" onchange="bcBgFileInput(event)"></label> <button class="btn btn-sm" onclick="bcClearBg()" title="컨셉 전체 삭제">🗑 컨셉</button>
     <button class="btn btn-sm btn-primary" onclick="bcExportWord()" title="구상판을 Word 파일로 저장">Word 저장</button>
@@ -3120,6 +3120,48 @@ document.addEventListener('keydown', function(ev) {
 
 
 // ── 식재 구상판 캔버스 ────────────────────────────────────────────────────────
+// ── 보드 캔버스 줌 ────────────────────────────────────────────
+let bcScale = 1.0;
+function bcApplyZoom() {
+  const canvas = document.getElementById('bc-canvas');
+  if (!canvas) return;
+  canvas.style.transform = `scale(${bcScale})`;
+  canvas.style.transformOrigin = '0 0';
+  canvas.style.marginRight = Math.max(0, 3000 * (bcScale - 1)) + 'px';
+  canvas.style.marginBottom = Math.max(0, 2000 * (bcScale - 1)) + 'px';
+  const pct = document.getElementById('bc-zoom-pct');
+  if (pct) pct.textContent = Math.round(bcScale * 100) + '%';
+}
+function bcZoomBy(delta) {
+  bcScale = Math.max(0.2, Math.min(4, bcScale + delta));
+  bcApplyZoom();
+}
+function bcZoomReset() {
+  const outer = document.getElementById('bc-outer');
+  bcScale = 1.0; bcApplyZoom();
+  if (outer) { outer.scrollLeft = 0; outer.scrollTop = 0; }
+}
+(function() {
+  function attachBcWheel() {
+    const outer = document.getElementById('bc-outer');
+    if (!outer) return;
+    outer.addEventListener('wheel', function(e) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const oldScale = bcScale;
+      bcScale = Math.max(0.2, Math.min(4, bcScale + (e.deltaY < 0 ? 0.1 : -0.1)));
+      const rect = outer.getBoundingClientRect();
+      const cx = e.clientX - rect.left + outer.scrollLeft;
+      const cy = e.clientY - rect.top  + outer.scrollTop;
+      bcApplyZoom();
+      outer.scrollLeft = cx * (bcScale / oldScale) - (e.clientX - rect.left);
+      outer.scrollTop  = cy * (bcScale / oldScale) - (e.clientY - rect.top);
+    }, { passive: false });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachBcWheel);
+  else attachBcWheel();
+})();
+
 const BC = {
   bgs: [],        // [{id, dataUrl, x, y, w, h}] - 컨셉 이미지 레이어들
   bgNextId: 1,
@@ -3526,7 +3568,7 @@ function evPos(e) {
   const t = e.touches?.[0] || e;
   const canvas = document.getElementById('bc-canvas');
   const rect = canvas?.getBoundingClientRect() || {left:0, top:0};
-  return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  return { x: (t.clientX - rect.left) / bcScale, y: (t.clientY - rect.top) / bcScale };
 }
 
 function bcNodeDragStart(e, id) {
