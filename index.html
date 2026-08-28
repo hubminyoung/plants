@@ -191,6 +191,12 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
   display:flex; flex-direction:column;
   user-select:none; overflow:hidden; resize:both;
 }
+#eco-lb-resize-bl {
+  position:absolute; left:0; bottom:0; width:18px; height:18px;
+  cursor:sw-resize; z-index:10;
+  background:linear-gradient(135deg, transparent 40%, rgba(255,255,255,.18) 40%, rgba(255,255,255,.18) 55%, transparent 55%),
+             linear-gradient(135deg, transparent 60%, rgba(255,255,255,.12) 60%);
+}
 #eco-lb-bar {
   display:flex; align-items:center; gap:6px; padding:6px 10px;
   background:#2a2a2a; flex-shrink:0; cursor:move; border-radius:10px 10px 0 0;
@@ -461,10 +467,12 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .bc-bg-layer:hover { border-color:#52b788; }
 .bc-bg-del { position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;z-index:5; }
 .bc-bg-resize { position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 40%,rgba(82,183,136,.8) 40%);z-index:5; }
-.bc-add-popup { background:#fff;border:1px solid #c0d8b0;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.18);max-height:300px;overflow-y:auto;min-width:220px; }
-.bc-add-item { padding:7px 14px;cursor:pointer;border-bottom:1px solid #f0f4ef; }
-.bc-add-item:last-child { border-bottom:none; }
-.bc-add-item:hover { background:#f0f9f4; }
+.bc-add-popup { background:#fff;border:1px solid #c0d8b0;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.22);max-height:420px;overflow-y:auto;padding:10px;display:flex;flex-wrap:wrap;gap:8px;min-width:320px;max-width:520px; }
+.bc-add-item { width:80px;cursor:pointer;border-radius:8px;border:1.5px solid #ddeedd;overflow:hidden;transition:box-shadow .15s,border-color .15s;background:#f8fdf6;display:flex;flex-direction:column;align-items:center; }
+.bc-add-item:hover { border-color:#6aaa6a;box-shadow:0 2px 10px rgba(80,160,80,.25); }
+.bc-add-item img { width:80px;height:60px;object-fit:cover;display:block; }
+.bc-add-item .bc-add-ph { width:80px;height:60px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f4e8; }
+.bc-add-item span { display:block;padding:3px 4px;font-size:0.62rem;text-align:center;line-height:1.3;color:#3a5a3a;word-break:break-all;max-height:36px;overflow:hidden; }
 .bc-node { position:absolute;background:#fff;border:1.5px solid #c0d8b0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15);min-width:100px;width:130px;cursor:move;user-select:none;z-index:10;display:flex;flex-direction:column;overflow:hidden; }
 .bc-node.bc-selected { border-color:#52b788;box-shadow:0 0 0 2px #aeeac8; }
 .bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:#f0f8ec;border-radius:8px 8px 0 0;font-size:0.7rem;font-weight:700;color:#2d5a1b;cursor:move; }
@@ -713,7 +721,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <div id="eco-lb-viewport">
         <img id="eco-lightbox-img" src="" alt="">
     </div>
-
+    <div id="eco-lb-resize-bl" title="크기 조절"></div>
   </div>
 </div>
 
@@ -725,7 +733,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <span style="flex:1"></span>
     <span class="bc-hint">도면/연출이미지 Ctrl+V로 붙여넣기</span>
     <label class="btn btn-sm" title="컨셉이미지 추가 (여러 장 가능)" style="cursor:pointer">+ 컨셉<input type="file" accept="image/*" multiple style="display:none" onchange="bcBgFileInput(event)"></label> <button class="btn btn-sm" onclick="bcClearBg()" title="컨셉 전체 삭제">🗑 컨셉</button>
-    <button class="btn btn-sm btn-primary" onclick="bcExportWord()" title="구상판을 Word 파일로 저장">Word 저장</button>
+    <button class="btn btn-sm btn-primary" onclick="bcExportWord()" title="구상판 전체를 PNG 이미지로 저장">이미지 저장</button>
     <button class="btn btn-sm" onclick="bcSaveBoard()" title="구상판 상태 저장">💾 저장</button>
     <button class="btn btn-sm" onclick="bcLoadBoard()" title="저장된 구상판 불러오기">📂 불러오기</button>
   </div>
@@ -2178,13 +2186,13 @@ function renderEcology() {
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
     const eiveVals = eiveLookup(p.latName || p.name);
 
-    const bloomStr = p.bloomMonths.length
-      ? p.bloomMonths.map(m => MO_SHORT[m-1]+'월').join(', ')
+    const bloomStr = (p.bloomMonths||[]).length
+      ? (p.bloomMonths||[]).map(m => MO_SHORT[m-1]+'월').join(', ')
       : ld(p,'');
-    const fc = p.flowerColors.length
-      ? p.flowerColors.map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${COLOR_KO[c.toLowerCase()]||c}</span>`).join('')
+    const fc = (p.flowerColors||[]).length
+      ? (p.flowerColors||[]).map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${COLOR_KO[c.toLowerCase()]||c}</span>`).join('')
       : ld(p,'');
-    const sunStr = p.sunlight.map(s => SUN_KO[s]||s).join(' ~ ') || ld(p,'');
+    const sunStr = (p.sunlight||[]).map(s => SUN_KO[s]||s).join(' ~ ') || ld(p,'');
     const origin = [p.native, translateNativeRange(p.nativeRange)].filter(Boolean).join(' / ') || ld(p,'');
 
     const f = (lbl, val) => `<div class="eco-f"><span class="eco-lbl">${lbl}</span><span class="eco-val">${val}</span></div>`;
@@ -2521,8 +2529,8 @@ function renderSeasonal() {
 
     const { primary: sPrimary, secondary: sSecondary } = pNames(p);
     const pi = plants.indexOf(p);
-    const swatches = p.flowerColors.length > 1
-      ? `<div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">${p.flowerColors.map(c =>
+    const swatches = (p.flowerColors||[]).length > 1
+      ? `<div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">${(p.flowerColors||[]).map(c =>
           `<div onclick="plants[${pi}].selectedFlowerColor='${c}';renderSeasonal()"
             title="${COLOR_KO[c.toLowerCase()]||c}"
             style="width:14px;height:14px;border-radius:50%;background:${c2css(c)};cursor:pointer;border:2px solid ${(p.selectedFlowerColor||p.flowerColors[0])===c?'#333':'transparent'};flex-shrink:0"></div>`
@@ -3117,20 +3125,26 @@ else ecoLbAttachWheel();
     if (img) img.style.cursor = 'grab';
   });
 })();
-// 창 드래그 (타이틀바)
+// 창 드래그 (타이틀바) + 좌하단 리사이즈
 (function() {
-  let drag = null; // {type:'move'|'resize-br'|'resize-r'|'resize-b', sx,sy, ox,oy, ow,oh}
+  let drag = null;
   document.addEventListener('mousedown', function(e) {
     const win = document.getElementById('eco-lb-window');
     if (!win) return;
     const rect = win.getBoundingClientRect();
+    // 좌하단 리사이즈 핸들
+    const blHandle = document.getElementById('eco-lb-resize-bl');
+    if (blHandle && (e.target === blHandle)) {
+      drag = { type:'resize-bl', sx:e.clientX, sy:e.clientY,
+               ox:rect.left, ow:rect.width, oh:rect.height };
+      e.preventDefault(); return;
+    }
     // 타이틀바 드래그 이동
     const bar = document.getElementById('eco-lb-bar');
     if (bar && bar.contains(e.target) && e.target.tagName !== 'BUTTON') {
       drag = { type:'move', sx:e.clientX, sy:e.clientY, ox:rect.left, oy:rect.top };
       e.preventDefault(); return;
     }
-
   });
   document.addEventListener('mousemove', function(e) {
     if (!drag) return;
@@ -3140,6 +3154,12 @@ else ecoLbAttachWheel();
     if (drag.type === 'move') {
       win.style.left = Math.max(0, drag.ox + dx) + 'px';
       win.style.top  = Math.max(0, drag.oy + dy) + 'px';
+    } else if (drag.type === 'resize-bl') {
+      const newW = Math.max(280, drag.ow - dx);
+      const newH = Math.max(200, drag.oh + dy);
+      win.style.width  = newW + 'px';
+      win.style.height = newH + 'px';
+      win.style.left   = (drag.ox + drag.ow - newW) + 'px';
     }
   });
   document.addEventListener('mouseup', function() { drag = null; });
@@ -3157,6 +3177,38 @@ document.addEventListener('keydown', function(ev) {
 
 // ── 식재 구상판 캔버스 ────────────────────────────────────────────────────────
 let bcScale = 1.0;
+
+// ── Undo/Redo 히스토리 ──────────────────────────────────────────
+let bcHistory = [], bcHistIdx = -1;
+function bcPushHistory() {
+  bcHistory = bcHistory.slice(0, bcHistIdx + 1);
+  bcHistory.push(JSON.stringify({ bgs: BC.bgs, nodes: BC.nodes, nextId: BC.nextId, bgNextId: BC.bgNextId }));
+  if (bcHistory.length > 40) bcHistory.shift();
+  bcHistIdx = bcHistory.length - 1;
+}
+function bcUndo() {
+  if (bcHistIdx <= 0) { showToast('더 이상 실행취소 없음'); return; }
+  bcHistIdx--;
+  const s = JSON.parse(bcHistory[bcHistIdx]);
+  BC.bgs = s.bgs; BC.nodes = s.nodes; BC.nextId = s.nextId; BC.bgNextId = s.bgNextId;
+  BC.selectedIds = []; BC.selectedId = null;
+  bcRenderBoard(); showToast('실행취소 ↩');
+}
+function bcRedo() {
+  if (bcHistIdx >= bcHistory.length - 1) { showToast('더 이상 다시실행 없음'); return; }
+  bcHistIdx++;
+  const s = JSON.parse(bcHistory[bcHistIdx]);
+  BC.bgs = s.bgs; BC.nodes = s.nodes; BC.nextId = s.nextId; BC.bgNextId = s.bgNextId;
+  BC.selectedIds = []; BC.selectedId = null;
+  bcRenderBoard(); showToast('다시실행 ↪');
+}
+document.addEventListener('keydown', function(e) {
+  const active = document.querySelector('.tab-pane.active');
+  if (active?.id !== 'pane-board') return;
+  if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  if ((e.ctrlKey||e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); bcUndo(); }
+  if ((e.ctrlKey||e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); bcRedo(); }
+});
 
 // ── 카드 이미지 스크롤 줌 (카드 프레임 고정) ──────────────────
 (function() {
@@ -3198,6 +3250,7 @@ const BC = {
   arrowMode: false,
   drag: null,     // {type:'node'|'resize'|'arrow'|'bg'|'bg-resize', id, sx,sy, ox,oy,ow,oh}
   selectedId: null,
+  selectedIds: [], // 다중 선택
   clipboard: null, // 복사된 노드 데이터
 };
 
@@ -3245,10 +3298,12 @@ function bcClearBg() {
   [...document.querySelectorAll('.bc-bg-layer')].forEach(el => el.remove());
   const hint = document.getElementById('bc-bg-hint');
   if (hint) hint.style.display='flex';
+  bcPushHistory();
 }
 function bcDelBg(id) {
   BC.bgs = BC.bgs.filter(b => b.id !== id);
   bcRenderBgs();
+  bcPushHistory();
 }
 function bcBgFileInput(ev) {
   [...ev.target.files].forEach(file => {
@@ -3309,23 +3364,26 @@ function bcAddNode(pi) {
     ax: Math.round(cw/2), ay: Math.round(ch/2) };
   BC.nodes.push(node);
   bcRender();
+  bcPushHistory();
 }
 function bcAddFromList() {
   if (!plants.length) { showToast('먼저 식물을 추가해주세요'); return; }
-  // 팝업 목록
   let popup = document.getElementById('bc-add-popup');
   if (popup) { popup.remove(); return; }
   popup = document.createElement('div');
   popup.id = 'bc-add-popup';
   popup.className = 'bc-add-popup';
-  popup.innerHTML = plants.map((p,i) =>
-    `<div class="bc-add-item" onclick="bcAddNode(${i}); document.getElementById('bc-add-popup')?.remove()">
-      ${p.korName ? `<span style="font-weight:600">${p.korName}</span> ` : ''}
-      <span style="color:#888;font-size:0.85em">${p.latName||p.name||''}</span>
-    </div>`
-  ).join('');
+  popup.innerHTML = plants.map((p, i) => {
+    const img = p.images?.[0];
+    const label = p.korName || p.latName || p.name || '?';
+    const imgHtml = img
+      ? `<img src="${img}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        + `<div class="bc-add-ph" style="display:none">🌿</div>`
+      : `<div class="bc-add-ph">🌿</div>`;
+    return `<div class="bc-add-item" title="${p.latName||p.name||''}" onclick="bcAddNode(${i}); document.getElementById('bc-add-popup')?.remove()">${imgHtml}<span>${label}</span></div>`;
+  }).join('');
   const btn = document.getElementById('bc-add-btn') || document.querySelector('.bc-toolbar button');
-  const rect = btn?.getBoundingClientRect() || {left:80,bottom:40};
+  const rect = btn?.getBoundingClientRect() || {left:80, bottom:40};
   popup.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.bottom+4}px;z-index:9999`;
   document.body.appendChild(popup);
   setTimeout(() => document.addEventListener('click', function dismiss(ev) {
@@ -3338,6 +3396,7 @@ function bcAddAll() {
 function bcDelNode(id) {
   BC.nodes = BC.nodes.filter(n => n.id !== id);
   bcRender();
+  bcPushHistory();
 }
 function bcDupNode(id) {
   const src = BC.nodes.find(n => n.id === id);
@@ -3346,6 +3405,7 @@ function bcDupNode(id) {
   BC.nodes.push(clone);
   BC.selectedId = clone.id;
   bcRender();
+  bcPushHistory();
 }
 function bcCycleImg(id, dir) {
   const n = BC.nodes.find(x => x.id === id);
@@ -3360,10 +3420,15 @@ function bcCycleImg(id, dir) {
 
 // ── 구상판 저장/불러오기 ──────────────────────────────────────────────────
 function bcBoardData() {
+  // 이미지(base64)는 KV 저장에서 제외 → localStorage에서 별도 복원
+  const plantsNoImg = plants.map(p => {
+    const { images, ...rest } = p;
+    return rest;
+  });
   return {
     v: 2,
-    plants: plants,
-    bgs: BC.bgs,
+    plants: plantsNoImg,
+    bgs: BC.bgs, // 컨셉이미지는 다른 저장소 없으므로 유지
     nodes: BC.nodes.map(n => ({ id:n.id, pi:n.pi, x:n.x, y:n.y, w:n.w, h:n.h||0, imgIdx:n.imgIdx||0, ax:n.ax, ay:n.ay })),
     nextId: BC.nextId,
     bgNextId: BC.bgNextId,
@@ -3373,6 +3438,8 @@ function bcRestoreData(data) {
   if (data.plants?.length) {
     plants.length = 0;
     data.plants.forEach(p => plants.push(p));
+    // localStorage에서 이미지 복원
+    if (typeof plantsFromLS === 'function') plantsFromLS();
     renderPlantList?.();
   }
   BC.bgs = data.bgs || [];
@@ -3380,8 +3447,9 @@ function bcRestoreData(data) {
   BC.nextId = data.nextId || (Math.max(0, ...(data.nodes||[]).map(n=>n.id), 0) + 1);
   BC.bgNextId = data.bgNextId || (Math.max(0, ...(data.bgs||[]).map(b=>b.id), 0) + 1);
   bcRenderBgs();
-  bcRender();
+  bcRender();  bcPushHistory();
 }
+
 
 async function bcSaveBoard() {
   showToast('저장 중...');
@@ -3407,7 +3475,6 @@ async function bcLoadBoard() {
 }
 async function bcExportWord() {
   showToast('캡처 중...');
-  // html2canvas 로드
   if (!window.html2canvas) {
     await new Promise((res, rej) => {
       const s = document.createElement('script');
@@ -3418,8 +3485,8 @@ async function bcExportWord() {
     if (!window.html2canvas) return;
   }
 
-  // 콘텐츠 영역(노드+bg)의 bounding box 계산
-  const PAD = 40;
+  // 콘텐츠 bounding box
+  const PAD = 60;
   let minX=9999, minY=9999, maxX=0, maxY=0;
   BC.bgs.forEach(b => { minX=Math.min(minX,b.x); minY=Math.min(minY,b.y); maxX=Math.max(maxX,b.x+b.w); maxY=Math.max(maxY,b.y+b.h); });
   BC.nodes.forEach(n => { minX=Math.min(minX,n.x); minY=Math.min(minY,n.y); maxX=Math.max(maxX,n.x+n.w); maxY=Math.max(maxY,n.y+(n.h||180)); });
@@ -3428,69 +3495,19 @@ async function bcExportWord() {
   const capW = maxX-minX, capH = maxY-minY;
   const boardEl = document.getElementById('bc-canvas');
 
-  // 외부 이미지(식물 사진) 임시 숨김 → CORS 문제 방지
-  const extImgs = [...boardEl.querySelectorAll('.bc-node-img')];
-  extImgs.forEach(img => { img._prevDisplay = img.style.display; img.style.display = 'none'; });
-  // 외부 이미지 자리에 색상 블록 표시
-  const phs = [...boardEl.querySelectorAll('.bc-node-img-ph')];
-  phs.forEach(ph => { ph._prevDisplay = ph.style.display; ph.style.display = 'flex'; });
-
-  let imgDataUrl = '';
   try {
-    const sc = Math.min(2, 1600/Math.max(capW,1));
+    const sc = Math.min(2, 2400/Math.max(capW,1));
     const cvs = await html2canvas(boardEl, {
-      backgroundColor:'#f0f0e8', scale:sc, useCORS:true, allowTaint:false, logging:false,
+      backgroundColor:'#f0f0e8', scale:sc, useCORS:true, allowTaint:true, logging:false,
       x:minX, y:minY, width:capW, height:capH
     });
-    imgDataUrl = cvs.toDataURL('image/png');
+    const url = URL.createObjectURL(await new Promise(res => cvs.toBlob(res, 'image/png')));
+    const a = document.createElement('a'); a.href=url; a.download='식재구상판.png'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    showToast('PNG 저장 완료 ✓ (' + cvs.width + '×' + cvs.height + 'px)');
   } catch(err) {
     showToast('캡처 실패: ' + err.message);
-  } finally {
-    // 숨겼던 이미지 복원
-    extImgs.forEach(img => { img.style.display = img._prevDisplay || ''; });
-    phs.forEach(ph => { ph.style.display = ph._prevDisplay || 'none'; });
   }
-  if (!imgDataUrl) return;
-
-  // 수종 테이블 HTML
-  const headers = ['수종명','학명','수고','내한성','개화시기','특성'];
-  const rows = BC.nodes.map(n => {
-    const p = plants[n.pi] || {};
-    return [
-      p.korName||p.name||'', p.latName||'', p.height||'',
-      p.hardiness ? 'Z'+p.hardiness : '',
-      (p.bloomMonths||[]).map(m=>m+'월').join(', '),
-      p.plantType||p.habit||''
-    ].map(v => `<td style="border:1px solid #ccc;padding:5px 8px">${v}</td>`).join('');
-  }).map(r => `<tr>${r}</tr>`).join('');
-
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
-    xmlns:w="urn:schemas-microsoft-com:office:word"
-    xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8">
-<style>
-  body { font-family: '맑은 고딕', Arial, sans-serif; margin: 2cm; }
-  h1 { font-size:18pt; margin-bottom:12pt; }
-  h2 { font-size:14pt; margin-top:18pt; margin-bottom:8pt; }
-  table { border-collapse:collapse; width:100%; }
-  th { background:#e8f5e9;border:1px solid #ccc;padding:6px 8px;font-weight:bold; }
-  td { border:1px solid #ccc;padding:5px 8px; }
-</style></head>
-<body>
-<h1>식재 구상판</h1>
-<img src="${imgDataUrl}" style="max-width:16cm;display:block;margin-bottom:16pt">
-<h2>식재 수종 목록</h2>
-<table>
-  <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-  <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#999">수종 없음</td></tr>'}</tbody>
-</table>
-</body></html>`;
-
-  const blob = new Blob(['﻿', html], { type:'application/msword;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='식재구상판.doc'; a.click();
-  setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  showToast('Word 저장 완료 ✓ (.doc)');
 }
 
 // ── 화살표 모드 ──────────────────────────────────────────────────────────────
@@ -3623,15 +3640,38 @@ function bcImgPanStart(e, id) {
   const iw = document.querySelector('#bc-n-'+id+' .bc-img-wrap');
   if (iw) iw.style.cursor = 'grabbing';
 }
+function bcUpdateSelection() {
+  BC.nodes.forEach(nd => {
+    document.getElementById('bc-n-'+nd.id)?.classList.toggle('bc-selected', BC.selectedIds.includes(nd.id));
+  });
+}
 function bcNodeDragStart(e, id) {
   e.preventDefault(); e.stopPropagation();
   const n = BC.nodes.find(x => x.id === id);
   if (!n) return;
-  BC.selectedId = id;
   const pos = evPos(e);
-  BC.drag = { type:'node', id, sx:pos.x, sy:pos.y, ox:n.x, oy:n.y };
-  document.getElementById('bc-n-'+id)?.classList.add('bc-selected');
+  if (e.ctrlKey || e.metaKey) {
+    // Ctrl+클릭: 다중선택 토글 (드래그 없음)
+    const idx = BC.selectedIds.indexOf(id);
+    if (idx >= 0) BC.selectedIds.splice(idx, 1);
+    else BC.selectedIds.push(id);
+    BC.selectedId = id;
+    bcUpdateSelection();
+    return;
+  }
+  // 일반 클릭: 현재 노드가 선택 목록에 없으면 단독 선택
+  if (!BC.selectedIds.includes(id)) BC.selectedIds = [id];
+  BC.selectedId = id;
+  // 전체 선택 노드의 초기 위치 기록
+  const offsets = {};
+  BC.selectedIds.forEach(nid => {
+    const sn = BC.nodes.find(x => x.id === nid);
+    if (sn) offsets[nid] = { ox: sn.x, oy: sn.y };
+  });
+  BC.drag = { type:'node', id, sx:pos.x, sy:pos.y, ox:n.x, oy:n.y, offsets };
+  bcUpdateSelection();
 }
+
 function bcResizeDragStart(e, id) {
   e.preventDefault(); e.stopPropagation();
   const n = BC.nodes.find(x => x.id === id);
@@ -3707,10 +3747,16 @@ function bcOnMove(e) {
   const n = BC.nodes.find(x => x.id === BC.drag.id);
   if (!n) return;
   if (BC.drag.type === 'node') {
-    n.x = Math.max(0, BC.drag.ox + dx);
-    n.y = Math.max(0, BC.drag.oy + dy);
-    const el = document.getElementById('bc-n-'+n.id);
-    if (el) el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px${n.h?';height:'+n.h+'px':''}`;
+    // 선택된 모든 노드 이동
+    (BC.drag.offsets ? BC.selectedIds : [BC.drag.id]).forEach(nid => {
+      const sn = BC.nodes.find(x => x.id === nid);
+      if (!sn) return;
+      const off = BC.drag.offsets?.[nid] || { ox: BC.drag.ox, oy: BC.drag.oy };
+      sn.x = Math.max(0, off.ox + dx);
+      sn.y = Math.max(0, off.oy + dy);
+      const el = document.getElementById('bc-n-'+sn.id);
+      if (el) el.style.cssText = `left:${sn.x}px;top:${sn.y}px;width:${sn.w}px${sn.h?';height:'+sn.h+'px':''}`;
+    });
     bcUpdateArrows();
   } else if (BC.drag.type === 'resize') {
     n.w = Math.max(80, BC.drag.ow + dx);
@@ -3732,8 +3778,28 @@ function bcOnUp() {
   if (BC.drag?.type === 'img-pan') {
     document.querySelectorAll('.bc-img-wrap').forEach(el => el.style.cursor = 'grab');
   }
+  if (BC.drag && ['node','resize','bg','bg-resize','bg-img-pan'].includes(BC.drag.type)) {
+    bcPushHistory();
+  }
   BC.drag = null;
 }
+// 빈 캔버스 클릭 → 선택 해제
+(function() {
+  function attachCanvasClick() {
+    const canvas = document.getElementById('bc-canvas');
+    if (!canvas) return;
+    canvas.addEventListener('mousedown', function(e) {
+      if (e.target === canvas || e.target.id === 'bc-canvas') {
+        BC.selectedIds = [];
+        BC.selectedId = null;
+        bcUpdateSelection();
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachCanvasClick);
+  else attachCanvasClick();
+})();
+
 function bcUpdateArrows() {
   const svg = document.getElementById('bc-svg');
   if (!svg) return;
