@@ -1903,8 +1903,9 @@ function imgRow(p, pi) {
             ondragstart="galDragStart(event,${pi},${ii})"
             ondragover="galDragOver(event)"
             ondrop="galDrop(event,${pi},${ii})"
-            ondragleave="galDragLeave(event)">
-          <img class="gal-img" src="${url}" loading="lazy" onclick="ecoOpenLightbox(${pi},${ii})" onerror="this.closest('.gal-img-wrap')?.remove()">
+            ondragleave="galDragLeave(event)"
+            ondragend="galDragEnd(event)">
+          <img class="gal-img" src="${url}" loading="lazy" draggable="false" onclick="ecoOpenLightbox(${pi},${ii})" onerror="this.closest('.gal-img-wrap')?.remove()">
           <button class="gal-del-btn" onclick="imgTabRemove(${pi},${ii})" title="삭제">✕</button>
         </div>`;
       }).join('')
@@ -1929,6 +1930,10 @@ let _imgActivePi = 0;
 function imgSetActive(pi) { _imgActivePi = pi; }
 
 let galDragSrc = null;
+function galDragEnd(e) {
+  document.querySelectorAll('.gal-img-wrap').forEach(el => el.classList.remove('dragging','drag-over'));
+  galDragSrc = null;
+}
 function galDragStart(e, pi, ii) {
   galDragSrc = { pi, ii };
   e.target.closest('.gal-img-wrap').classList.add('dragging');
@@ -3153,7 +3158,7 @@ let bcScale = 1.0;
         if (!b) return;
         b.imgScale = Math.max(0.3, Math.min(6, (b.imgScale||1) * factor));
         const img = bg.querySelector('img');
-        if (img) img.style.transform = `scale(${b.imgScale})`;
+        if (img) { img.style.transform = `scale(${b.imgScale})`; img.style.transformOrigin = 'center center'; }
       }
     }, { passive: false });
   }
@@ -3199,7 +3204,8 @@ function bcRenderBgs() {
     el.className = 'bc-bg-layer';
     el.dataset.bgid = b.id;
     el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
-    el.innerHTML = `<img src="${b.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none">
+    const bgImgScale = b.imgScale ? `transform:scale(${b.imgScale});transform-origin:center center;` : '';
+    el.innerHTML = `<div style="width:100%;height:100%;overflow:hidden;"><img src="${b.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;${bgImgScale}"></div>
       <div class="bc-bg-del" onclick="bcDelBg(${b.id})" title="삭제">✕</div>
       <div class="bc-bg-resize" data-bgid="${b.id}"></div>`;
     el.addEventListener('mousedown', e => bcBgDragStart(e, b.id));
@@ -3528,7 +3534,7 @@ function bcRenderNode(n) {
         <button class="bc-nav-btn" onclick="bcCycleImg(${n.id},1)">›</button>
        </div>` : '';
   const imgHtml = src
-    ? `<img class="bc-node-img" src="${src}" onerror="this.style.display='none'">`
+    ? `<div style="overflow:hidden;flex:1;min-height:60px;"><img class="bc-node-img" src="${src}" style="width:100%;height:100%;object-fit:cover;transform-origin:center center" onerror="this.style.display='none'"></div>`
     : `<div class="bc-node-img-ph">🌿</div>`;
 
   const html = `<div class="bc-node-hd">
