@@ -189,14 +189,15 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
   width:840px; height:580px; min-width:280px; min-height:200px;
   background:#1c1c1c; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.85);
   display:flex; flex-direction:column;
-  user-select:none; overflow:hidden; resize:both;
+  user-select:none; overflow:hidden;
 }
-#eco-lb-resize-bl {
-  position:absolute; left:0; bottom:0; width:18px; height:18px;
-  cursor:sw-resize; z-index:10;
-  background:linear-gradient(135deg, transparent 40%, rgba(255,255,255,.18) 40%, rgba(255,255,255,.18) 55%, transparent 55%),
-             linear-gradient(135deg, transparent 60%, rgba(255,255,255,.12) 60%);
+#eco-lb-resize-bl, #eco-lb-resize-br {
+  position:absolute; bottom:0; width:20px; height:20px; z-index:10;
 }
+#eco-lb-resize-bl { left:0; cursor:sw-resize;
+  background:linear-gradient(45deg, rgba(255,255,255,.25) 30%, transparent 30%); }
+#eco-lb-resize-br { right:0; cursor:se-resize;
+  background:linear-gradient(135deg, transparent 60%, rgba(255,255,255,.25) 60%); }
 #eco-lb-bar {
   display:flex; align-items:center; gap:6px; padding:6px 10px;
   background:#2a2a2a; flex-shrink:0; cursor:move; border-radius:10px 10px 0 0;
@@ -473,6 +474,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .bc-add-item img { width:80px;height:60px;object-fit:cover;display:block; }
 .bc-add-item .bc-add-ph { width:80px;height:60px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f4e8; }
 .bc-add-item span { display:block;padding:3px 4px;font-size:0.62rem;text-align:center;line-height:1.3;color:#3a5a3a;word-break:break-all;max-height:36px;overflow:hidden; }
+#bc-plant-panel { display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;background:#f4fbf4;border-bottom:1px solid #cde8c8;overflow-y:auto;max-height:160px; }
+#bc-plant-panel .bc-add-item { flex-shrink:0; }
 .bc-node { position:absolute;background:#fff;border:1.5px solid #c0d8b0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15);min-width:100px;width:130px;cursor:move;user-select:none;z-index:10;display:flex;flex-direction:column;overflow:hidden; }
 .bc-node.bc-selected { border-color:#52b788;box-shadow:0 0 0 2px #aeeac8; }
 .bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:#f0f8ec;border-radius:8px 8px 0 0;font-size:0.7rem;font-weight:700;color:#2d5a1b;cursor:move; }
@@ -721,13 +724,14 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <div id="eco-lb-viewport">
         <img id="eco-lightbox-img" src="" alt="">
     </div>
-    <div id="eco-lb-resize-bl" title="크기 조절"></div>
+    <div id="eco-lb-resize-bl"></div>
+    <div id="eco-lb-resize-br"></div>
   </div>
 </div>
 
 <div id="pane-board" class="tab-pane">
   <div class="bc-toolbar">
-    <button id="bc-add-btn" class="btn btn-sm btn-primary" onclick="bcAddFromList()">+ 수종 추가</button>
+    <button id="bc-add-btn" class="btn btn-sm btn-primary" onclick="bcTogglePlantPanel()" title="수종 패널 열기/닫기">+ 수종 추가</button>
     <button class="btn btn-sm" onclick="bcAddAll()" title="목록의 모든 수종 추가">전체 추가</button>
     <button class="btn btn-sm" id="bc-arrow-btn" onclick="bcToggleArrow()" title="카드→도면 인출선 표시/숨김">↗ 인출선</button>
     <span style="flex:1"></span>
@@ -737,6 +741,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <button class="btn btn-sm" onclick="bcSaveBoard()" title="구상판 상태 저장">💾 저장</button>
     <button class="btn btn-sm" onclick="bcLoadBoard()" title="저장된 구상판 불러오기">📂 불러오기</button>
   </div>
+  <div id="bc-plant-panel" style="display:none"></div>
   <div id="bc-outer">
     <div id="bc-canvas">
       <div id="bc-bg-hint">도면 또는 연출이미지를<br>Ctrl+V로 붙여넣거나<br><label style="cursor:pointer;text-decoration:underline;color:#52b788">파일 선택<input type="file" accept="image/*" style="display:none" onchange="bcBgFileInput(event)"></label></div>
@@ -1820,9 +1825,9 @@ function mbgMonthsToNums(str) {
 
 // ── Render Helpers ────────────────────────────────────────────────────────────
 function renderAll() {
+  plantsFromLS();   // 먼저 localStorage 이미지 복원
   renderChips();
   renderActiveTab();
-  plantsFromLS();
 }
 
 function renderChips() {
@@ -2171,7 +2176,7 @@ function renderEcology() {
 
   const cards = plants.map((p, pi) => {
     // 링크용 정제 이름: 재배종명 제거 → var./subsp. 키워드만 제거, 변종명 유지
-    const _linkBase = (p.latName || p.name)
+    const _linkBase = (p.latName || p.name || '')
       .replace(/\s*[\u2018\u2019\u02BC\u2032'][^\u2018\u2019\u02BC\u2032']+[\u2018\u2019\u02BC\u2032']\s*/g, '')
       .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi, '')
       .replace(/\./g, '').replace(/\s+/g, ' ').trim();
@@ -2180,7 +2185,7 @@ function renderEcology() {
     const gsmSlug = encodeURIComponent(gsmBase);
     const _ndbSlug = _linkBase.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
     // RHS 검색: cultivar 포함, var/subsp 키워드만 제거
-    const rhsQ = encodeURIComponent((p.latName || p.name)
+    const rhsQ = encodeURIComponent((p.latName || p.name || '')
       .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi, '')
       .replace(/\./g, '').replace(/\s+/g, ' ').trim());
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
@@ -3125,21 +3130,26 @@ else ecoLbAttachWheel();
     if (img) img.style.cursor = 'grab';
   });
 })();
-// 창 드래그 (타이틀바) + 좌하단 리사이즈
+// 창 드래그 (타이틀바) + 좌하단/우하단 리사이즈
 (function() {
   let drag = null;
   document.addEventListener('mousedown', function(e) {
     const win = document.getElementById('eco-lb-window');
     if (!win) return;
     const rect = win.getBoundingClientRect();
-    // 좌하단 리사이즈 핸들
-    const blHandle = document.getElementById('eco-lb-resize-bl');
-    if (blHandle && (e.target === blHandle)) {
+    // 좌하단 핸들
+    if (e.target === document.getElementById('eco-lb-resize-bl')) {
       drag = { type:'resize-bl', sx:e.clientX, sy:e.clientY,
                ox:rect.left, ow:rect.width, oh:rect.height };
       e.preventDefault(); return;
     }
-    // 타이틀바 드래그 이동
+    // 우하단 핸들
+    if (e.target === document.getElementById('eco-lb-resize-br')) {
+      drag = { type:'resize-br', sx:e.clientX, sy:e.clientY,
+               ow:rect.width, oh:rect.height };
+      e.preventDefault(); return;
+    }
+    // 타이틀바 이동
     const bar = document.getElementById('eco-lb-bar');
     if (bar && bar.contains(e.target) && e.target.tagName !== 'BUTTON') {
       drag = { type:'move', sx:e.clientX, sy:e.clientY, ox:rect.left, oy:rect.top };
@@ -3160,6 +3170,9 @@ else ecoLbAttachWheel();
       win.style.width  = newW + 'px';
       win.style.height = newH + 'px';
       win.style.left   = (drag.ox + drag.ow - newW) + 'px';
+    } else if (drag.type === 'resize-br') {
+      win.style.width  = Math.max(280, drag.ow + dx) + 'px';
+      win.style.height = Math.max(200, drag.oh + dy) + 'px';
     }
   });
   document.addEventListener('mouseup', function() { drag = null; });
@@ -3389,6 +3402,34 @@ function bcAddFromList() {
   setTimeout(() => document.addEventListener('click', function dismiss(ev) {
     if (!ev.target.closest('#bc-add-popup')) { popup.remove(); document.removeEventListener('click', dismiss); }
   }), 50);
+}
+let bcPlantPanelOpen = false;
+function bcTogglePlantPanel() {
+  if (!plants.length) { showToast('먼저 식물을 추가해주세요'); return; }
+  bcPlantPanelOpen = !bcPlantPanelOpen;
+  const panel = document.getElementById('bc-plant-panel');
+  const btn   = document.getElementById('bc-add-btn');
+  if (bcPlantPanelOpen) {
+    bcRenderPlantPanel();
+    panel.style.display = 'flex';
+    if (btn) btn.textContent = '▲ 수종 패널';
+  } else {
+    panel.style.display = 'none';
+    if (btn) btn.textContent = '+ 수종 추가';
+  }
+}
+function bcRenderPlantPanel() {
+  const panel = document.getElementById('bc-plant-panel');
+  if (!panel) return;
+  panel.innerHTML = plants.map((p, i) => {
+    const img = p.images?.[0];
+    const label = p.korName || p.latName || p.name || '?';
+    const imgHtml = img
+      ? `<img src="${img}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        + `<div class="bc-add-ph" style="display:none">🌿</div>`
+      : `<div class="bc-add-ph">🌿</div>`;
+    return `<div class="bc-add-item" title="${p.latName||p.name||''}" onclick="bcAddNode(${i});showToast('${label} 추가됨')">${imgHtml}<span>${label}</span></div>`;
+  }).join('');
 }
 function bcAddAll() {
   plants.forEach((_,i) => bcAddNode(i));
