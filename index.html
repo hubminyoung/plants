@@ -880,29 +880,46 @@ let activeTab = 'images';
 // ── plants localStorage 자동저장/복원 ────────────────────────────────────
 function plantsToLS() {
   try {
-    // 이미지 탭에서 추가된 이미지(p.images)만 저장 (base64 포함)
+    // 1) 이미지 저장 (식재리스트_imgs)
     const slim = plants.map(p => ({
       name: p.name, korName: p.korName||'', latName: p.latName||'',
       images: p.images||[],
     }));
     localStorage.setItem('식재리스트_imgs', JSON.stringify(slim));
   } catch(e) { /* localStorage 용량 초과 시 무시 */ }
+
+  try {
+    // 2) 식물 목록(이미지 제외) 저장 (식재리스트_list)
+    const listData = plants.map(p => {
+      const { images, hiddenImages, ...rest } = p;
+      return rest;
+    });
+    localStorage.setItem('식재리스트_list', JSON.stringify(listData));
+  } catch(e) { /* 용량 초과 시 무시 */ }
 }
 function plantsFromLS() {
   try {
+    // 식물 목록이 비어있으면 저장된 목록으로 복원
+    if (!plants.length) {
+      const listRaw = localStorage.getItem('식재리스트_list');
+      if (listRaw) {
+        const listData = JSON.parse(listRaw);
+        listData.forEach(d => plants.push(Object.assign(mkPlant(d.name||''), d)));
+      }
+    }
+    // 이미지 복원
     const raw = localStorage.getItem('식재리스트_imgs');
     if (!raw) return;
     const saved = JSON.parse(raw);
-    // 이미 로드된 plants에 이미지만 병합
     saved.forEach(s => {
       const p = plants.find(x =>
         (s.latName && x.latName && x.latName === s.latName) ||
         (s.korName && x.korName && x.korName === s.korName) ||
         (s.name && x.name && x.name === s.name)
       );
-      if (p && s.images?.length) p.images = s.images;
+      if (p && s.images?.length) p.images = [...s.images];
     });
-  } catch(e) {}
+  } catch(e) { console.error('plantsFromLS error:', e); }
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
@@ -1189,6 +1206,7 @@ function addPlant() {
   const p = mkPlant(n);
   plants.push(p);
   inp.value = '';
+  plantsToLS();
   renderAll();
   loadPlant(p);
 }
@@ -1196,12 +1214,14 @@ function addPlant() {
 function removePlant(name) {
   const i = plants.findIndex(p => p.name === name);
   if (i >= 0) plants.splice(i, 1);
+  plantsToLS();
   renderAll();
 }
 
 function clearAll() {
   plants.length = 0;
   document.getElementById('plantInput').value = '';
+  try { localStorage.removeItem('식재리스트_list'); localStorage.removeItem('식재리스트_imgs'); } catch(e) {}
   renderAll();
 }
 
@@ -1325,6 +1345,7 @@ async function loadPlant(p) {
   } finally {
     p.fetching = false;
     p.done = true;
+    plantsToLS();  // API 데이터 로딩 완료 후 저장
     renderAll();
   }
 }
@@ -3907,6 +3928,17 @@ function renderDotView() {
   }).filter(p => p.name);
   window.dvRebuild(mapped.length ? mapped : (window.SP_PLANTS || []));
 }
+
+// ── 페이지 최초 로드 시 식물 목록 복원 ────────────────────────────────────
+(function initFromLS() {
+  try {
+    plantsFromLS(); // 식물 목록 + 이미지 복원
+    if (plants.length > 0) {
+      renderChips();
+      renderActiveTab();
+    }
+  } catch(e) { console.error('initFromLS:', e); }
+})();
 </script>
 </body>
 </html>
