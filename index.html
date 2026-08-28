@@ -730,10 +730,6 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <button class="btn btn-sm" onclick="bcAddAll()" title="목록의 모든 수종 추가">전체 추가</button>
     <button class="btn btn-sm" id="bc-arrow-btn" onclick="bcToggleArrow()" title="카드→도면 인출선 표시/숨김">↗ 인출선</button>
     <span style="flex:1"></span>
-    <button class="btn btn-sm btn-ghost" onclick="bcZoomBy(-0.15)" title="축소 (Ctrl+휠↓)">－</button>
-    <span id="bc-zoom-pct" style="color:rgba(255,255,255,.7);font-size:0.75rem;min-width:36px;text-align:center">100%</span>
-    <button class="btn btn-sm btn-ghost" onclick="bcZoomBy(0.15)" title="확대 (Ctrl+휠↑)">＋</button>
-    <button class="btn btn-sm btn-ghost" onclick="bcZoomReset()" title="원래 크기">맞춤</button>
     <span class="bc-hint">도면/연출이미지 Ctrl+V로 붙여넣기</span>
     <label class="btn btn-sm" title="컨셉이미지 추가 (여러 장 가능)" style="cursor:pointer">+ 컨셉<input type="file" accept="image/*" multiple style="display:none" onchange="bcBgFileInput(event)"></label> <button class="btn btn-sm" onclick="bcClearBg()" title="컨셉 전체 삭제">🗑 컨셉</button>
     <button class="btn btn-sm btn-primary" onclick="bcExportWord()" title="구상판을 Word 파일로 저장">Word 저장</button>
@@ -3120,46 +3116,39 @@ document.addEventListener('keydown', function(ev) {
 
 
 // ── 식재 구상판 캔버스 ────────────────────────────────────────────────────────
-// ── 보드 캔버스 줌 ────────────────────────────────────────────
 let bcScale = 1.0;
-function bcApplyZoom() {
-  const canvas = document.getElementById('bc-canvas');
-  if (!canvas) return;
-  canvas.style.transform = `scale(${bcScale})`;
-  canvas.style.transformOrigin = '0 0';
-  canvas.style.marginRight = Math.max(0, 3000 * (bcScale - 1)) + 'px';
-  canvas.style.marginBottom = Math.max(0, 2000 * (bcScale - 1)) + 'px';
-  const pct = document.getElementById('bc-zoom-pct');
-  if (pct) pct.textContent = Math.round(bcScale * 100) + '%';
-}
-function bcZoomBy(delta) {
-  bcScale = Math.max(0.2, Math.min(4, bcScale + delta));
-  bcApplyZoom();
-}
-function bcZoomReset() {
-  const outer = document.getElementById('bc-outer');
-  bcScale = 1.0; bcApplyZoom();
-  if (outer) { outer.scrollLeft = 0; outer.scrollTop = 0; }
-}
+
+// ── 개별 요소 스크롤 확대/축소 ──────────────────────────────────
 (function() {
-  function attachBcWheel() {
+  function attachElemWheel() {
     const outer = document.getElementById('bc-outer');
     if (!outer) return;
     outer.addEventListener('wheel', function(e) {
-      if (!e.ctrlKey && !e.metaKey) return;
+      // 어떤 노드 또는 bg-layer 위에서 스크롤했는지 확인
+      const node = e.target.closest('.bc-node');
+      const bg   = e.target.closest('.bc-bg-layer');
+      if (!node && !bg) return; // 빈 캔버스면 일반 스크롤
       e.preventDefault();
-      const oldScale = bcScale;
-      bcScale = Math.max(0.2, Math.min(4, bcScale + (e.deltaY < 0 ? 0.1 : -0.1)));
-      const rect = outer.getBoundingClientRect();
-      const cx = e.clientX - rect.left + outer.scrollLeft;
-      const cy = e.clientY - rect.top  + outer.scrollTop;
-      bcApplyZoom();
-      outer.scrollLeft = cx * (bcScale / oldScale) - (e.clientX - rect.left);
-      outer.scrollTop  = cy * (bcScale / oldScale) - (e.clientY - rect.top);
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      if (node) {
+        const nid = parseInt(node.id.replace('bc-n-',''));
+        const n = BC.nodes.find(x => x.id === nid);
+        if (!n) return;
+        n.w = Math.max(80, Math.round(n.w * factor));
+        if (n.h) n.h = Math.max(60, Math.round(n.h * factor));
+        bcRenderNode(n);
+      } else if (bg) {
+        const bid = parseInt(bg.dataset.bgid);
+        const b = BC.bgs.find(x => x.id === bid);
+        if (!b) return;
+        b.w = Math.max(80, Math.round(b.w * factor));
+        b.h = Math.max(60, Math.round(b.h * factor));
+        bcRenderBoard();
+      }
     }, { passive: false });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachBcWheel);
-  else attachBcWheel();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachElemWheel);
+  else attachElemWheel();
 })();
 
 const BC = {
