@@ -136,6 +136,8 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .img-gallery::-webkit-scrollbar-thumb { background: #c0d8b8; border-radius: 2px; }
 .gal-img-wrap { position: relative; display: inline-block; }
 .gal-img-wrap:hover .gal-del-btn { opacity: 1; }
+.gal-img-wrap.drag-over { outline: 2px solid #52b788; outline-offset: -2px; }
+.gal-img-wrap.dragging { opacity: 0.4; }
 .gal-del-btn { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.55); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; opacity: 0; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2; }
 .gal-img {
   width: 140px; height: 105px; object-fit: cover;
@@ -187,7 +189,7 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
   width:840px; height:580px; min-width:280px; min-height:200px;
   background:#1c1c1c; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.85);
   display:flex; flex-direction:column;
-  user-select:none;
+  user-select:none; overflow:hidden; resize:both;
 }
 #eco-lb-bar {
   display:flex; align-items:center; gap:6px; padding:6px 10px;
@@ -211,14 +213,7 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 #eco-lightbox-close { background:rgba(255,255,255,.12); border:none; color:#eee;
   border-radius:5px; padding:3px 8px; cursor:pointer; font-size:1.1rem; }
 #eco-lightbox-close:hover { background:rgba(255,100,100,.4); }
-/* 커스텀 리사이즈 핸들 */
-#eco-lb-resize-br { position:absolute; right:0; bottom:0; width:18px; height:18px;
-  cursor:nwse-resize; z-index:10; }
-#eco-lb-resize-br::after { content:''; position:absolute; right:3px; bottom:3px;
-  width:10px; height:10px;
-  border-right:2px solid rgba(255,255,255,.4); border-bottom:2px solid rgba(255,255,255,.4); }
-#eco-lb-resize-r { position:absolute; right:0; top:30px; bottom:18px; width:6px; cursor:ew-resize; z-index:10; }
-#eco-lb-resize-b { position:absolute; bottom:0; left:0; right:18px; height:6px; cursor:ns-resize; z-index:10; }
+
 .eco-card-body { display: flex; }
 .eco-left { flex: 0 0 60%; display: flex; flex-direction: column; border-right: 1px solid #eef3ec; overflow: hidden; min-width: 0; }
 .eco-sec-body { display: grid; }
@@ -475,7 +470,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:#f0f8ec;border-radius:8px 8px 0 0;font-size:0.7rem;font-weight:700;color:#2d5a1b;cursor:move; }
 .bc-node-dup { background:none;border:none;cursor:pointer;color:#8aaa7a;font-size:0.9rem;padding:0 2px;line-height:1; }
 .bc-node-del { background:none;border:none;color:#c44;cursor:pointer;font-size:1rem;line-height:1;padding:0 2px; }
-.bc-node-img { width:100%;height:100px;flex:1;min-height:60px;object-fit:cover;display:block; }
+.bc-node-img { width:100%;height:100px;flex:1;min-height:60px;object-fit:cover;display:block;transform-origin:center center; }
 .bc-node-img-ph { width:100%;height:100px;flex:1;min-height:60px;background:#f0f0e8;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:2rem; }
 .bc-node-nav { display:flex;align-items:center;justify-content:center;gap:2px;padding:2px;background:#fafdf8;border-top:1px solid #e8f0e4; }
 .bc-nav-btn { background:#e8f0e4;border:none;border-radius:4px;width:22px;height:18px;font-size:0.75rem;cursor:pointer;color:#4a6a3a; }
@@ -718,9 +713,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <div id="eco-lb-viewport">
         <img id="eco-lightbox-img" src="" alt="">
     </div>
-    <div id="eco-lb-resize-br"></div>
-    <div id="eco-lb-resize-r"></div>
-    <div id="eco-lb-resize-b"></div>
+
   </div>
 </div>
 
@@ -1905,7 +1898,12 @@ function imgRow(p, pi) {
   const gallery = imgs.length
     ? imgs.map((url, ii) => {
         const safe = url.replace(/'/g,'%27');
-        return `<div class="gal-img-wrap" data-pi="${pi}" data-ii="${ii}">
+        return `<div class="gal-img-wrap" data-pi="${pi}" data-ii="${ii}"
+            draggable="true"
+            ondragstart="galDragStart(event,${pi},${ii})"
+            ondragover="galDragOver(event)"
+            ondrop="galDrop(event,${pi},${ii})"
+            ondragleave="galDragLeave(event)">
           <img class="gal-img" src="${url}" loading="lazy" onclick="ecoOpenLightbox(${pi},${ii})" onerror="this.closest('.gal-img-wrap')?.remove()">
           <button class="gal-del-btn" onclick="imgTabRemove(${pi},${ii})" title="삭제">✕</button>
         </div>`;
@@ -1930,6 +1928,32 @@ function imgRow(p, pi) {
 let _imgActivePi = 0;
 function imgSetActive(pi) { _imgActivePi = pi; }
 
+let galDragSrc = null;
+function galDragStart(e, pi, ii) {
+  galDragSrc = { pi, ii };
+  e.target.closest('.gal-img-wrap').classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function galDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function galDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function galDrop(e, pi, ii) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!galDragSrc || galDragSrc.pi !== pi || galDragSrc.ii === ii) { galDragSrc = null; return; }
+  const p = plants[pi];
+  if (!p?.images) { galDragSrc = null; return; }
+  const [moved] = p.images.splice(galDragSrc.ii, 1);
+  p.images.splice(ii, 0, moved);
+  plantsToLS();
+  renderActiveTab();
+  galDragSrc = null;
+}
 function imgTabRemove(pi, ii) {
   ecoRemoveImg(pi, ii);
 }
@@ -3046,7 +3070,6 @@ else ecoLbAttachWheel();
   document.addEventListener('mousedown', function(e) {
     const vp = document.getElementById('eco-lb-viewport');
     if (!vp || !vp.contains(e.target)) return;
-    if (['eco-lb-resize-br','eco-lb-resize-r','eco-lb-resize-b'].includes(e.target.id)) return;
     pan = { sx: e.clientX, sy: e.clientY, px: ecoLbPanX, py: ecoLbPanY };
     const img = document.getElementById('eco-lightbox-img');
     if (img) img.style.cursor = 'grabbing';
@@ -3078,12 +3101,7 @@ else ecoLbAttachWheel();
       drag = { type:'move', sx:e.clientX, sy:e.clientY, ox:rect.left, oy:rect.top };
       e.preventDefault(); return;
     }
-    // 리사이즈 핸들
-    const id = e.target.id;
-    if (id === 'eco-lb-resize-br' || id === 'eco-lb-resize-r' || id === 'eco-lb-resize-b') {
-      drag = { type:id, sx:e.clientX, sy:e.clientY, ow:rect.width, oh:rect.height };
-      e.preventDefault(); return;
-    }
+
   });
   document.addEventListener('mousemove', function(e) {
     if (!drag) return;
@@ -3093,13 +3111,6 @@ else ecoLbAttachWheel();
     if (drag.type === 'move') {
       win.style.left = Math.max(0, drag.ox + dx) + 'px';
       win.style.top  = Math.max(0, drag.oy + dy) + 'px';
-    } else if (drag.type === 'eco-lb-resize-br') {
-      win.style.width  = Math.max(280, drag.ow + dx) + 'px';
-      win.style.height = Math.max(200, drag.oh + dy) + 'px';
-    } else if (drag.type === 'eco-lb-resize-r') {
-      win.style.width  = Math.max(280, drag.ow + dx) + 'px';
-    } else if (drag.type === 'eco-lb-resize-b') {
-      win.style.height = Math.max(200, drag.oh + dy) + 'px';
     }
   });
   document.addEventListener('mouseup', function() { drag = null; });
@@ -3118,37 +3129,36 @@ document.addEventListener('keydown', function(ev) {
 // ── 식재 구상판 캔버스 ────────────────────────────────────────────────────────
 let bcScale = 1.0;
 
-// ── 개별 요소 스크롤 확대/축소 ──────────────────────────────────
+// ── 카드 이미지 스크롤 줌 (카드 프레임 고정) ──────────────────
 (function() {
-  function attachElemWheel() {
+  function attachImgWheel() {
     const outer = document.getElementById('bc-outer');
     if (!outer) return;
     outer.addEventListener('wheel', function(e) {
-      // 어떤 노드 또는 bg-layer 위에서 스크롤했는지 확인
       const node = e.target.closest('.bc-node');
       const bg   = e.target.closest('.bc-bg-layer');
-      if (!node && !bg) return; // 빈 캔버스면 일반 스크롤
+      if (!node && !bg) return;
       e.preventDefault();
-      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
       if (node) {
         const nid = parseInt(node.id.replace('bc-n-',''));
         const n = BC.nodes.find(x => x.id === nid);
         if (!n) return;
-        n.w = Math.max(80, Math.round(n.w * factor));
-        if (n.h) n.h = Math.max(60, Math.round(n.h * factor));
-        bcRenderNode(n);
+        n.imgScale = Math.max(0.3, Math.min(6, (n.imgScale||1) * factor));
+        const img = node.querySelector('.bc-node-img');
+        if (img) img.style.transform = `scale(${n.imgScale})`;
       } else if (bg) {
         const bid = parseInt(bg.dataset.bgid);
         const b = BC.bgs.find(x => x.id === bid);
         if (!b) return;
-        b.w = Math.max(80, Math.round(b.w * factor));
-        b.h = Math.max(60, Math.round(b.h * factor));
-        bcRenderBoard();
+        b.imgScale = Math.max(0.3, Math.min(6, (b.imgScale||1) * factor));
+        const img = bg.querySelector('img');
+        if (img) img.style.transform = `scale(${b.imgScale})`;
       }
     }, { passive: false });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachElemWheel);
-  else attachElemWheel();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachImgWheel);
+  else attachImgWheel();
 })();
 
 const BC = {
@@ -3574,7 +3584,8 @@ function bcResizeDragStart(e, id) {
   const n = BC.nodes.find(x => x.id === id);
   if (!n) return;
   const pos = evPos(e);
-  BC.drag = { type:'resize', id, sx:pos.x, sy:pos.y, ow:n.w, oh:n.h||0 };
+  const el2 = document.getElementById('bc-n-'+id);
+  BC.drag = { type:'resize', id, sx:pos.x, sy:pos.y, ow:n.w, oh:el2 ? el2.offsetHeight : (n.h||120) };
 }
 function bcArrowDragStart(e, id) {
   e.preventDefault(); e.stopPropagation();
@@ -3642,7 +3653,7 @@ function bcOnMove(e) {
     bcUpdateArrows();
   } else if (BC.drag.type === 'resize') {
     n.w = Math.max(80, BC.drag.ow + dx);
-    n.h = BC.drag.oh ? Math.max(60, BC.drag.oh + dy) : 0;
+    n.h = Math.max(60, BC.drag.oh + dy);
     const el = document.getElementById('bc-n-'+n.id);
     if (el) { el.style.width = n.w+'px'; if(n.h) el.style.height = n.h+'px'; }
     bcUpdateArrows();
