@@ -449,6 +449,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .bc-node { position:absolute;background:#fff;border:1.5px solid #c0d8b0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15);min-width:100px;width:130px;cursor:move;user-select:none;z-index:10;display:flex;flex-direction:column;overflow:hidden; }
 .bc-node.bc-selected { border-color:#52b788;box-shadow:0 0 0 2px #aeeac8; }
 .bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:#f0f8ec;border-radius:8px 8px 0 0;font-size:0.7rem;font-weight:700;color:#2d5a1b;cursor:move; }
+.bc-node-dup { background:none;border:none;cursor:pointer;color:#8aaa7a;font-size:0.9rem;padding:0 2px;line-height:1; }
 .bc-node-del { background:none;border:none;color:#c44;cursor:pointer;font-size:1rem;line-height:1;padding:0 2px; }
 .bc-node-img { width:100%;height:100px;flex:1;min-height:60px;object-fit:cover;display:block; }
 .bc-node-img-ph { width:100%;height:100px;flex:1;min-height:60px;background:#f0f0e8;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:2rem; }
@@ -702,7 +703,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
   <div id="bc-outer">
     <div id="bc-canvas">
       <div id="bc-bg-hint">도면 또는 연출이미지를<br>Ctrl+V로 붙여넣거나<br><label style="cursor:pointer;text-decoration:underline;color:#52b788">파일 선택<input type="file" accept="image/*" style="display:none" onchange="bcBgFileInput(event)"></label></div>
-      <svg id="bc-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible"></svg>
+      <svg id="bc-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:15"></svg>
     </div>
   </div>
 </div>
@@ -2950,6 +2951,7 @@ const BC = {
   arrowMode: false,
   drag: null,     // {type:'node'|'resize'|'arrow'|'bg'|'bg-resize', id, sx,sy, ox,oy,ow,oh}
   selectedId: null,
+  clipboard: null, // 복사된 노드 데이터
 };
 
 // ── 배경 이미지 ──────────────────────────────────────────────────────────────
@@ -3084,6 +3086,14 @@ function bcDelNode(id) {
   BC.nodes = BC.nodes.filter(n => n.id !== id);
   bcRender();
 }
+function bcDupNode(id) {
+  const src = BC.nodes.find(n => n.id === id);
+  if (!src) return;
+  const clone = Object.assign({}, src, { id: BC.nextId++, x: src.x + 24, y: src.y + 24 });
+  BC.nodes.push(clone);
+  BC.selectedId = clone.id;
+  bcRender();
+}
 function bcCycleImg(id, dir) {
   const n = BC.nodes.find(x => x.id === id);
   if (!n) return;
@@ -3200,7 +3210,10 @@ function bcRenderNode(n) {
   if (!canvas) return;
   let el = document.getElementById('bc-n-'+n.id);
   const p = plants[n.pi];
-  const name = p?.korName || p?.latName || p?.name || '?';
+  const latN = p?.latName || p?.name || '';
+  const korN = p?.korName || '';
+  const name = latN && korN ? `${latN}<br><small style="color:#6a9a6a;font-weight:normal">(${korN})</small>`
+             : latN || korN || '?';
   const imgs = p?.images || [];
   const imgIdx = Math.min(n.imgIdx||0, Math.max(0, imgs.length-1));
   const src = imgs[imgIdx] || '';
@@ -3216,8 +3229,11 @@ function bcRenderNode(n) {
     : `<div class="bc-node-img-ph">🌿</div>`;
 
   const html = `<div class="bc-node-hd">
-      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90%">${name}</span>
-      <button class="bc-node-del" onclick="bcDelNode(${n.id})">✕</button>
+      <span style="overflow:hidden;max-width:78%;line-height:1.3;font-size:0.82rem">${name}</span>
+      <span style="display:flex;gap:2px">
+        <button class="bc-node-dup" onclick="bcDupNode(${n.id})" title="복사">⧉</button>
+        <button class="bc-node-del" onclick="bcDelNode(${n.id})" title="삭제">✕</button>
+      </span>
     </div>
     ${imgHtml}
     ${navHtml}
@@ -3363,6 +3379,29 @@ document.addEventListener('mousemove', bcOnMove);
 document.addEventListener('mouseup', bcOnUp);
 document.addEventListener('touchmove', e => { if(BC.drag) bcOnMove(e); }, {passive:false});
 document.addEventListener('touchend', bcOnUp);
+
+// Ctrl+C: 선택 노드 복사 / Ctrl+V: 붙여넣기 (보드 탭 활성 시)
+document.addEventListener('keydown', function(e) {
+  const active = document.querySelector('.tab-pane.active');
+  if (active?.id !== 'pane-board') return;
+  if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+    const id = BC.selectedId;
+    const n = BC.nodes.find(x => x.id === id);
+    if (n) { BC.clipboard = { ...n }; showToast('카드 복사됨'); }
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+    if (BC.clipboard) {
+      const clone = Object.assign({}, BC.clipboard, { id: BC.nextId++, x: BC.clipboard.x+24, y: BC.clipboard.y+24 });
+      BC.nodes.push(clone);
+      BC.selectedId = clone.id;
+      bcRender();
+    }
+  }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (BC.selectedId) { bcDelNode(BC.selectedId); BC.selectedId = null; }
+  }
+});
 
 /* 검색된 plants → 개화 분포도 변환 */
 function renderDotView() {
