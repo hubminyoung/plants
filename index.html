@@ -797,7 +797,7 @@ async function saveKvField(pIdx, field, value) {
   const p = plants[pIdx];
   if (!p) return;
   p[field] = value;
-  const key = (p.latName || p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  const key = (p.latName || p.name || '').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   const pw = localStorage.getItem('appPassword') || '';
   try {
     const resp = await fetch(CFG.worker + '/api/kv/set', {
@@ -1269,7 +1269,7 @@ async function loadPlant(p) {
 
   // 2. 자생종 조회 (로컬 JSON DB — 공식 추천국명 우선)
   await loadNativePlantDB();
-  const nativeInfo = lookupNativePlant(p.latName || p.name);
+  const nativeInfo = lookupNativePlant(p.latName || p.name || '');
   if (nativeInfo) {
     if (nativeInfo.kor)    p.korName    = nativeInfo.kor;    // DB 국명 우선 (공식 추천국명)
     if (!p.commonName  && nativeInfo.common) p.commonName = nativeInfo.common;
@@ -1280,7 +1280,7 @@ async function loadPlant(p) {
   renderChips(); renderActiveTab();
 
   // 3b. KV에서 식재 추가 데이터 조회
-  const kvKey = (p.latName || p.name).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  const kvKey = (p.latName || p.name || '').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   const _pw = localStorage.getItem('appPassword') || '';
   fetch(CFG.worker + '/api/kv/get?key=' + encodeURIComponent(kvKey),
     { headers: _pw ? {'x-app-password': _pw} : {} })
@@ -1295,7 +1295,7 @@ async function loadPlant(p) {
   // 학명 변경 자동 처리: iNaturalist accepted name의 속명 + 원래 재배종명 조합
   // 예) Cimicifuga 'Queen of Sheba' -> iNat: Actaea -> searchQ: Actaea 'Queen of Sheba'
   const cultivarMatch = p.name.match(/([''\u2018\u2019][^''\u2018\u2019]+[''\u2018\u2019])/);
-  const acceptedBase = (p.latName || p.name).replace(/\s*[''][^'']+['']\s*$/, '').trim();
+  const acceptedBase = (p.latName || p.name || '').replace(/\s*[''][^'']+['']\s*$/, '').trim();
   const searchQ = (cultivarMatch && p.latName)
     ? acceptedBase.split(' ')[0] + ' ' + cultivarMatch[1]
     : acceptedBase;
@@ -1861,8 +1861,10 @@ function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
-  document.getElementById(`pane-${tab}`).classList.add('active');
-  renderActiveTab();
+  const pane = document.getElementById(`pane-${tab}`);
+  if (pane) pane.classList.add('active');
+  try { renderActiveTab(); }
+  catch(err) { showToast('탭 렌더 오류: ' + err.message); console.error('switchTab error:', err); }
 }
 
 function renderActiveTab() {
@@ -1893,8 +1895,8 @@ function renderImages() {
 function pNames(p) {
   // 한글 국명이 있을 때만 국명+학명 2줄, 없으면 학명 1줄
   const hasKor = p.korName && /[가-힣]/.test(p.korName);
-  const primary   = hasKor ? p.korName : (p.latName || p.name);
-  const secondary = hasKor ? (p.latName || p.name) : '';
+  const primary   = hasKor ? p.korName : (p.latName || p.name || '');
+  const secondary = hasKor ? (p.latName || p.name || '') : '';
   return { primary, secondary };
 }
 
@@ -1980,7 +1982,7 @@ function imgTabRemove(pi, ii) {
 
 // 이미지 탭 붙여넣기 (구글 이미지에서 복사 → Ctrl+V)
 document.addEventListener('paste', function(e) {
-  if (document.getElementById('pane-images')?.style.display === 'none') return;
+  if (activeTab !== 'images') return;
   if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
   const items = e.clipboardData?.items;
   if (!items) return;
@@ -2189,7 +2191,7 @@ function renderEcology() {
       .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi, '')
       .replace(/\./g, '').replace(/\s+/g, ' ').trim());
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
-    const eiveVals = eiveLookup(p.latName || p.name);
+    const eiveVals = eiveLookup(p.latName || p.name || '');
 
     const bloomStr = (p.bloomMonths||[]).length
       ? (p.bloomMonths||[]).map(m => MO_SHORT[m-1]+'월').join(', ')
@@ -2688,7 +2690,7 @@ function renderCare() {
 
   const cards = plants.map((p, pi) => {
     const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
-    const sq = encodeURIComponent((p.latName || p.name)
+    const sq = encodeURIComponent((p.latName || p.name || '')
       .replace(/[\u2018\u2019\u02BC\u2032]/g,'')
       .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi,'')
       .replace(/\./g,'').replace(/\s+/g,' ').trim());
