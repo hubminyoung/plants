@@ -883,7 +883,9 @@ function plantsFromLS() {
     // 이미 로드된 plants에 이미지만 병합
     saved.forEach(s => {
       const p = plants.find(x =>
-        (x.latName || x.name) === (s.latName || s.name)
+        (s.latName && x.latName && x.latName === s.latName) ||
+        (s.korName && x.korName && x.korName === s.korName) ||
+        (s.name && x.name && x.name === s.name)
       );
       if (p && s.images?.length) p.images = s.images;
     });
@@ -3151,14 +3153,14 @@ let bcScale = 1.0;
         if (!n) return;
         n.imgScale = Math.max(0.3, Math.min(6, (n.imgScale||1) * factor));
         const img = node.querySelector('.bc-node-img');
-        if (img) img.style.transform = `scale(${n.imgScale})`;
+        if (img) img.style.transform = `translate(${n.imgPanX||0}px,${n.imgPanY||0}px) scale(${n.imgScale})`;
       } else if (bg) {
         const bid = parseInt(bg.dataset.bgid);
         const b = BC.bgs.find(x => x.id === bid);
         if (!b) return;
         b.imgScale = Math.max(0.3, Math.min(6, (b.imgScale||1) * factor));
         const img = bg.querySelector('img');
-        if (img) { img.style.transform = `scale(${b.imgScale})`; img.style.transformOrigin = 'center center'; }
+        if (img) { img.style.transform = `translate(${b.imgPanX||0}px,${b.imgPanY||0}px) scale(${b.imgScale})`; img.style.transformOrigin = 'center center'; }
       }
     }, { passive: false });
   }
@@ -3204,7 +3206,8 @@ function bcRenderBgs() {
     el.className = 'bc-bg-layer';
     el.dataset.bgid = b.id;
     el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
-    const bgImgScale = b.imgScale ? `transform:scale(${b.imgScale});transform-origin:center center;` : '';
+    const bgTx = b.imgPanX||0, bgTy = b.imgPanY||0, bgSc = b.imgScale||1;
+    const bgImgScale = (bgSc!==1||bgTx||bgTy) ? `transform:translate(${bgTx}px,${bgTy}px) scale(${bgSc});transform-origin:center center;` : '';
     el.innerHTML = `<div style="width:100%;height:100%;overflow:hidden;"><img src="${b.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;${bgImgScale}"></div>
       <div class="bc-bg-del" onclick="bcDelBg(${b.id})" title="삭제">✕</div>
       <div class="bc-bg-resize" data-bgid="${b.id}"></div>`;
@@ -3259,6 +3262,10 @@ function bcBgDragStart(e, bgId) {
   const b = BC.bgs.find(x => x.id === bgId);
   if (!b) return;
   const pos = evPos(e);
+  if ((b.imgScale||1) > 1) {
+    BC.drag = { type:'bg-img-pan', id: bgId, sx:pos.x, sy:pos.y, px:b.imgPanX||0, py:b.imgPanY||0 };
+    return;
+  }
   BC.drag = { type:'bg', id: bgId, sx: pos.x, sy: pos.y, ox: b.x, oy: b.y };
 }
 function bcBgResizeStart(e, bgId) {
@@ -3534,7 +3541,7 @@ function bcRenderNode(n) {
         <button class="bc-nav-btn" onclick="bcCycleImg(${n.id},1)">›</button>
        </div>` : '';
   const imgHtml = src
-    ? `<div style="overflow:hidden;flex:1;min-height:60px;"><img class="bc-node-img" src="${src}" style="width:100%;height:100%;object-fit:cover;transform-origin:center center" onerror="this.style.display='none'"></div>`
+    ? `<div class="bc-img-wrap" style="overflow:hidden;flex:1;min-height:60px;cursor:grab;"><img class="bc-node-img" src="${src}" style="width:100%;height:100%;object-fit:cover;transform-origin:center center;pointer-events:none" onerror="this.style.display='none'"></div>`
     : `<div class="bc-node-img-ph">🌿</div>`;
 
   const html = `<div class="bc-node-hd">
@@ -3558,14 +3565,24 @@ function bcRenderNode(n) {
   el.innerHTML = html;
   el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px${n.h?';height:'+n.h+'px':''}`;  
   if (BC.selectedId === n.id) el.classList.add('bc-selected');
-  // Drag on header
+  // Drag on header (or anywhere when not zoomed)
   const hd = el.querySelector('.bc-node-hd');
   hd?.addEventListener('mousedown', e => bcNodeDragStart(e, n.id));
   hd?.addEventListener('touchstart', e => bcNodeDragStart(e, n.id), {passive:false});
+  el.addEventListener('mousedown', e => {
+    if (e.target.closest('.bc-img-wrap') || e.target.closest('.bc-node-hd') || e.target.closest('.bc-resize') || e.target.closest('.bc-nav-btn') || e.target.closest('.bc-node-dup') || e.target.closest('.bc-node-del')) return;
+    bcNodeDragStart(e, n.id);
+  });
   // Resize
   const rz = el.querySelector('.bc-resize');
   rz?.addEventListener('mousedown', e => bcResizeDragStart(e, n.id));
   rz?.addEventListener('touchstart', e => bcResizeDragStart(e, n.id), {passive:false});
+  const iw = el.querySelector('.bc-img-wrap');
+  iw?.addEventListener('mousedown', e => {
+    if ((n.imgScale||1) <= 1) return; // 확대 안된 상태엔 카드 이동 허용
+    e.preventDefault(); e.stopPropagation();
+    bcImgPanStart(e, n.id);
+  });
 }
 
 // ── 드래그 로직 ──────────────────────────────────────────────────────────────
@@ -3576,6 +3593,14 @@ function evPos(e) {
   return { x: (t.clientX - rect.left) / bcScale, y: (t.clientY - rect.top) / bcScale };
 }
 
+function bcImgPanStart(e, id) {
+  const n = BC.nodes.find(x => x.id === id);
+  if (!n) return;
+  const pos = evPos(e);
+  BC.drag = { type:'img-pan', id, sx:pos.x, sy:pos.y, px:n.imgPanX||0, py:n.imgPanY||0 };
+  const iw = document.querySelector('#bc-n-'+id+' .bc-img-wrap');
+  if (iw) iw.style.cursor = 'grabbing';
+}
 function bcNodeDragStart(e, id) {
   e.preventDefault(); e.stopPropagation();
   const n = BC.nodes.find(x => x.id === id);
@@ -3634,6 +3659,14 @@ function bcOnMove(e) {
   const pos = evPos(e);
   const dx = pos.x - BC.drag.sx, dy = pos.y - BC.drag.sy;
   // 컨셉 이미지 드래그/리사이즈 (노드 lookup 불필요)
+  if (BC.drag.type === 'bg-img-pan') {
+    const b = BC.bgs.find(x => x.id === BC.drag.id); if (!b) return;
+    b.imgPanX = BC.drag.px + dx;
+    b.imgPanY = BC.drag.py + dy;
+    const img = document.querySelector(`.bc-bg-layer[data-bgid="${b.id}"] img`);
+    if (img) img.style.transform = `translate(${b.imgPanX}px,${b.imgPanY}px) scale(${b.imgScale||1})`;
+    return;
+  }
   if (BC.drag.type === 'bg') {
     const b = BC.bgs.find(x => x.id === BC.drag.id); if(!b) return;
     b.x = Math.max(0, BC.drag.ox + dx); b.y = Math.max(0, BC.drag.oy + dy);
@@ -3663,12 +3696,22 @@ function bcOnMove(e) {
     const el = document.getElementById('bc-n-'+n.id);
     if (el) { el.style.width = n.w+'px'; if(n.h) el.style.height = n.h+'px'; }
     bcUpdateArrows();
+  } else if (BC.drag.type === 'img-pan') {
+    n.imgPanX = BC.drag.px + dx;
+    n.imgPanY = BC.drag.py + dy;
+    const img = document.querySelector('#bc-n-'+n.id+' .bc-node-img');
+    if (img) img.style.transform = `translate(${n.imgPanX}px,${n.imgPanY}px) scale(${n.imgScale||1})`;
   } else if (BC.drag.type === 'arrow') {
     n.ax = BC.drag.ox + dx; n.ay = BC.drag.oy + dy;
     bcUpdateArrows();
   }
 }
-function bcOnUp() { BC.drag = null; }
+function bcOnUp() {
+  if (BC.drag?.type === 'img-pan') {
+    document.querySelectorAll('.bc-img-wrap').forEach(el => el.style.cursor = 'grab');
+  }
+  BC.drag = null;
+}
 function bcUpdateArrows() {
   const svg = document.getElementById('bc-svg');
   if (!svg) return;
