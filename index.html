@@ -200,11 +200,8 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 #eco-lb-zoom-pct { color:rgba(255,255,255,.7); font-size:0.78rem; min-width:38px; text-align:center; }
 #eco-lb-spacer { flex:1; }
 #eco-lb-viewport {
-  flex:1; overflow:auto; background:#111; position:relative;
-}
-#eco-lb-viewport-inner {
+  flex:1; overflow:hidden; background:#111; position:relative;
   display:flex; align-items:center; justify-content:center;
-  min-width:100%; min-height:100%;
 }
 #eco-lightbox-img {
   display:block; max-width:none; max-height:none;
@@ -723,9 +720,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
       <button id="eco-lightbox-close" onclick="ecoCloseLightbox()">✕</button>
     </div>
     <div id="eco-lb-viewport">
-      <div id="eco-lb-viewport-inner">
         <img id="eco-lightbox-img" src="" alt="">
-      </div>
+      iv>
     </div>
     <div id="eco-lb-resize-br"></div>
     <div id="eco-lb-resize-r"></div>
@@ -2986,7 +2982,7 @@ function ecoOpenLightbox(plantIdx, imgIdx) {
   ecoLbBgMode = false;
   ecoLbPlantIdx = plantIdx;
   ecoLbImgIdx = imgIdx;
-  ecoLbScale = 1.0;
+  ecoLbScale = 1.0; ecoLbPanX = 0; ecoLbPanY = 0;
   ecoLightboxShow();
   document.getElementById('eco-lightbox').classList.add('open');
   ecoLbAttachWheel();
@@ -2998,7 +2994,7 @@ function ecoOpenBgLightbox(bgId) {
   ecoLbScale = 1.0;
   const img = document.getElementById('eco-lightbox-img');
   img.style.cursor = 'grab';
-  img.onload = function() { ecoLbScale = 1.0; ecoLbApplyZoom(); };
+  img.onload = function() { ecoLbScale = 1.0; ecoLbPanX=0; ecoLbPanY=0; ecoLbApplyTransform(); };
   img.src = bg.dataUrl;
   const counter = document.getElementById('eco-lb-counter');
   if (counter) counter.textContent = '컨셉';
@@ -3013,7 +3009,7 @@ function ecoLightboxShow() {
   if (!p || !p.images) return;
   const imgs = p.images;
   const img = document.getElementById('eco-lightbox-img');
-  img.onload = function() { ecoLbScale = 1.0; ecoLbApplyZoom(); };
+  img.onload = function() { ecoLbScale = 1.0; ecoLbPanX=0; ecoLbPanY=0; ecoLbApplyTransform(); };
   img.src = imgs[ecoLbImgIdx] || '';
   ecoLbScale = 1.0;
   const pct = document.getElementById('eco-lb-zoom-pct');
@@ -3034,36 +3030,23 @@ function ecoCloseLightbox() {
 function ecoLightboxBgClick(e) {
   if (e.target === document.getElementById('eco-lightbox')) ecoCloseLightbox();
 }
-function ecoLbApplyZoom() {
+let ecoLbPanX = 0, ecoLbPanY = 0;
+function ecoLbApplyTransform() {
   const img = document.getElementById('eco-lightbox-img');
-  const vp  = document.getElementById('eco-lb-viewport');
-  if (!img || !vp) return;
-  if (!img.naturalWidth) { setTimeout(ecoLbApplyZoom, 100); return; } // 이미지 로드 대기
-  const nw = img.naturalWidth || 800;
-  const vh = vp.clientHeight - 20;
-  const vw = vp.clientWidth  - 20;
-  // 맞춤 기준 폭 계산 (vw/vh 중 작은 쪽)
-  const fitW = Math.min(vw, Math.round(vh * nw / (img.naturalHeight || 600)));
-  const newW = Math.round(fitW * ecoLbScale);
-  img.style.width  = newW + 'px';
-  img.style.height = 'auto';
-  const inner = document.getElementById('eco-lb-viewport-inner');
-  if (inner) {
-    inner.style.minWidth  = Math.max(vp.clientWidth,  newW + 20) + 'px';
-    inner.style.minHeight = Math.max(vp.clientHeight, Math.round(newW / (nw / (img.naturalHeight||600))) + 20) + 'px';
-  }
+  if (!img) return;
+  img.style.transform = `translate(${ecoLbPanX}px,${ecoLbPanY}px) scale(${ecoLbScale})`;
+  img.style.transformOrigin = 'center center';
   const pct = document.getElementById('eco-lb-zoom-pct');
   if (pct) pct.textContent = Math.round(ecoLbScale * 100) + '%';
 }
+function ecoLbApplyZoom() { ecoLbApplyTransform(); }
 function ecoLbZoomBy(delta) {
   ecoLbScale = Math.max(0.1, Math.min(8, ecoLbScale + delta));
-  ecoLbApplyZoom();
+  ecoLbApplyTransform();
 }
 function ecoLbZoomFit() {
-  ecoLbScale = 1.0;
-  ecoLbApplyZoom();
-  const vp = document.getElementById('eco-lb-viewport');
-  if (vp) { vp.scrollLeft = 0; vp.scrollTop = 0; }
+  ecoLbScale = 1.0; ecoLbPanX = 0; ecoLbPanY = 0;
+  ecoLbApplyTransform();
 }
 // 스크롤 줌
 function ecoLbWheelHandler(e) {
@@ -3079,24 +3062,23 @@ function ecoLbAttachWheel() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ecoLbAttachWheel);
 else ecoLbAttachWheel();
 
-// 뷰포트 드래그 팬
+// 뷰포트 드래그 팬 (transform 기반)
 (function() {
   let pan = null;
   document.addEventListener('mousedown', function(e) {
     const vp = document.getElementById('eco-lb-viewport');
     if (!vp || !vp.contains(e.target)) return;
     if (['eco-lb-resize-br','eco-lb-resize-r','eco-lb-resize-b'].includes(e.target.id)) return;
-    pan = { sx: e.clientX, sy: e.clientY, sl: vp.scrollLeft, st: vp.scrollTop };
+    pan = { sx: e.clientX, sy: e.clientY, px: ecoLbPanX, py: ecoLbPanY };
     const img = document.getElementById('eco-lightbox-img');
     if (img) img.style.cursor = 'grabbing';
     e.preventDefault();
   });
   document.addEventListener('mousemove', function(e) {
     if (!pan) return;
-    const vp = document.getElementById('eco-lb-viewport');
-    if (!vp) return;
-    vp.scrollLeft = pan.sl - (e.clientX - pan.sx);
-    vp.scrollTop  = pan.st - (e.clientY - pan.sy);
+    ecoLbPanX = pan.px + (e.clientX - pan.sx);
+    ecoLbPanY = pan.py + (e.clientY - pan.sy);
+    ecoLbApplyTransform();
   });
   document.addEventListener('mouseup', function() {
     if (!pan) return;
@@ -3534,9 +3516,9 @@ function bcRenderNode(n) {
         <button class="bc-node-del" onclick="bcDelNode(${n.id})" title="삭제">✕</button>
       </span>
     </div>
+    ${info ? `<div class="bc-node-info">${info}</div>` : ''}
     ${imgHtml}
     ${navHtml}
-    ${info ? `<div class="bc-node-info">${info}</div>` : ''}
     <div class="bc-resize" data-id="${n.id}"></div>`;
 
   if (!el) {
