@@ -180,21 +180,37 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-img-add:hover { background: #e8f5e2; border-color: #74c476; }
 .eco-img-add input { display: none; }
 /* Lightbox */
-#eco-lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.82);
-  z-index: 9999; align-items: center; justify-content: center; }
-#eco-lightbox.open { display: flex; }
-#eco-lightbox img { max-width: 90vw; max-height: 88vh; border-radius: 8px; object-fit: contain; }
-#eco-lightbox-close { position: absolute; top: 1rem; right: 1.2rem; color: white; font-size: 2rem;
-  cursor: pointer; line-height: 1; background: none; border: none; }
-#eco-lightbox-prev, #eco-lightbox-next { position: absolute; top: 50%; transform: translateY(-50%);
-  color: white; font-size: 2.2rem; cursor: pointer; background: rgba(0,0,0,0.35); border: none;
-  border-radius: 50%; width: 2.4rem; height: 2.4rem; display: flex; align-items: center; justify-content: center;
-  line-height: 1; padding: 0; transition: background 0.15s; }
-#eco-lightbox-prev:hover, #eco-lightbox-next:hover { background: rgba(0,0,0,0.65); }
-#eco-lightbox-prev { left: 1.2rem; }
-#eco-lightbox-next { right: 1.2rem; }
-#eco-lightbox-counter { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
-  color: rgba(255,255,255,0.75); font-size: 0.85rem; pointer-events: none; }
+#eco-lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:9999; }
+#eco-lightbox.open { display:block; }
+#eco-lb-window {
+  position:absolute; top:60px; left:calc(50% - 420px);
+  width:840px; height:580px; min-width:280px; min-height:200px;
+  background:#1c1c1c; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.85);
+  display:flex; flex-direction:column; overflow:hidden; resize:both;
+  user-select:none;
+}
+#eco-lb-bar {
+  display:flex; align-items:center; gap:6px; padding:6px 10px;
+  background:#2a2a2a; flex-shrink:0; cursor:move;
+}
+#eco-lb-bar button { background:rgba(255,255,255,.12); border:none; color:#eee;
+  border-radius:5px; padding:3px 8px; cursor:pointer; font-size:1rem; line-height:1; }
+#eco-lb-bar button:hover { background:rgba(255,255,255,.25); }
+#eco-lb-counter { color:rgba(255,255,255,.6); font-size:0.8rem; min-width:40px; text-align:center; }
+#eco-lb-zoom-pct { color:rgba(255,255,255,.7); font-size:0.78rem; min-width:38px; text-align:center; }
+#eco-lb-spacer { flex:1; }
+#eco-lb-viewport {
+  flex:1; overflow:auto; display:flex; align-items:center; justify-content:center;
+  background:#111; position:relative; cursor:zoom-in;
+}
+#eco-lightbox-img {
+  display:block; transform-origin:center center; object-fit:contain;
+  max-width:none; max-height:none;
+  transition:transform 0.12s;
+}
+#eco-lightbox-close { background:rgba(255,255,255,.12); border:none; color:#eee;
+  border-radius:5px; padding:3px 8px; cursor:pointer; font-size:1.1rem; }
+#eco-lightbox-close:hover { background:rgba(255,100,100,.4); }
 .eco-card-body { display: flex; }
 .eco-left { flex: 0 0 60%; display: flex; flex-direction: column; border-right: 1px solid #eef3ec; overflow: hidden; min-width: 0; }
 .eco-sec-body { display: grid; }
@@ -683,11 +699,22 @@ table.dtbl tr:last-child td { border-bottom: none; }
 
 <!-- Lightbox for plant images -->
 <div id="eco-lightbox" onclick="ecoLightboxBgClick(event)">
-  <button id="eco-lightbox-close" onclick="ecoCloseLightbox()">×</button>
-  <button id="eco-lightbox-prev" onclick="event.stopPropagation();ecoLightboxNav(-1)">‹</button>
-  <img id="eco-lightbox-img" src="" alt="">
-  <button id="eco-lightbox-next" onclick="event.stopPropagation();ecoLightboxNav(1)">›</button>
-  <div id="eco-lightbox-counter"></div>
+  <div id="eco-lb-window" onclick="event.stopPropagation()">
+    <div id="eco-lb-bar">
+      <button onclick="ecoLightboxNav(-1)">‹</button>
+      <span id="eco-lb-counter"></span>
+      <button onclick="ecoLightboxNav(1)">›</button>
+      <span id="eco-lb-spacer"></span>
+      <button onclick="ecoLbZoomBy(-0.25)" title="축소">－</button>
+      <span id="eco-lb-zoom-pct">100%</span>
+      <button onclick="ecoLbZoomBy(0.25)" title="확대">＋</button>
+      <button onclick="ecoLbZoomFit()" title="화면에 맞춤">맞춤</button>
+      <button id="eco-lightbox-close" onclick="ecoCloseLightbox()">✕</button>
+    </div>
+    <div id="eco-lb-viewport">
+      <img id="eco-lightbox-img" src="" alt="">
+    </div>
+  </div>
 </div>
 
 <div id="pane-board" class="tab-pane">
@@ -699,6 +726,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <span class="bc-hint">도면/연출이미지 Ctrl+V로 붙여넣기</span>
     <label class="btn btn-sm" title="컨셉이미지 추가 (여러 장 가능)" style="cursor:pointer">+ 컨셉<input type="file" accept="image/*" multiple style="display:none" onchange="bcBgFileInput(event)"></label> <button class="btn btn-sm" onclick="bcClearBg()" title="컨셉 전체 삭제">🗑 컨셉</button>
     <button class="btn btn-sm btn-primary" onclick="bcExportWord()" title="구상판을 Word 파일로 저장">Word 저장</button>
+    <button class="btn btn-sm" onclick="bcSaveBoard()" title="구상판 상태 저장">💾 저장</button>
+    <label class="btn btn-sm" style="cursor:pointer" title="저장된 구상판 불러오기">📂 불러오기<input type="file" accept=".json" style="display:none" onchange="(async()=>{const f=this.files[0];if(!f)return;try{const t=await f.text();const d=JSON.parse(t);if(!d.v)throw new Error('형식 오류');BC.bgs=d.bgs||[];BC.nodes=d.nodes||[];BC.nextId=d.nextId||(Math.max(0,...(d.nodes||[]).map(n=>n.id))+1);BC.bgNextId=d.bgNextId||(Math.max(0,...(d.bgs||[]).map(b=>b.id))+1);bcRenderBgs();bcRender();showToast('불러오기 완료 ✓');}catch(e){showToast('실패: '+e.message);}this.value=''})()"></label>
   </div>
   <div id="bc-outer">
     <div id="bc-canvas">
@@ -2909,18 +2938,33 @@ let ecoLbPlantIdx = null, ecoLbImgIdx = null;
 function ecoOpenLightbox(plantIdx, imgIdx) {
   ecoLbPlantIdx = plantIdx;
   ecoLbImgIdx = imgIdx;
+  ecoLbScale = 1.0;
   ecoLightboxShow();
   document.getElementById('eco-lightbox').classList.add('open');
 }
+let ecoLbScale = 1.0;
 function ecoLightboxShow() {
   const p = plants[ecoLbPlantIdx];
   if (!p || !p.images) return;
   const imgs = p.images;
-  document.getElementById('eco-lightbox-img').src = imgs[ecoLbImgIdx] || '';
+  const img = document.getElementById('eco-lightbox-img');
+  img.onload = function() {
+    const vp = document.getElementById('eco-lb-viewport');
+    if (!vp) return;
+    const vw = vp.clientWidth - 20, vh = vp.clientHeight - 20;
+    const nw = img.naturalWidth || vw, nh = img.naturalHeight || vh;
+    img.style.width  = Math.min(nw, vw) + 'px';
+    img.style.height = 'auto';
+    img.style.transform = 'scale(1)';
+  };
+  img.src = imgs[ecoLbImgIdx] || '';
+  img.style.transform = 'scale(1)';
+  ecoLbScale = 1.0;
+  const pct = document.getElementById('eco-lb-zoom-pct');
+  if (pct) pct.textContent = '100%';
   const total = imgs.length;
-  document.getElementById('eco-lightbox-counter').textContent = total > 1 ? `${ecoLbImgIdx+1} / ${total}` : '';
-  document.getElementById('eco-lightbox-prev').style.display = (total > 1) ? 'flex' : 'none';
-  document.getElementById('eco-lightbox-next').style.display = (total > 1) ? 'flex' : 'none';
+  const ctr = document.getElementById('eco-lb-counter');
+  if (ctr) ctr.textContent = total > 1 ? `${ecoLbImgIdx+1}/${total}` : '';
 }
 function ecoLightboxNav(dir) {
   const p = plants[ecoLbPlantIdx];
@@ -2931,16 +2975,63 @@ function ecoLightboxNav(dir) {
 function ecoCloseLightbox() {
   document.getElementById('eco-lightbox').classList.remove('open');
 }
-function ecoLightboxBgClick(ev) {
-  if (ev.target === document.getElementById('eco-lightbox')) ecoCloseLightbox();
+function ecoLightboxBgClick(e) {
+  if (e.target === document.getElementById('eco-lightbox')) ecoCloseLightbox();
 }
+function ecoLbZoomBy(delta) {
+  ecoLbScale = Math.max(0.1, Math.min(8, ecoLbScale + delta));
+  const img = document.getElementById('eco-lightbox-img');
+  if (img) img.style.transform = `scale(${ecoLbScale})`;
+  const pct = document.getElementById('eco-lb-zoom-pct');
+  if (pct) pct.textContent = Math.round(ecoLbScale * 100) + '%';
+}
+function ecoLbZoomFit() {
+  ecoLbScale = 1.0;
+  const img = document.getElementById('eco-lightbox-img');
+  if (img) img.style.transform = 'scale(1)';
+  const pct = document.getElementById('eco-lb-zoom-pct');
+  if (pct) pct.textContent = '100%';
+  const vp = document.getElementById('eco-lb-viewport');
+  if (vp) { vp.scrollLeft = 0; vp.scrollTop = 0; }
+}
+// 스크롤 줌
+document.addEventListener('wheel', function(e) {
+  const vp = document.getElementById('eco-lb-viewport');
+  if (!vp || !vp.contains(e.target)) return;
+  if (!document.getElementById('eco-lightbox').classList.contains('open')) return;
+  e.preventDefault();
+  ecoLbZoomBy(e.deltaY < 0 ? 0.15 : -0.15);
+}, { passive: false });
+// 창 드래그 (타이틀바)
+(function() {
+  let drag = null;
+  document.addEventListener('mousedown', function(e) {
+    const bar = document.getElementById('eco-lb-bar');
+    if (!bar || !bar.contains(e.target)) return;
+    if (e.target.tagName === 'BUTTON') return;
+    const win = document.getElementById('eco-lb-window');
+    const rect = win.getBoundingClientRect();
+    drag = { sx: e.clientX, sy: e.clientY, ox: rect.left, oy: rect.top };
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!drag) return;
+    const win = document.getElementById('eco-lb-window');
+    win.style.left = Math.max(0, drag.ox + e.clientX - drag.sx) + 'px';
+    win.style.top  = Math.max(0, drag.oy + e.clientY - drag.sy) + 'px';
+  });
+  document.addEventListener('mouseup', function() { drag = null; });
+})();
 document.addEventListener('keydown', function(ev) {
   const lb = document.getElementById('eco-lightbox');
   if (!lb || !lb.classList.contains('open')) return;
   if (ev.key === 'ArrowLeft') ecoLightboxNav(-1);
   else if (ev.key === 'ArrowRight') ecoLightboxNav(1);
   else if (ev.key === 'Escape') ecoCloseLightbox();
+  else if (ev.key === '+' || ev.key === '=') ecoLbZoomBy(0.25);
+  else if (ev.key === '-') ecoLbZoomBy(-0.25);
 });
+
 
 // ── 식재 구상판 캔버스 ────────────────────────────────────────────────────────
 const BC = {
@@ -3104,6 +3195,46 @@ function bcCycleImg(id, dir) {
 }
 
 // ── Word 내보내기 (HTML→.doc 방식, 라이브러리 불필요) ──────────────────────
+
+// ── 구상판 저장/불러오기 ──────────────────────────────────────────────────
+function bcSaveBoard() {
+  // 이미지 데이터 포함한 전체 BC state 저장
+  const data = {
+    v: 1,
+    bgs: BC.bgs,
+    nodes: BC.nodes.map(n => ({
+      id: n.id, pi: n.pi, x: n.x, y: n.y, w: n.w, h: n.h||0,
+      imgIdx: n.imgIdx||0, ax: n.ax, ay: n.ay
+    })),
+    nextId: BC.nextId,
+    bgNextId: BC.bgNextId,
+  };
+  const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='구상판.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+  showToast('구상판 저장됨 ✓');
+}
+function bcLoadBoard() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = async function() {
+    const file = this.files[0]; if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.v) throw new Error('형식 오류');
+      BC.bgs = data.bgs || [];
+      BC.nodes = data.nodes || [];
+      BC.nextId = data.nextId || (Math.max(0, ...(data.nodes||[]).map(n=>n.id)) + 1);
+      BC.bgNextId = data.bgNextId || (Math.max(0, ...(data.bgs||[]).map(b=>b.id)) + 1);
+      bcRenderBgs();
+      bcRender();
+      showToast('구상판 불러오기 완료 ✓');
+    } catch(e) { showToast('불러오기 실패: ' + e.message); }
+  };
+  input.click();
+}
 async function bcExportWord() {
   showToast('캡처 중...');
   // html2canvas 로드
@@ -3117,11 +3248,22 @@ async function bcExportWord() {
     if (!window.html2canvas) return;
   }
 
+  // 콘텐츠 영역(노드+bg)의 bounding box 계산
+  const PAD = 40;
+  let minX=9999, minY=9999, maxX=0, maxY=0;
+  BC.bgs.forEach(b => { minX=Math.min(minX,b.x); minY=Math.min(minY,b.y); maxX=Math.max(maxX,b.x+b.w); maxY=Math.max(maxY,b.y+b.h); });
+  BC.nodes.forEach(n => { minX=Math.min(minX,n.x); minY=Math.min(minY,n.y); maxX=Math.max(maxX,n.x+n.w); maxY=Math.max(maxY,n.y+(n.h||180)); });
+  if (maxX===0 && maxY===0) { minX=0; minY=0; maxX=800; maxY=600; }
+  minX=Math.max(0,minX-PAD); minY=Math.max(0,minY-PAD); maxX+=PAD; maxY+=PAD;
+  const capW = maxX-minX, capH = maxY-minY;
   const boardEl = document.getElementById('bc-canvas');
   let imgDataUrl = '';
   try {
-    const sc = Math.min(1.5, 1200 / Math.max(boardEl.offsetWidth, 1));
-    const cvs = await html2canvas(boardEl, { backgroundColor:'#f0f0e8', scale: sc, useCORS:true, logging:false });
+    const sc = Math.min(2, 1600/Math.max(capW,1));
+    const cvs = await html2canvas(boardEl, {
+      backgroundColor:'#f0f0e8', scale:sc, useCORS:true, logging:false,
+      x:minX, y:minY, width:capW, height:capH
+    });
     imgDataUrl = cvs.toDataURL('image/png');
   } catch(err) { showToast('캡처 실패: ' + err.message); return; }
 
@@ -3217,7 +3359,8 @@ function bcRenderNode(n) {
   const imgs = p?.images || [];
   const imgIdx = Math.min(n.imgIdx||0, Math.max(0, imgs.length-1));
   const src = imgs[imgIdx] || '';
-  const info = [p?.height, p?.hardiness ? 'Z'+p.hardiness : '', p?.bloomMonths?.length ? (p.bloomMonths[0])+'월' : ''].filter(Boolean).join(' · ');
+  const flc = (p?.flowerColors||[]).slice(0,2).join('·') || '';
+  const info = [p?.height, flc, p?.bloomMonths?.length ? p.bloomMonths.map(m=>m+'월').join('~') : ''].filter(Boolean).join(' · ');
   const navHtml = imgs.length > 1
     ? `<div class="bc-node-nav">
         <button class="bc-nav-btn" onclick="bcCycleImg(${n.id},-1)">‹</button>
