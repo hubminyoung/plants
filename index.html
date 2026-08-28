@@ -879,6 +879,32 @@ function showToast(msg) {
 const plants = [];
 let activeTab = 'images';
 
+// ── plants localStorage 자동저장/복원 ────────────────────────────────────
+function plantsToLS() {
+  try {
+    // 이미지 탭에서 추가된 이미지(p.images)만 저장 (base64 포함)
+    const slim = plants.map(p => ({
+      name: p.name, korName: p.korName||'', latName: p.latName||'',
+      images: p.images||[],
+    }));
+    localStorage.setItem('식재리스트_imgs', JSON.stringify(slim));
+  } catch(e) { /* localStorage 용량 초과 시 무시 */ }
+}
+function plantsFromLS() {
+  try {
+    const raw = localStorage.getItem('식재리스트_imgs');
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    // 이미 로드된 plants에 이미지만 병합
+    saved.forEach(s => {
+      const p = plants.find(x =>
+        (x.latName || x.name) === (s.latName || s.name)
+      );
+      if (p && s.images?.length) p.images = s.images;
+    });
+  } catch(e) {}
+}
+
 // ── API helpers ───────────────────────────────────────────────────────────────
 async function wFetch(path, params = {}) {
   if (!CFG.worker) { console.warn('Worker URL 미설정'); return null; }
@@ -1132,7 +1158,7 @@ function parsePlants() {
 function mkPlant(name) {
   return {
     name, korName: '', latName: '', commonName: '', native: '', family: '',
-    mbgTaxonId: null, mbgStaticSlug: null, height: '', spreadStr: '', spreadM: null, flowerColors: [],
+    mbgTaxonId: null, mbgStaticSlug: null, height: '', spreadStr: '', spreadM: null, flowerColors: [], bloomColorRaw: '',
     bloomMonths: [], sunlight: [], hardiness: '',
     watering: '', maintenance: '', nativeRange: '', plantType: '',
     culture: '', noteworthy: '', uses: '', problems: '', tolerate: '',
@@ -1731,7 +1757,7 @@ function applyMbgDet(p, det) {
   }
   if (det.water)       p.watering    = det.water.toLowerCase();
   if (det.maintenance) p.maintenance = det.maintenance.toLowerCase();
-  if (det.bloomColor)  p.flowerColors = mbgExtractColors(det.bloomColor);
+  if (det.bloomColor)  { p.flowerColors = mbgExtractColors(det.bloomColor); p.bloomColorRaw = det.bloomColor; }
   if (det.bloomTime)   p.bloomMonths  = mbgMonthsToNums(det.bloomTime);
   if (!p.family && det.family) p.family = det.family;
   p.nativeRange = det.nativeRange || '';
@@ -1801,6 +1827,7 @@ function mbgMonthsToNums(str) {
 function renderAll() {
   renderChips();
   renderActiveTab();
+  plantsFromLS();
 }
 
 function renderChips() {
@@ -2924,6 +2951,7 @@ function ecoAddImgData(idx, dataUrl) {
   if (!p.images) p.images = [];
   if (p.images.length >= 10) { showToast('이미지는 최대 10장입니다.'); return; }
   p.images.push(dataUrl);
+  plantsToLS();
   renderActiveTab();
   showToast('이미지 추가됨 ✓');
 }
@@ -2946,6 +2974,7 @@ function ecoRemoveImg(idx, imgIdx) {
     p.hiddenImages.push(removed);
   }
   p.images.splice(imgIdx, 1);
+  plantsToLS();
   renderActiveTab();
 }
 
@@ -2988,6 +3017,7 @@ function ecoLbApplyZoom() {
   const img = document.getElementById('eco-lightbox-img');
   const vp  = document.getElementById('eco-lb-viewport');
   if (!img || !vp) return;
+  if (!img.naturalWidth) { setTimeout(ecoLbApplyZoom, 100); return; } // 이미지 로드 대기
   const nw = img.naturalWidth || 800;
   const vh = vp.clientHeight - 20;
   const vw = vp.clientWidth  - 20;
@@ -3014,14 +3044,21 @@ function ecoLbZoomFit() {
   const vp = document.getElementById('eco-lb-viewport');
   if (vp) { vp.scrollLeft = 0; vp.scrollTop = 0; }
 }
-// 스크롤 줌
-document.addEventListener('wheel', function(e) {
-  const vp = document.getElementById('eco-lb-viewport');
-  if (!vp || !vp.contains(e.target)) return;
-  if (!document.getElementById('eco-lightbox').classList.contains('open')) return;
-  e.preventDefault();
-  ecoLbZoomBy(e.deltaY < 0 ? 0.15 : -0.15);
-}, { passive: false });
+// 스크롤 줌 - viewport에 직접 등록해야 overflow:auto 보다 먼저 처리됨
+(function() {
+  function attachWheel() {
+    const vp = document.getElementById('eco-lb-viewport');
+    if (!vp) return;
+    vp.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      ecoLbZoomBy(e.deltaY < 0 ? 0.15 : -0.15);
+    }, { passive: false });
+  }
+  // DOM 로드 후 + 라이트박스 열릴 때도 재등록
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachWheel);
+  else attachWheel();
+})();
 // 창 드래그 (타이틀바)
 (function() {
   let drag = null; // {type:'move'|'resize-br'|'resize-r'|'resize-b', sx,sy, ox,oy, ow,oh}
@@ -3424,14 +3461,16 @@ function bcRenderNode(n) {
   const latN = p?.latName || p?.name || '';
   const korN = p?.korName || '';
   const displayName = korN && latN
-    ? `<span style="font-weight:700">${korN}</span><br><small style="color:#8aaa7a;font-size:0.75em">${latN}</small>`
-    : `<span style="font-weight:700">${korN || latN || '?'}</span>`;
+    ? `<b>${korN}</b><span style="color:#8aaa7a;font-size:0.78em;font-weight:normal"> (${latN})</span>`
+    : `<b>${korN || latN || '?'}</b>`;
   const imgs = p?.images || [];
   const imgIdx = Math.min(n.imgIdx||0, Math.max(0, imgs.length-1));
   const src = imgs[imgIdx] || '';
-  const flc = (p?.flowerColors||[]).slice(0,2).join('·')
-    || (p?.bloomColor ? p.bloomColor.replace(/[,;]/g,' ').trim().split(/\s+/).slice(0,2).join(' ') : '');
-  const bloomStr = p?.bloomMonths?.length ? p.bloomMonths[0]+'~'+p.bloomMonths[p.bloomMonths.length-1]+'월' : '';
+  const flc = (p?.flowerColors||[]).slice(0,3).join('/') 
+    || (p?.bloomColorRaw ? p.bloomColorRaw.split(/[,;]/)[0].trim() : '');
+  const bloomStr = p?.bloomMonths?.length
+    ? (p.bloomMonths.length===1 ? p.bloomMonths[0]+'월' : p.bloomMonths[0]+'~'+p.bloomMonths[p.bloomMonths.length-1]+'월')
+    : '';
   const info = [p?.height, flc, bloomStr].filter(Boolean).join(' · ');
   const navHtml = imgs.length > 1
     ? `<div class="bc-node-nav">
