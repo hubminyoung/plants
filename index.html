@@ -738,8 +738,10 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <span class="bc-hint">도면/연출이미지 Ctrl+V로 붙여넣기</span>
     <label class="btn btn-sm" title="컨셉이미지 추가 (여러 장 가능)" style="cursor:pointer">+ 컨셉<input type="file" accept="image/*" multiple style="display:none" onchange="bcBgFileInput(event)"></label> <button class="btn btn-sm" onclick="bcClearBg()" title="컨셉 전체 삭제">🗑 컨셉</button>
     <button class="btn btn-sm btn-primary" onclick="bcExportWord()" title="구상판 전체를 PNG 이미지로 저장">이미지 저장</button>
-    <button class="btn btn-sm" onclick="bcSaveBoard()" title="구상판 상태 저장">💾 저장</button>
-    <button class="btn btn-sm" onclick="bcLoadBoard()" title="저장된 구상판 불러오기">📂 불러오기</button>
+    <button class="btn btn-sm" onclick="bcSaveBoard()" title="클라우드 저장">☁️ 저장</button>
+    <button class="btn btn-sm" onclick="bcLoadBoard()" title="클라우드에서 불러오기">☁️ 불러오기</button>
+    <button class="btn btn-sm" onclick="bcSavePc()" title="PC JSON 파일로 저장">💾 PC저장</button>
+    <label class="btn btn-sm" title="PC JSON 파일 불러오기" style="cursor:pointer">📂 PC불러오기<input type="file" accept=".json" style="display:none" onchange="bcLoadPc(event)"></label>
   </div>
   <div id="bc-plant-panel" style="display:none"></div>
   <div id="bc-outer">
@@ -898,16 +900,8 @@ function plantsToLS() {
   } catch(e) { /* 용량 초과 시 무시 */ }
 }
 function plantsFromLS() {
+  // 이미지만 복원 (식물 목록 자동 생성 없음)
   try {
-    // 식물 목록이 비어있으면 저장된 목록으로 복원
-    if (!plants.length) {
-      const listRaw = localStorage.getItem('식재리스트_list');
-      if (listRaw) {
-        const listData = JSON.parse(listRaw);
-        listData.forEach(d => plants.push(Object.assign(mkPlant(d.name||''), d)));
-      }
-    }
-    // 이미지 복원
     const raw = localStorage.getItem('식재리스트_imgs');
     if (!raw) return;
     const saved = JSON.parse(raw);
@@ -3490,15 +3484,10 @@ function bcCycleImg(id, dir) {
 
 // ── 구상판 저장/불러오기 ──────────────────────────────────────────────────
 function bcBoardData() {
-  // 이미지(base64)는 KV 저장에서 제외 → localStorage에서 별도 복원
-  const plantsNoImg = plants.map(p => {
-    const { images, ...rest } = p;
-    return rest;
-  });
   return {
-    v: 2,
-    plants: plantsNoImg,
-    bgs: BC.bgs, // 컨셉이미지는 다른 저장소 없으므로 유지
+    v: 3,
+    plants: plants.map(p => ({ ...p, images: p.images||[] })),
+    bgs: BC.bgs,
     nodes: BC.nodes.map(n => ({ id:n.id, pi:n.pi, x:n.x, y:n.y, w:n.w, h:n.h||0, imgIdx:n.imgIdx||0, ax:n.ax, ay:n.ay })),
     nextId: BC.nextId,
     bgNextId: BC.bgNextId,
@@ -3508,14 +3497,15 @@ function bcRestoreData(data) {
   if (data.plants?.length) {
     plants.length = 0;
     data.plants.forEach(p => plants.push(p));
-    // localStorage에서 이미지 복원
-    if (typeof plantsFromLS === 'function') plantsFromLS();
-    renderPlantList?.();
+    // v3+: 이미지가 data에 포함됨. 구버전 호환: localStorage에서 복원
+    if ((data.v||1) < 3 && typeof plantsFromLS === 'function') plantsFromLS();
+    plantsToLS(); // 불러온 이미지를 localStorage에도 동기화
   }
   BC.bgs = data.bgs || [];
   BC.nodes = data.nodes || [];
-  BC.nextId = data.nextId || (Math.max(0, ...(data.nodes||[]).map(n=>n.id), 0) + 1);
-  BC.bgNextId = data.bgNextId || (Math.max(0, ...(data.bgs||[]).map(b=>b.id), 0) + 1);
+  BC.nextId = data.nextId || (Math.max(0, ...(data.nodes||[]).map(n=>n.id||0), 0) + 1);
+  BC.bgNextId = data.bgNextId || (Math.max(0, ...(data.bgs||[]).map(b=>b.id||0), 0) + 1);
+  renderChips();
   bcRenderBgs();
   bcRender();  bcPushHistory();
 }
@@ -3542,6 +3532,30 @@ async function bcLoadBoard() {
     bcRestoreData(data);
     showToast('☁️ 불러오기 완료 ✓ 식물 ' + plants.length + '종, 카드 ' + BC.nodes.length + '개');
   } catch(e) { showToast('불러오기 실패: ' + e.message); }
+}
+function bcSavePc() {
+  const data = bcBoardData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '식재구상판_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  showToast('PC 저장 완료 ✓');
+}
+function bcLoadPc(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      bcRestoreData(data);
+      showToast('PC 불러오기 완료 ✓ 식물 ' + plants.length + '종, 카드 ' + BC.nodes.length + '개');
+    } catch(err) { showToast('불러오기 실패: ' + err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
 }
 async function bcExportWord() {
   showToast('캡처 중...');
