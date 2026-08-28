@@ -1922,7 +1922,8 @@ function imgRow(p, pi) {
 
   return `<div class="img-plant-row" data-pi="${pi}" onclick="imgSetActive(${pi})">
     <div class="img-plant-header">
-      <a class="img-plant-name" href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener" onclick="event.stopPropagation()">${primary}</a>
+      <span class="img-plant-name">${primary}</span>
+      <a href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="구글 이미지 검색" style="font-size:0.82rem;color:#52b788;text-decoration:none;flex-shrink:0">🔍</a>
       ${secondary ? `<span class="img-plant-lat">| <em>${secondary}</em></span>` : ''}
       ${badges ? `<span style="margin-left:auto;display:flex;gap:0.3rem;align-items:center">${badges}</span>` : ''}
       <label class="btn btn-sm" style="cursor:pointer;padding:2px 8px;font-size:0.72rem;margin-left:0.4rem" title="파일 또는 구글 이미지에서 복사 후 Ctrl+V" onclick="event.stopPropagation();imgSetActive(${pi})">
@@ -3276,50 +3277,51 @@ function bcCycleImg(id, dir) {
 // ── Word 내보내기 (HTML→.doc 방식, 라이브러리 불필요) ──────────────────────
 
 // ── 구상판 저장/불러오기 ──────────────────────────────────────────────────
-function bcSaveBoard() {
-  const data = {
+function bcBoardData() {
+  return {
     v: 2,
-    plants: plants,          // 식물 목록 전체 (이미지 URL 포함)
+    plants: plants,
     bgs: BC.bgs,
-    nodes: BC.nodes.map(n => ({
-      id: n.id, pi: n.pi, x: n.x, y: n.y, w: n.w, h: n.h||0,
-      imgIdx: n.imgIdx||0, ax: n.ax, ay: n.ay
-    })),
+    nodes: BC.nodes.map(n => ({ id:n.id, pi:n.pi, x:n.x, y:n.y, w:n.w, h:n.h||0, imgIdx:n.imgIdx||0, ax:n.ax, ay:n.ay })),
     nextId: BC.nextId,
     bgNextId: BC.bgNextId,
   };
-  const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='구상판.json'; a.click();
-  setTimeout(()=>URL.revokeObjectURL(url), 3000);
-  showToast('구상판 저장됨 ✓');
 }
-function bcLoadBoard() {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json';
-  input.onchange = async function() {
-    const file = this.files[0]; if (!file) return;
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      if (!data.v) throw new Error('형식 오류');
-      // 식물 목록 복원
-      if (data.plants && data.plants.length) {
-        plants.length = 0;
-        data.plants.forEach(p => plants.push(p));
-        renderPlantList();
-      }
-      // 보드 상태 복원
-      BC.bgs = data.bgs || [];
-      BC.nodes = data.nodes || [];
-      BC.nextId = data.nextId || (Math.max(0, ...(data.nodes||[]).map(n=>n.id), 0) + 1);
-      BC.bgNextId = data.bgNextId || (Math.max(0, ...(data.bgs||[]).map(b=>b.id), 0) + 1);
-      bcRenderBgs();
-      bcRender();
-      showToast('불러오기 완료 ✓ 식물 ' + plants.length + '종, 카드 ' + BC.nodes.length + '개');
-    } catch(e) { showToast('불러오기 실패: ' + e.message); }
-  };
-  input.click();
+function bcRestoreData(data) {
+  if (data.plants?.length) {
+    plants.length = 0;
+    data.plants.forEach(p => plants.push(p));
+    renderPlantList?.();
+  }
+  BC.bgs = data.bgs || [];
+  BC.nodes = data.nodes || [];
+  BC.nextId = data.nextId || (Math.max(0, ...(data.nodes||[]).map(n=>n.id), 0) + 1);
+  BC.bgNextId = data.bgNextId || (Math.max(0, ...(data.bgs||[]).map(b=>b.id), 0) + 1);
+  bcRenderBgs();
+  bcRender();
+}
+
+async function bcSaveBoard() {
+  showToast('저장 중...');
+  try {
+    const body = JSON.stringify(bcBoardData());
+    const r = await fetch(WORKER_DEFAULT + '/api/board/save', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body
+    });
+    const d = await r.json();
+    if (d.ok) showToast('☁️ 클라우드 저장 완료 ✓ (' + Math.round(body.length/1024) + 'KB)');
+    else showToast('저장 실패: ' + d.error);
+  } catch(e) { showToast('저장 실패: ' + e.message); }
+}
+async function bcLoadBoard() {
+  showToast('불러오는 중...');
+  try {
+    const r = await fetch(WORKER_DEFAULT + '/api/board/load');
+    const data = await r.json();
+    if (data.ok === false) { showToast('저장된 구상판 없음: ' + data.error); return; }
+    bcRestoreData(data);
+    showToast('☁️ 불러오기 완료 ✓ 식물 ' + plants.length + '종, 카드 ' + BC.nodes.length + '개');
+  } catch(e) { showToast('불러오기 실패: ' + e.message); }
 }
 async function bcExportWord() {
   showToast('캡처 중...');
