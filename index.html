@@ -3015,6 +3015,11 @@ function ecoAddImgData(idx, dataUrl) {
   const p = plants[idx];
   if (!p) return;
   if (!p.images) p.images = [];
+  // imageUrl이 있으면 images[]로 흡수
+  if (p.imageUrl && !p.images.includes(p.imageUrl)) {
+    p.images.unshift(p.imageUrl);
+    p.imageUrl = '';
+  }
   if (p.images.length >= 10) { showToast('이미지는 최대 10장입니다.'); return; }
   // 큰 이미지는 800px로 리사이즈해서 localStorage 용량 절약
   if (dataUrl.startsWith('data:')) {
@@ -3055,13 +3060,25 @@ function ecoAddImgFile(event, idx) {
 
 function ecoRemoveImg(idx, imgIdx) {
   const p = plants[idx];
-  if (!p || !p.images) return;
-  const removed = p.images[imgIdx];
-  if (removed && !removed.startsWith('data:')) {
+  if (!p) return;
+  if (!p.images) p.images = [];
+  // 표시 중인 이미지 목록 (imgRow와 동일 로직)
+  const imgs = p.images.length ? p.images : (p.imageUrl ? [p.imageUrl] : []);
+  const removed = imgs[imgIdx];
+  if (!removed) return;
+  if (p.images.length) {
+    // p.images에서 제거
+    if (!removed.startsWith('data:')) {
+      if (!p.hiddenImages) p.hiddenImages = [];
+      p.hiddenImages.push(removed);
+    }
+    p.images.splice(imgIdx, 1);
+  } else {
+    // imageUrl에서 온 이미지 — 숨김 처리
     if (!p.hiddenImages) p.hiddenImages = [];
-    p.hiddenImages.push(removed);
+    p.hiddenImages.push(p.imageUrl);
+    p.imageUrl = '';
   }
-  p.images.splice(imgIdx, 1);
   plantsToLS();
   renderActiveTab();
 }
@@ -3955,13 +3972,7 @@ function renderDotView() {
   window.dvRebuild(mapped.length ? mapped : (window.SP_PLANTS || []));
 }
 
-// 페이지 최초 로드 시 이전 세션 식물 목록 복원
-(function initFromLS() {
-  try {
-    plantsFromLS(true); // 식물목록 + 이미지 모두 복원
-    if (plants.length > 0) { renderChips(); renderActiveTab(); }
-  } catch(e) { console.error('initFromLS:', e); }
-})();
+// 자동복원 없음 — 항상 빈 상태에서 시작. 📂 PC불러오기로 복원.
 </script>
 </body>
 </html>
