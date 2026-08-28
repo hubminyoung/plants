@@ -2190,6 +2190,12 @@ function mbgHref(p) {
   return 'https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=' + encodeURIComponent(q);
 }
 
+function escA(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function renderEcology() {
   const el = document.getElementById('eco-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div>'; return; }
@@ -3929,16 +3935,7 @@ function renderDotView() {
   window.dvRebuild(mapped.length ? mapped : (window.SP_PLANTS || []));
 }
 
-// ── 페이지 최초 로드 시 식물 목록 복원 ────────────────────────────────────
-(function initFromLS() {
-  try {
-    plantsFromLS(); // 식물 목록 + 이미지 복원
-    if (plants.length > 0) {
-      renderChips();
-      renderActiveTab();
-    }
-  } catch(e) { console.error('initFromLS:', e); }
-})();
+// 자동 복원 비활성화: 페이지를 새로 열면 항상 빈 상태에서 시작
 </script>
 </body>
 </html>
