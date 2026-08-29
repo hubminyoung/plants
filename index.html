@@ -883,13 +883,26 @@ function plantsToLS() {
   // 1) 이미지 저장 (식재리스트_imgs)
   // API 이미지(http: URL)는 loadPlant이 매번 재로딩하므로 저장 불필요.
   // data: URL(직접 추가)과 hiddenImages(삭제 기록)만 저장 → localStorage 용량 절약.
+  // 기존 데이터와 병합 — 현재 세션에 없는 식물 이미지도 보존.
   try {
-    const slim = plants.map(p => ({
-      name: p.name, korName: p.korName||'', latName: p.latName||'',
-      images: (p.images||[]).filter(u => u.startsWith('data:')),
-      hiddenImages: p.hiddenImages||[],
-    }));
-    localStorage.setItem('식재리스트_imgs', JSON.stringify(slim));
+    const existing = JSON.parse(localStorage.getItem('식재리스트_imgs') || '[]');
+    // 현재 메모리의 식물로 기존 항목 갱신 (없으면 추가)
+    const merged = [...existing];
+    plants.forEach(p => {
+      const key = (s) =>
+        (p.latName && s.latName && s.latName === p.latName) ||
+        (p.korName && s.korName && s.korName === p.korName) ||
+        (s.name && p.name && s.name === p.name);
+      const idx = merged.findIndex(key);
+      const entry = {
+        name: p.name, korName: p.korName||'', latName: p.latName||'',
+        images: (p.images||[]).filter(u => u.startsWith('data:')),
+        hiddenImages: p.hiddenImages||[],
+      };
+      if (idx >= 0) merged[idx] = entry;
+      else merged.push(entry);
+    });
+    localStorage.setItem('식재리스트_imgs', JSON.stringify(merged));
   } catch(e) { /* 완전 실패 — 용량 너무 부족 */ }
 
   try {
