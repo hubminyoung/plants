@@ -140,9 +140,10 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .gal-img-wrap.dragging { opacity: 0.4; }
 .gal-del-btn { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.55); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; opacity: 0; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2; }
 .gal-img {
-  width: 140px; height: 105px; object-fit: cover;
+  max-width: 200px; max-height: 160px; width: auto; height: auto;
+  object-fit: contain; background: #f5f8f3;
   border-radius: 6px; flex-shrink: 0; cursor: pointer;
-  border: 1px solid #e0e8da; transition: 0.15s;
+  border: 1px solid #e0e8da; transition: 0.15s; display: block;
 }
 .gal-img:hover { opacity: 0.85; transform: scale(1.03); }
 .gal-placeholder {
@@ -3251,7 +3252,7 @@ function bcUndo() {
   const s = JSON.parse(bcHistory[bcHistIdx]);
   BC.bgs = s.bgs; BC.nodes = s.nodes; BC.nextId = s.nextId; BC.bgNextId = s.bgNextId;
   BC.selectedIds = []; BC.selectedId = null;
-  bcRenderBoard(); showToast('실행취소 ↩');
+  bcRenderBgs(); bcRender(); showToast('실행취소 ↩');
 }
 function bcRedo() {
   if (bcHistIdx >= bcHistory.length - 1) { showToast('더 이상 다시실행 없음'); return; }
@@ -3259,7 +3260,7 @@ function bcRedo() {
   const s = JSON.parse(bcHistory[bcHistIdx]);
   BC.bgs = s.bgs; BC.nodes = s.nodes; BC.nextId = s.nextId; BC.bgNextId = s.bgNextId;
   BC.selectedIds = []; BC.selectedId = null;
-  bcRenderBoard(); showToast('다시실행 ↪');
+  bcRenderBgs(); bcRender(); showToast('다시실행 ↪');
 }
 document.addEventListener('keydown', function(e) {
   const active = document.querySelector('.tab-pane.active');
@@ -3972,7 +3973,13 @@ function renderDotView() {
   window.dvRebuild(mapped.length ? mapped : (window.SP_PLANTS || []));
 }
 
-// 자동복원 없음 — 항상 빈 상태에서 시작. 📂 PC불러오기로 복원.
+// 페이지 로드: 이전 세션 식물목록 + 이미지 복원
+(function initFromLS() {
+  try {
+    plantsFromLS(true);
+    if (plants.length > 0) { renderChips(); renderActiveTab(); }
+  } catch(e) { console.error('initFromLS:', e); }
+})();
 </script>
 </body>
 </html>
