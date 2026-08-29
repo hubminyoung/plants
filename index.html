@@ -881,20 +881,16 @@ let activeTab = 'images';
 // ── plants localStorage 자동저장/복원 ────────────────────────────────────
 function plantsToLS() {
   // 1) 이미지 저장 (식재리스트_imgs)
-  // 1차: 전체 저장 시도
-  const mkSlim = (keepData) => plants.map(p => ({
-    name: p.name, korName: p.korName||'', latName: p.latName||'',
-    images: keepData ? (p.images||[]) : (p.images||[]).filter(u => !u.startsWith('data:')),
-    hiddenImages: p.hiddenImages||[],
-  }));
+  // API 이미지(http: URL)는 loadPlant이 매번 재로딩하므로 저장 불필요.
+  // data: URL(직접 추가)과 hiddenImages(삭제 기록)만 저장 → localStorage 용량 절약.
   try {
-    localStorage.setItem('식재리스트_imgs', JSON.stringify(mkSlim(true)));
-  } catch(e) {
-    // 2차: data: URL 제외하고 재시도 (hiddenImages·삭제 기록은 항상 보존)
-    try {
-      localStorage.setItem('식재리스트_imgs', JSON.stringify(mkSlim(false)));
-    } catch(e2) { /* 완전 실패 — 용량 너무 부족 */ }
-  }
+    const slim = plants.map(p => ({
+      name: p.name, korName: p.korName||'', latName: p.latName||'',
+      images: (p.images||[]).filter(u => u.startsWith('data:')),
+      hiddenImages: p.hiddenImages||[],
+    }));
+    localStorage.setItem('식재리스트_imgs', JSON.stringify(slim));
+  } catch(e) { /* 완전 실패 — 용량 너무 부족 */ }
 
   try {
     // 2) 식물 목록(이미지 제외) 저장 (식재리스트_list)
@@ -1876,7 +1872,8 @@ function restoreImgForPlant(p) {
       (s.name && p.name && p.name === s.name)
     );
     if (!s) return;
-    if (s.images?.length) p.images = [...s.images];
+    // data: URL만 복원 (http: URL은 loadPlant이 재로딩)
+    if (s.images?.length) p.images = s.images.filter(u => u.startsWith('data:'));
     if (s.hiddenImages?.length) p.hiddenImages = [...s.hiddenImages];
   } catch(e) {}
 }
