@@ -461,8 +461,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 /* ── 구상판 캔버스 ── */
 .bc-toolbar { display:flex;align-items:center;gap:0.4rem;padding:0.6rem 1rem;border-bottom:1px solid #e8f0e4;flex-wrap:wrap; }
 .bc-hint { font-size:0.72rem;color:#aaa; }
-#bc-outer { flex:1;overflow:auto;background:#e8e8e0;min-height:500px;position:relative;cursor:grab; }
-#bc-canvas { position:relative;width:3000px;height:2000px;background:#f0f0e8; }
+#bc-outer { flex:1;overflow:auto;background:#d0d0cc;min-height:500px;position:relative;cursor:grab; }
+#bc-canvas { position:relative;width:3000px;height:2000px;background:#ffffff; }
 #bc-bg-hint { position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;font-size:0.9rem;text-align:center;line-height:2;pointer-events:auto; }
 #bc-bg-img { display:block;max-width:100%;user-select:none;pointer-events:none; }
 .bc-bg-layer { position:absolute;cursor:move;z-index:1;border:1.5px dashed #aab8a0;box-sizing:border-box; }
@@ -3606,7 +3606,7 @@ async function bcExportWord() {
   try {
     const sc = Math.min(2, 2400/Math.max(capW,1));
     const cvs = await html2canvas(boardEl, {
-      backgroundColor:'#f0f0e8', scale:sc, useCORS:true, allowTaint:true, logging:false,
+      backgroundColor:'#ffffff', scale:sc, useCORS:true, allowTaint:true, logging:false,
       x:minX, y:minY, width:capW, height:capH
     });
     const url = URL.createObjectURL(await new Promise(res => cvs.toBlob(res, 'image/png')));
@@ -3973,7 +3973,7 @@ function renderDotView() {
   window.dvRebuild(mapped.length ? mapped : (window.SP_PLANTS || []));
 }
 
-// 페이지 로드: 이전 세션 식물목록 + 이미지 복원
+// 페이지 로드: 식물목록 + 이미지 항상 복원. 초기화하려면 "초기화" 버튼 사용.
 (function initFromLS() {
   try {
     plantsFromLS(true);
