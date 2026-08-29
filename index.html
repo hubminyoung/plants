@@ -3999,13 +3999,8 @@ function renderDotView() {
   window.dvRebuild(mapped.length ? mapped : (window.SP_PLANTS || []));
 }
 
-// 페이지 로드: 이미지만 메모리에 준비. 식물목록은 복원 안 함 (매번 새로 검색).
-(function initFromLS() {
-  try {
-    // images는 plantsFromLS가 plants 배열 기준으로 복원하므로 여기선 별도 로드 불필요.
-    // 식물 추가 시 renderAll() → plantsFromLS(false)로 이미지 자동 복원됨.
-  } catch(e) { console.error('initFromLS:', e); }
-})();
+// 페이지 로드: 식물목록 복원 안 함 (매번 새로 검색).
+// 이미지는 식물 추가 시 restoreImgForPlant()로 복원됨.
 </script>
 </body>
 </html>
