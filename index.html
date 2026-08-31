@@ -1252,7 +1252,7 @@ function mkPlant(name) {
   };
 }
 
-function addPlant() {
+async function addPlant() {
   const inp = document.getElementById('addInput');
   const n = inp.value.trim();
   if (!n || plants.find(p => p.name === n)) { inp.focus(); return; }
@@ -1262,8 +1262,9 @@ function addPlant() {
   inp.value = '';
   plantsToLS();
   renderAll();
+  await restoreImgFromR2(p);  // R2 복원 먼저 (hiddenImages + data URL 확보 후 loadPlant 실행)
+  renderActiveTab();
   loadPlant(p);
-  restoreImgFromR2(p).then(() => renderActiveTab()).catch(() => {});  // R2 복원 (신뢰성)
 }
 
 function removePlant(name) {
