@@ -50,6 +50,11 @@ export default {
       else if (pathname === '/api/mbg/queue/add')       data = await mbgQueueAdd(req, env);
       else if (pathname === '/api/mbg/queue/clear')     data = await mbgQueueClear(env);
       else if (pathname === '/api/mbg/kv-save')         data = await mbgKvSave(req, env);
+      else if (pathname === '/api/board/save')  data = await boardSave(req, env);
+      else if (pathname === '/api/board/load')  data = await boardLoad(req, env);
+      else if (pathname === '/api/img/save')    data = await imgSave(req, env);
+      else if (pathname === '/api/img/load')    data = await imgLoad(searchParams, env);
+      else if (pathname === '/api/ai/plant')            data = await aiPlantData(searchParams, env);
       else return new Response('Not found', { status: 404, headers: CORS });
 
       return new Response(JSON.stringify(data), {
@@ -2398,4 +2403,100 @@ async function mbgBatchScript(params, env, req) {
   return new Response(script, {
     headers: { ...CORS, 'Content-Type': 'text/javascript; charset=utf-8' }
   });
+}
+
+// AI 식물 케어 데이터 생성 (Cloudflare Workers AI)
+async function aiPlantData(params, env) {
+  const q = (params.get('q') ?? '').trim();
+  if (!q) return { error: 'q required' };
+  if (!env?.AI) return { error: 'AI binding not available' };
+
+  // KV 캐시 확인
+  const cacheKey = 'ai_plant_' + q.toLowerCase().replace(/\s+/g, '_').slice(0, 60);
+  if (env.PLANT_DATA) {
+    try {
+      const cached = await env.PLANT_DATA.get(cacheKey, { type: 'json' });
+      if (cached) return { ...cached, fromCache: true };
+    } catch(_) {}
+  }
+
+  const prompt = `You are a horticultural database. For the plant "${q}", provide ONLY a JSON object with these exact keys (no explanation, no markdown, just raw JSON):
+{
+  "commonName": "common English name",
+  "zone": "USDA hardiness zone range e.g. 4-8",
+  "bloomTime": "months e.g. June to August",
+  "bloomColor": "flower color description",
+  "sun": "Full sun / Part shade / Full shade",
+  "water": "Low / Medium / High",
+  "maintenance": "Low / Medium / High",
+  "tolerate": "what it tolerates e.g. drought, deer",
+  "plantType": "Perennial / Annual / Shrub / Tree etc",
+  "nativeRange": "native region",
+  "culture": "2-3 sentence growing description",
+  "noteworthy": "1-2 sentence noteworthy characteristics"
+}
+If unknown, use empty string "".`;
+
+  try {
+    const resp = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 500,
+    });
+    const text = resp.response || '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return { error: 'no JSON in response', raw: text.slice(0, 200) };
+    const data = JSON.parse(match[0]);
+    data.fromAI = true;
+
+    // KV에 캐시 저장 (90일)
+    if (env.PLANT_DATA) {
+      try { await env.PLANT_DATA.put(cacheKey, JSON.stringify(data), { expirationTtl: 60*60*24*90 }); } catch(_) {}
+    }
+    return data;
+  } catch(e) {
+    return { error: e.message };
+  }
+}
+
+// ── 구상판 KV 저장/불러오기 ────────────────────────────────────────────────
+async function boardSave(req, env) {
+  if (!env?.PLANT_DATA) return { ok: false, error: 'KV not available' };
+  const body = await req.text();
+  if (body.length > 24 * 1024 * 1024) return { ok: false, error: 'too large (max 24MB)' };
+  await env.PLANT_DATA.put('board_main', body, { expirationTtl: 60 * 60 * 24 * 365 });
+  return { ok: true, size: body.length };
+}
+async function boardLoad(req, env) {
+  if (!env?.PLANT_DATA) return { ok: false, error: 'KV not available' };
+  const val = await env.PLANT_DATA.get('board_main');
+  if (!val) return { ok: false, error: 'no saved board' };
+  return JSON.parse(val);
+}
+
+// ── 식물 이미지 R2 저장/불러오기 ──────────────────────────────────────────────
+function imgR2Key(plant) {
+  return 'images/' + plant.trim().toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-');
+}
+async function imgSave(req, env) {
+  if (!env?.PLANT_IMGS) return { error: 'R2 not bound' };
+  const body = await req.json();
+  const plant = (body.plant ?? '').trim();
+  if (!plant) return { error: 'plant required' };
+  const data = {
+    images: (body.images || []).filter(u => typeof u === 'string' && u.startsWith('data:')),
+    hiddenImages: body.hiddenImages || [],
+    updatedAt: new Date().toISOString(),
+  };
+  await env.PLANT_IMGS.put(imgR2Key(plant), JSON.stringify(data), {
+    httpMetadata: { contentType: 'application/json' }
+  });
+  return { ok: true };
+}
+async function imgLoad(params, env) {
+  if (!env?.PLANT_IMGS) return { images: [], hiddenImages: [] };
+  const plant = (params.get('plant') ?? '').trim();
+  if (!plant) return { images: [], hiddenImages: [] };
+  const obj = await env.PLANT_IMGS.get(imgR2Key(plant));
+  if (!obj) return { images: [], hiddenImages: [] };
+  return await obj.json();
 }
