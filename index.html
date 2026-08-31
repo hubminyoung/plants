@@ -878,6 +878,43 @@ function showToast(msg) {
 const plants = [];
 let activeTab = 'images';
 
+// ── R2 이미지 저장/복원 ───────────────────────────────────────────────────
+async function saveImgToR2(p) {
+  if (!CFG.worker) return;
+  try {
+    const pw = localStorage.getItem('appPassword') || '';
+    await fetch(CFG.worker + '/api/img/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(pw ? {'x-app-password': pw} : {}) },
+      body: JSON.stringify({
+        plant: p.name,
+        images: (p.images||[]).filter(u => u.startsWith('data:')),
+        hiddenImages: p.hiddenImages||[],
+      }),
+    });
+  } catch(e) {}
+}
+async function restoreImgFromR2(p) {
+  if (!CFG.worker) return;
+  try {
+    const pw = localStorage.getItem('appPassword') || '';
+    const r = await fetch(CFG.worker + '/api/img/load?plant=' + encodeURIComponent(p.name), {
+      headers: pw ? {'x-app-password': pw} : {}
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.images?.length) {
+      const dataUrls = data.images.filter(u => u.startsWith('data:'));
+      if (dataUrls.length) {
+        // data: URL만 교체 (API 이미지는 유지)
+        p.images = [...dataUrls, ...(p.images||[]).filter(u => !u.startsWith('data:'))];
+        plantsToLS();
+      }
+    }
+    if (data.hiddenImages?.length) p.hiddenImages = [...data.hiddenImages];
+  } catch(e) {}
+}
+
 // ── plants localStorage 자동저장/복원 ────────────────────────────────────
 function plantsToLS() {
   // 1) 이미지 저장 (식재리스트_imgs)
@@ -905,14 +942,9 @@ function plantsToLS() {
     localStorage.setItem('식재리스트_imgs', JSON.stringify(merged));
   } catch(e) { /* 완전 실패 — 용량 너무 부족 */ }
 
-  try {
-    // 2) 식물 목록(이미지 제외) 저장 (식재리스트_list)
-    const listData = plants.map(p => {
-      const { images, hiddenImages, ...rest } = p;
-      return rest;
-    });
-    localStorage.setItem('식재리스트_list', JSON.stringify(listData));
-  } catch(e) { /* 용량 초과 시 무시 */ }
+  // 식재리스트_list 는 더 이상 저장하지 않음 (식물목록은 매번 새로 검색)
+  // 기존 데이터 정리
+  try { localStorage.removeItem('식재리스트_list'); } catch(e) {}
 }
 function plantsFromLS(restorePlants) {
   try {
@@ -1226,11 +1258,12 @@ function addPlant() {
   if (!n || plants.find(p => p.name === n)) { inp.focus(); return; }
   const p = mkPlant(n);
   plants.push(p);
-  restoreImgForPlant(p);  // 이미지 최초 1회 복원
+  restoreImgForPlant(p);  // localStorage 캐시 (빠름)
   inp.value = '';
   plantsToLS();
   renderAll();
   loadPlant(p);
+  restoreImgFromR2(p).then(() => renderActiveTab()).catch(() => {});  // R2 복원 (신뢰성)
 }
 
 function removePlant(name) {
@@ -2034,6 +2067,7 @@ function galDrop(e, pi, ii) {
   const [moved] = p.images.splice(galDragSrc.ii, 1);
   p.images.splice(ii, 0, moved);
   plantsToLS();
+  saveImgToR2(p);
   renderActiveTab();
   galDragSrc = null;
 }
@@ -3076,7 +3110,8 @@ function ecoAddImgData(idx, dataUrl) {
         finalUrl = canvas.toDataURL('image/jpeg', 0.82);
       }
       p.images.push(finalUrl);
-      try { plantsToLS(); } catch(e) { showToast('⚠️ 저장 용량 부족 - 이번 세션에만 유지'); }
+      try { plantsToLS(); } catch(e) {}
+      saveImgToR2(p);
       renderActiveTab();
       showToast('이미지 추가됨 ✓');
     };
@@ -3120,6 +3155,7 @@ function ecoRemoveImg(idx, imgIdx) {
     p.imageUrl = '';
   }
   plantsToLS();
+  saveImgToR2(p);
   renderActiveTab();
 }
 
