@@ -1335,11 +1335,14 @@ async function loadPlant(p) {
 
   const hidden = new Set(p.hiddenImages || []);
   const autoUrls = photos.map(ph => ph.url).filter(url => !hidden.has(url));
-  // 기존 유저 추가 이미지(base64) 보존 + 새 자동 이미지 병합
-  const existingUrls = new Set((p.images||[]).map(u => u));
+  // 유저 추가 이미지(data: URL) 우선 보존 — API 이미지는 뒤에 추가
+  const userImgs = (p.images||[]).filter(u => u.startsWith('data:'));
+  const apiImgs  = (p.images||[]).filter(u => !u.startsWith('data:'));
+  const existingUrls = new Set(apiImgs.map(u => u));
   for (const url of autoUrls) {
-    if (!existingUrls.has(url) && p.images.length < 10) p.images.push(url);
+    if (!existingUrls.has(url) && (apiImgs.length + userImgs.length) < 10) apiImgs.push(url);
   }
+  p.images = [...userImgs, ...apiImgs];
   if (!p.images.length && p.imageUrl && !hidden.has(p.imageUrl)) p.images = [p.imageUrl];
 
   renderChips(); renderActiveTab();
