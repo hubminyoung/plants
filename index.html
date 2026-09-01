@@ -4050,36 +4050,58 @@ document.addEventListener('keydown', function(e) {
   const DOT = new Set([2,3,4,5,6,7,8,9,10]);
   const WIN = new Set([10,11,12,1,2]);
 
-  /* 기준 식물 DB (wc·r 참조용) */
+  /* ── 겨울 흥미요소 색 ── */
+  const WI_K='#1a1a1a', WI_M='#d4c878', WI_B='#8b5a2b', WI_S='#c0c0c0';
+
+  /* ── wi() 공식 ── */
+  function wi(p){
+    if(p.geophyte||p.evergreen_leaf_winter||p.lodges_after_frost) return null;
+    if(!p.h_winter_cm||p.h_winter_cm<50) return null;
+    const pt=p.part||[], L=p.L_star||0;
+    if(pt.includes('ST')&&L>=78)         return WI_S;
+    if(p.geom==='CON'&&L>=55)            return WI_M;
+    if(p.geom==='CON'&&L<=28)            return WI_K;
+    if(p.geom==='PLT')                   return WI_K;
+    if(p.geom==='BTN'&&p.terminal)       return WI_K;
+    if(p.geom==='SPR'&&p.stiff)          return WI_K;
+    if(p.geom==='HAZ'&&p.late_aster)     return WI_B;
+    return null;
+  }
+
+  /* ── 기준 식물 DB ── */
   const pl = [
-    /* ── 구근 · 소구근 ── */
-    {name:'Crocus tommasinianus var. roseus',             bloom:[2,3],        wc:null,      c:'#c8a4d8', r:2,   n:130},
-    {name:"Crocus sieberi 'Firefly'",                     bloom:[2,3],        wc:null,      c:'#e8d0f0', r:2,   n:105},
-    {name:'Narcissus (early yellow)',                     bloom:[3,4],        wc:null,      c:'#f5d020', r:3.5, n:45 },
-    {name:'Scilla sibirica',                              bloom:[3,4],        wc:null,      c:'#5575e8', r:2,   n:100},
-    {name:'Narcissus (late white)',                       bloom:[4,5],        wc:null,      c:'#ebebeb', r:3.5, n:38 },
-    {name:'Ornithogalum umbellatum',                      bloom:[4,5],        wc:null,      c:'#e0e0e0', r:2.5, n:55 },
-    {name:'Armeria maritima',                             bloom:[4,5,6],      wc:null,      c:'#e080a0', r:2.5, n:42 },
-    {name:'Iberis sempervirens',                          bloom:[3,4,5],      wc:null,      c:'#f4f4f4', r:3,   n:35 },
-    {name:'Monarda bradburiana',                          bloom:[6,7],        wc:'#1a1a1a', c:'#e06080', r:8,   n:13 },
-    /* ── 구근 대형 ── */
-    {name:"Allium 'Purple Sensation'",                    bloom:[5,6],        wc:null,      c:'#7744bb', r:11,  n:9  },
-    /* ── 숙근 소~중형 ── */
-    {name:'Sisyrinchium angustifolium Lucerne',           bloom:[5,6,7],      wc:null,      c:'#6070cc', r:3.5, n:28 },
-    {name:"Oenothera fruticosa 'Fireworks'",              bloom:[6,7,8],      wc:null,      c:'#f0c010', r:5,   n:20 },
-    {name:'Coreopsis lanceolata',                         bloom:[6,7,8],      wc:null,      c:'#f5d020', r:6,   n:20 },
-    {name:"Nepeta sibirica 'Chaudron'",                   bloom:[6,7,8],      wc:null,      c:'#8899dd', r:5,   n:24 },
-    {name:'Petrorhagia saxifraga',                        bloom:[6,7,8,9],    wc:null,      c:'#f0d8e8', r:2.5, n:50 },
-    {name:'Ratibida columnifera',                         bloom:[6,7,8,9],    wc:'#d4c878', c:'#f5c020', r:6,   n:18 },
-    {name:"Achillea 'Coronation Gold'",                   bloom:[6,7,8],      wc:'#1a1a1a', c:'#e8c020', r:7,   n:18 },
-    {name:'Eremurus stenophyllus',                        bloom:[6,7],        wc:null,      c:'#f5d020', r:9,   n:7  },
-    {name:"Calamintha 'White Cloud'",                     bloom:[7,8,9,10],   wc:null,      c:'#d8d8d8', r:3,   n:50 },
-    {name:"Perovskia atriplicifolia 'Superba'",           bloom:[7,8,9],      wc:'#c0c0c0', c:'#aabbee', r:5.5, n:22 },
-    {name:'Knautia macedonica',                           bloom:[6,7,8,9,10], wc:null,      c:'#cc2244', r:5,   n:26 },
-    {name:'Rudbeckia fulgida var. fulgida',               bloom:[7,8,9],      wc:'#1a1a1a', c:'#f5c010', r:7,   n:20 },
-    {name:"Agastache 'Blue Fortune'",                     bloom:[8,9],        wc:'#1a1a1a', c:'#7788dd', r:6,   n:22 },
-    {name:"Symphyotrichum oblongifolium 'October Skies'", bloom:[9,10],       wc:'#8b5a2b', c:'#8899d8', r:7,   n:18 },
+    /* 구근 · 소구근 — geophyte → ∅ */
+    {name:'Crocus tommasinianus var. roseus',             bloom:[2,3],        c:'#c8a4d8', r:2,   n:130, geophyte:true},
+    {name:"Crocus sieberi 'Firefly'",                     bloom:[2,3],        c:'#e8d0f0', r:2,   n:105, geophyte:true},
+    {name:'Narcissus (early yellow)',                     bloom:[3,4],        c:'#f5d020', r:3.5, n:45,  geophyte:true},
+    {name:'Scilla sibirica',                              bloom:[3,4],        c:'#5575e8', r:2,   n:100, geophyte:true},
+    {name:'Narcissus (late white)',                       bloom:[4,5],        c:'#ebebeb', r:3.5, n:38,  geophyte:true},
+    {name:'Ornithogalum umbellatum',                      bloom:[4,5],        c:'#e0e0e0', r:2.5, n:55,  geophyte:true},
+    /* 키 낮음 · 상록 → ∅ */
+    {name:'Armeria maritima',                             bloom:[4,5,6],      c:'#e080a0', r:2.5, n:42,  h_winter_cm:25},
+    {name:'Iberis sempervirens',                          bloom:[3,4,5],      c:'#f4f4f4', r:3,   n:35,  evergreen_leaf_winter:true},
+    {name:'Petrorhagia saxifraga',                        bloom:[6,7,8,9],    c:'#f0d8e8', r:2.5, n:50,  h_winter_cm:20},
+    {name:"Calamintha 'White Cloud'",                     bloom:[7,8,9,10],   c:'#d8d8d8', r:3,   n:50,  h_winter_cm:35},
+    /* 구근 대형 — geophyte → ∅ */
+    {name:"Allium 'Purple Sensation'",                    bloom:[5,6],        c:'#7744bb', r:11,  n:9,   geophyte:true},
+    /* 서리 후 쓰러짐 → ∅ */
+    {name:'Sisyrinchium angustifolium Lucerne',           bloom:[5,6,7],      c:'#6070cc', r:3.5, n:28,  h_winter_cm:30},
+    {name:"Oenothera fruticosa 'Fireworks'",              bloom:[6,7,8],      c:'#f0c010', r:5,   n:20,  lodges_after_frost:true},
+    {name:'Coreopsis lanceolata',                         bloom:[6,7,8],      c:'#f5d020', r:6,   n:20,  lodges_after_frost:true},
+    {name:"Nepeta sibirica 'Chaudron'",                   bloom:[6,7,8],      c:'#8899dd', r:5,   n:24,  lodges_after_frost:true},
+    {name:'Eremurus stenophyllus',                        bloom:[6,7],        c:'#f5d020', r:9,   n:7,   lodges_after_frost:true},
+    /* 겨울 흥미요소 보유 */
+    {name:'Monarda bradburyana',                          bloom:[6,7],        c:'#e06080', r:8,   n:13,  h_winter_cm:70,  part:['SH'],      geom:'BTN', L_star:22, terminal:true},
+    {name:'Ratibida columnifera',                         bloom:[6,7,8,9],    c:'#f5c020', r:6,   n:18,  h_winter_cm:80,  part:['SH'],      geom:'CON', L_star:66},
+    {name:"Achillea 'Coronation Gold'",                   bloom:[6,7,8],      c:'#e8c020', r:7,   n:18,  h_winter_cm:60,  part:['SH'],      geom:'PLT', L_star:24},
+    {name:"Perovskia atriplicifolia 'Superba'",           bloom:[7,8,9],      c:'#aabbee', r:5.5, n:22,  h_winter_cm:100, part:['ST'],      geom:'HAZ', L_star:86},
+    {name:'Knautia macedonica',                           bloom:[6,7,8,9,10], c:'#cc2244', r:5,   n:26,  h_winter_cm:70,  part:['SH'],      geom:'BTN', L_star:20, terminal:false},
+    {name:'Rudbeckia fulgida var. fulgida',               bloom:[7,8,9],      c:'#f5c010', r:7,   n:20,  h_winter_cm:70,  part:['SH'],      geom:'CON', L_star:18},
+    {name:"Agastache 'Blue Fortune'",                     bloom:[8,9],        c:'#7788dd', r:6,   n:22,  h_winter_cm:90,  part:['SH','ST'], geom:'SPR', L_star:20, stiff:true},
+    {name:"Symphyotrichum oblongifolium 'October Skies'", bloom:[9,10],       c:'#8899d8', r:7,   n:18,  h_winter_cm:60,  part:['SH','ST'], geom:'HAZ', L_star:40, late_aster:true},
   ];
+  /* wc 자동 계산 */
+  pl.forEach(p => { p.wc = wi(p); });
 
   window.SP_PLANTS = pl;
   window.SP_WIN    = WIN;
