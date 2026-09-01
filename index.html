@@ -4044,6 +4044,65 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+/* 개화 분포도 - dvRebuild 및 기본 변수 */
+window.SP_PLANTS = window.SP_PLANTS || [];
+window.SP_WIN    = window.SP_WIN    || new Set([10,11,12,1,2,3]);
+
+window.dvRebuild = function(plants) {
+  const tb = document.getElementById('dv-tb');
+  if (!tb) return;
+  const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  if (!plants || !plants.length) {
+    tb.innerHTML = '<tr><td colspan="13" style="color:#888;text-align:center;padding:24px;font-size:13px;">식물 데이터 없음</td></tr>';
+    return;
+  }
+  let html = '<tr class="dot-lbl"><td></td>' + MONTHS.map(m => `<td>${m}</td>`).join('') + '</tr>';
+  plants.forEach(p => {
+    const bloom = new Set(p.bloom || []);
+    const color = p.c || '#4caf7d';
+    const n = p.n || 30;
+    const r = Math.max(2, Math.min(6, p.r || 4));
+    html += '<tr class="dot-row"><td class="nc">' + p.name + '</td>';
+    for (let m = 1; m <= 12; m++) {
+      html += `<td><canvas width="123" height="123" data-m="${m}" data-bloom="${bloom.has(m)}" data-color="${color.replace(/"/g,"'")}" data-n="${n}" data-r="${r}"></canvas></td>`;
+    }
+    html += '</tr>';
+    html += '<tr class="pr"><td class="nc"></td>';
+    for (let m = 1; m <= 12; m++) {
+      const isBloom = bloom.has(m);
+      const isWc = p.wc && window.SP_WIN.has(m);
+      html += '<td class="bc">';
+      if (isBloom) html += `<div class="dv-bar" style="left:10%;right:10%;background:${color};opacity:0.85;"></div>`;
+      else if (isWc) html += `<div class="dv-wbar" style="left:10%;right:10%;background:#6080a0;opacity:0.6;"></div>`;
+      html += '</td>';
+    }
+    html += '</tr>';
+  });
+  tb.innerHTML = html;
+  /* Canvas 점 그리기 (seeded pseudo-random으로 일관성 유지) */
+  function seededRand(seed) { return ((seed * 1664525 + 1013904223) & 0xffffffff) >>> 0; }
+  tb.querySelectorAll('canvas').forEach(canvas => {
+    const ctx = canvas.getContext('2d');
+    const isBloom = canvas.dataset.bloom === 'true';
+    const color = canvas.dataset.color;
+    const n = parseInt(canvas.dataset.n) || 30;
+    const r = parseFloat(canvas.dataset.r) || 4;
+    ctx.fillStyle = '#1e1e1c';
+    ctx.fillRect(0, 0, 123, 123);
+    if (isBloom) {
+      ctx.fillStyle = color;
+      let seed = parseInt(canvas.dataset.m) * 9999 + n * 37;
+      for (let i = 0; i < n; i++) {
+        seed = seededRand(seed);
+        const x = 6 + (seed % 111);
+        seed = seededRand(seed);
+        const y = 6 + (seed % 111);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  });
+};
+
 /* 검색된 plants → 개화 분포도 변환 */
 function renderDotView() {
   if (!plants.length) {
