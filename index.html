@@ -4044,64 +4044,130 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-/* 개화 분포도 - dvRebuild 및 기본 변수 */
-window.SP_PLANTS = window.SP_PLANTS || [];
-window.SP_WIN    = window.SP_WIN    || new Set([10,11,12,1,2,3]);
+/* ── 개화 분포도 탭 ─────────────────────────────────────────────────── */
+(function(){
+  const MN  = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const DOT = new Set([2,3,4,5,6,7,8,9,10]);
+  const WIN = new Set([10,11,12,1,2]);
 
-window.dvRebuild = function(plants) {
-  const tb = document.getElementById('dv-tb');
-  if (!tb) return;
-  const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  if (!plants || !plants.length) {
-    tb.innerHTML = '<tr><td colspan="13" style="color:#888;text-align:center;padding:24px;font-size:13px;">식물 데이터 없음</td></tr>';
-    return;
+  /* 기준 식물 DB (wc·r 참조용) */
+  const pl = [
+    /* ── 구근 · 소구근 ── */
+    {name:'Crocus tommasinianus var. roseus',             bloom:[2,3],        wc:null,      c:'#c8a4d8', r:2,   n:130},
+    {name:"Crocus sieberi 'Firefly'",                     bloom:[2,3],        wc:null,      c:'#e8d0f0', r:2,   n:105},
+    {name:'Narcissus (early yellow)',                     bloom:[3,4],        wc:null,      c:'#f5d020', r:3.5, n:45 },
+    {name:'Scilla sibirica',                              bloom:[3,4],        wc:null,      c:'#5575e8', r:2,   n:100},
+    {name:'Narcissus (late white)',                       bloom:[4,5],        wc:null,      c:'#ebebeb', r:3.5, n:38 },
+    {name:'Ornithogalum umbellatum',                      bloom:[4,5],        wc:null,      c:'#e0e0e0', r:2.5, n:55 },
+    {name:'Armeria maritima',                             bloom:[4,5,6],      wc:null,      c:'#e080a0', r:2.5, n:42 },
+    {name:'Iberis sempervirens',                          bloom:[3,4,5],      wc:null,      c:'#f4f4f4', r:3,   n:35 },
+    {name:'Monarda bradburiana',                          bloom:[6,7],        wc:'#1a1a1a', c:'#e06080', r:8,   n:13 },
+    /* ── 구근 대형 ── */
+    {name:"Allium 'Purple Sensation'",                    bloom:[5,6],        wc:null,      c:'#7744bb', r:11,  n:9  },
+    /* ── 숙근 소~중형 ── */
+    {name:'Sisyrinchium angustifolium Lucerne',           bloom:[5,6,7],      wc:null,      c:'#6070cc', r:3.5, n:28 },
+    {name:"Oenothera fruticosa 'Fireworks'",              bloom:[6,7,8],      wc:null,      c:'#f0c010', r:5,   n:20 },
+    {name:'Coreopsis lanceolata',                         bloom:[6,7,8],      wc:null,      c:'#f5d020', r:6,   n:20 },
+    {name:"Nepeta sibirica 'Chaudron'",                   bloom:[6,7,8],      wc:null,      c:'#8899dd', r:5,   n:24 },
+    {name:'Petrorhagia saxifraga',                        bloom:[6,7,8,9],    wc:null,      c:'#f0d8e8', r:2.5, n:50 },
+    {name:'Ratibida columnifera',                         bloom:[6,7,8,9],    wc:'#d4c878', c:'#f5c020', r:6,   n:18 },
+    {name:"Achillea 'Coronation Gold'",                   bloom:[6,7,8],      wc:'#1a1a1a', c:'#e8c020', r:7,   n:18 },
+    {name:'Eremurus stenophyllus',                        bloom:[6,7],        wc:null,      c:'#f5d020', r:9,   n:7  },
+    {name:"Calamintha 'White Cloud'",                     bloom:[7,8,9,10],   wc:null,      c:'#d8d8d8', r:3,   n:50 },
+    {name:"Perovskia atriplicifolia 'Superba'",           bloom:[7,8,9],      wc:'#c0c0c0', c:'#aabbee', r:5.5, n:22 },
+    {name:'Knautia macedonica',                           bloom:[6,7,8,9,10], wc:null,      c:'#cc2244', r:5,   n:26 },
+    {name:'Rudbeckia fulgida var. fulgida',               bloom:[7,8,9],      wc:'#1a1a1a', c:'#f5c010', r:7,   n:20 },
+    {name:"Agastache 'Blue Fortune'",                     bloom:[8,9],        wc:'#1a1a1a', c:'#7788dd', r:6,   n:22 },
+    {name:"Symphyotrichum oblongifolium 'October Skies'", bloom:[9,10],       wc:'#8b5a2b', c:'#8899d8', r:7,   n:18 },
+  ];
+
+  window.SP_PLANTS = pl;
+  window.SP_WIN    = WIN;
+
+  function rng(s){ s=s>>>0; return()=>{s=(s*1664525+1013904223)>>>0;return s/0xffffffff;}; }
+
+  function drawGrid(cv, mn, activePl) {
+    const S=246;
+    cv.width=S; cv.height=S;
+    const ctx=cv.getContext('2d');
+    ctx.fillStyle='#d0d0d0'; ctx.fillRect(0,0,S,S);
+    const items=[];
+    activePl.forEach(p=>{ if(p.bloom.includes(mn)) items.push({r:p.r, n:p.n, c:p.c}); });
+    if(!items.length) return;
+    const rawTotal=items.reduce((s,p)=>s+p.n,0);
+    const scale=rawTotal<50 ? Math.min(4, 120/rawTotal) : 1;
+    const rand=rng(mn*7919+31337);
+    const pool=[];
+    items.forEach(p=>{ const cnt=Math.max(1,Math.round(p.n*scale)); for(let i=0;i<cnt;i++) pool.push(p); });
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]; }
+    const total=pool.length;
+    const COLS=Math.ceil(Math.sqrt(total*1.6));
+    const ROWS=Math.ceil(total/COLS);
+    const cw=S/COLS, ch=S/ROWS;
+    const cells=[];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) cells.push({cx:(c+.5)*cw,cy:(r+.5)*ch});
+    for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]; }
+    pool.forEach((p,i)=>{
+      const cell=cells[i%cells.length];
+      const r=p.r*(0.78+rand()*0.44);
+      const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*.65));
+      const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle=p.c; ctx.fill();
+    });
   }
-  let html = '<tr class="dot-lbl"><td></td>' + MONTHS.map(m => `<td>${m}</td>`).join('') + '</tr>';
-  plants.forEach(p => {
-    const bloom = new Set(p.bloom || []);
-    const color = p.c || '#4caf7d';
-    const n = p.n || 30;
-    const r = Math.max(2, Math.min(6, p.r || 4));
-    html += '<tr class="dot-row"><td class="nc">' + p.name + '</td>';
-    for (let m = 1; m <= 12; m++) {
-      html += `<td><canvas width="123" height="123" data-m="${m}" data-bloom="${bloom.has(m)}" data-color="${color.replace(/"/g,"'")}" data-n="${n}" data-r="${r}"></canvas></td>`;
-    }
-    html += '</tr>';
-    html += '<tr class="pr"><td class="nc"></td>';
-    for (let m = 1; m <= 12; m++) {
-      const isBloom = bloom.has(m);
-      const isWc = p.wc && window.SP_WIN.has(m);
-      html += '<td class="bc">';
-      if (isBloom) html += `<div class="dv-bar" style="left:10%;right:10%;background:${color};opacity:0.85;"></div>`;
-      else if (isWc) html += `<div class="dv-wbar" style="left:10%;right:10%;background:#6080a0;opacity:0.6;"></div>`;
-      html += '</td>';
-    }
-    html += '</tr>';
-  });
-  tb.innerHTML = html;
-  /* Canvas 점 그리기 (seeded pseudo-random으로 일관성 유지) */
-  function seededRand(seed) { return ((seed * 1664525 + 1013904223) & 0xffffffff) >>> 0; }
-  tb.querySelectorAll('canvas').forEach(canvas => {
-    const ctx = canvas.getContext('2d');
-    const isBloom = canvas.dataset.bloom === 'true';
-    const color = canvas.dataset.color;
-    const n = parseInt(canvas.dataset.n) || 30;
-    const r = parseFloat(canvas.dataset.r) || 4;
-    ctx.fillStyle = '#1e1e1c';
-    ctx.fillRect(0, 0, 123, 123);
-    if (isBloom) {
-      ctx.fillStyle = color;
-      let seed = parseInt(canvas.dataset.m) * 9999 + n * 37;
-      for (let i = 0; i < n; i++) {
-        seed = seededRand(seed);
-        const x = 6 + (seed % 111);
-        seed = seededRand(seed);
-        const y = 6 + (seed % 111);
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-  });
-};
+
+  function buildTable(activePl) {
+    const tb=document.getElementById('dv-tb');
+    tb.innerHTML='';
+    const lr=document.createElement('tr'); lr.className='dot-lbl';
+    lr.appendChild(document.createElement('td'));
+    MN.forEach((_,i)=>{ const td=document.createElement('td'); if(DOT.has(i+1)) td.textContent=MN[i]; lr.appendChild(td); });
+    tb.appendChild(lr);
+    const dr=document.createElement('tr'); dr.className='dot-row';
+    dr.appendChild(document.createElement('td'));
+    MN.forEach((_,i)=>{
+      const mn=i+1, td=document.createElement('td');
+      if(DOT.has(mn)){ const cv=document.createElement('canvas'); cv._mn=mn; td.appendChild(cv); drawGrid(cv,mn,activePl); }
+      dr.appendChild(td);
+    });
+    tb.appendChild(dr);
+    const hr=document.createElement('tr'); hr.className='mhd';
+    hr.appendChild(document.createElement('th'));
+    MN.forEach((_,i)=>{ const th=document.createElement('th'); th.textContent=MN[i]; if([1,2,10,11,12].includes(i+1)) th.classList.add('w'); hr.appendChild(th); });
+    tb.appendChild(hr);
+    activePl.forEach(p=>{
+      const row=document.createElement('tr'); row.className='pr';
+      const nc=document.createElement('td'); nc.className='nc'; nc.textContent=p.name; row.appendChild(nc);
+      MN.forEach((_,i)=>{
+        const mn=i+1, cell=document.createElement('td'); cell.className='bc';
+        if(p.bloom.includes(mn)){
+          const b=document.createElement('div'); b.className='dv-bar';
+          const fl=!p.bloom.includes(mn===1?12:mn-1), ll=!p.bloom.includes(mn===12?1:mn+1);
+          let lft, rgt;
+          if(mn===10){ lft=fl?'1px':'0'; rgt='50%'; }
+          else if(mn===2&&fl){ lft='50%'; rgt=ll?'1px':'0'; }
+          else { lft=fl?'1px':'0'; rgt=ll?'1px':'0'; }
+          b.style.cssText=`background:${p.c};left:${lft};right:${rgt};border-radius:${fl?'2px':'0'} ${ll?'2px':'0'} ${ll?'2px':'0'} ${fl?'2px':'0'}`;
+          cell.appendChild(b);
+        }
+        if(p.wc && WIN.has(mn) && (mn===10||!p.bloom.includes(mn))){
+          const wb=document.createElement('div'); wb.className='dv-wbar';
+          const lft=mn===10?'50%':'0', rgt=mn===2?'50%':'0';
+          wb.style.cssText=`background:${p.wc};left:${lft};right:${rgt};border-radius:${mn===10?'2px':'0'} ${mn===2?'2px':'0'} ${mn===2?'2px':'0'} ${mn===10?'2px':'0'}`;
+          cell.appendChild(wb);
+        }
+        row.appendChild(cell);
+      });
+      tb.appendChild(row);
+    });
+  }
+
+  window.SP_PLANTS = pl;
+  window.SP_WIN    = WIN;
+  window.dvRebuild = buildTable;
+  buildTable(pl);
+})();
 
 /* 검색된 plants → 개화 분포도 변환 */
 function renderDotView() {
