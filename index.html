@@ -580,6 +580,16 @@ table.dtbl tr:last-child td { border-bottom: none; }
     #dv-t td.bc::before { content:''; position:absolute; left:0; top:0; bottom:0; width:1px; background:#3c3c3a; z-index:0; }
     .dv-bar  { position:absolute; top:3px; bottom:3px; border-radius:2px; z-index:1; }
     .dv-wbar { position:absolute; top:3px; bottom:3px; border-radius:2px; z-index:1; }
+    #dv-wi-chart { background:#1e1e1c; border-radius:6px; padding:10px 14px; margin-top:8px; min-width:1700px; display:none; }
+    .dv-wi-title { font-size:9px; color:#555; letter-spacing:.07em; margin-bottom:7px; }
+    .dv-wi-stack { display:flex; height:13px; border-radius:3px; overflow:hidden; gap:1px; margin-bottom:7px; }
+    .dv-wi-seg { height:100%; display:flex; align-items:center; justify-content:center; font-size:8px; min-width:18px; }
+    .dv-wi-row { display:flex; align-items:center; gap:8px; margin-bottom:3px; font-size:9px; }
+    .dv-wi-lbl { width:56px; color:#666; text-align:right; flex-shrink:0; }
+    .dv-wi-track { width:200px; background:#2a2a28; border-radius:2px; height:9px; overflow:hidden; flex-shrink:0; }
+    .dv-wi-fill { height:100%; border-radius:2px; }
+    .dv-wi-pct { width:32px; color:#666; flex-shrink:0; }
+    .dv-wi-names { color:#444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   </style>
   <div id="dv-wrap">
     <table id="dv-t"><colgroup>
@@ -589,6 +599,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
       <col class="mc"><col class="mc"><col class="mc"><col class="mc">
     </colgroup><tbody id="dv-tb"></tbody></table>
   </div>
+  <div id="dv-wi-chart"></div>
 </div>
 <div id="pane-density"  class="tab-pane">
   <div class="density-card">
@@ -4183,6 +4194,53 @@ document.addEventListener('keydown', function(e) {
       });
       tb.appendChild(row);
     });
+    renderWiChart(activePl);
+  }
+
+  const WC_KEY = { '#1a1a1a':'k', '#d4c878':'m', '#8b5a2b':'b', '#c0c0c0':'s' };
+  const WC_COL = { k:'#1a1a1a', m:'#d4c878', b:'#8b5a2b', s:'#c0c0c0' };
+  const WC_LBL = { k:'검정 k', m:'밀짚 m', b:'갈색 b', s:'실버 s' };
+
+  function renderWiChart(activePl) {
+    const el = document.getElementById('dv-wi-chart');
+    const tot = {k:0,m:0,b:0,s:0}, nm = {k:[],m:[],b:[],s:[]};
+    let denom = 0;
+    activePl.forEach(p => {
+      const key = WC_KEY[p.wc];
+      if (!key) return;
+      tot[key] += (p.n||1); denom += (p.n||1);
+      nm[key].push(p.name.split(' ').slice(0,2).join(' '));
+    });
+    if (!denom) { el.style.display='none'; return; }
+    el.style.display = 'block';
+
+    // 스택 바
+    let stack = '<div class="dv-wi-stack">';
+    ['k','m','b','s'].forEach(key => {
+      const pct = tot[key]/denom*100;
+      if (pct < 0.5) return;
+      const txtCol = key==='k'?'#777':key==='s'?'#444':'rgba(0,0,0,.45)';
+      const border = key==='s'?'border:1px solid #777;':'';
+      stack += `<div class="dv-wi-seg" style="width:${pct}%;background:${WC_COL[key]};${border}">
+        <span style="color:${txtCol}">${Math.round(pct)}%</span></div>`;
+    });
+    stack += '</div>';
+
+    // 행별 바
+    let rows = '';
+    ['k','m','b','s'].forEach(key => {
+      if (!tot[key]) return;
+      const pct = tot[key]/denom*100;
+      const border = key==='s'?'border:1px solid #777;':'';
+      rows += `<div class="dv-wi-row">
+        <span class="dv-wi-lbl">${WC_LBL[key]}</span>
+        <div class="dv-wi-track"><div class="dv-wi-fill" style="width:${pct}%;background:${WC_COL[key]};${border}"></div></div>
+        <span class="dv-wi-pct">${Math.round(pct)}%</span>
+        <span class="dv-wi-names">${nm[key].join(', ')}</span>
+      </div>`;
+    });
+
+    el.innerHTML = `<div class="dv-wi-title">겨울 구조 구성 (수량 가중)</div>${stack}${rows}`;
   }
 
   window.SP_PLANTS = pl;
