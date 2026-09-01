@@ -1405,7 +1405,20 @@ async function loadPlant(p) {
   } finally {
     p.fetching = false;
     p.done = true;
-    plantsToLS();  // API 데이터 로딩 완료 후 저장
+    // loadPlant 완료 후 R2 data: URL 복원 보장
+    try {
+      const r2 = await fetch(CFG.worker + '/api/img/load?plant=' + encodeURIComponent(p.name));
+      if (r2.ok) {
+        const d = await r2.json();
+        const dataUrls = (d.images||[]).filter(u => u.startsWith('data:'));
+        if (dataUrls.length) {
+          const apiOnly = (p.images||[]).filter(u => !u.startsWith('data:'));
+          p.images = [...dataUrls, ...apiOnly];
+        }
+        if (d.hiddenImages?.length) p.hiddenImages = [...d.hiddenImages];
+      }
+    } catch(_) {}
+    plantsToLS();
     renderAll();
   }
 }
