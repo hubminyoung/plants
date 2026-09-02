@@ -1637,7 +1637,8 @@ async function loadNaturadbDetail(p) {
 async function loadGaissmayerDetail(p) {
   const q = p.latName || p.name;
   if (!q) return;
-  const det = await wFetch('/api/gaissmayer/details', { q });
+  let det = await wFetch('/api/gaissmayer/details', { q });
+  if (!det && p.name && p.name !== q) det = await wFetch('/api/gaissmayer/details', { q: p.name });
   if (!det) return;
   if (det.geselligkeit && !p.geselligkeit) {
     p.geselligkeit = det.geselligkeit.trim();
@@ -1665,7 +1666,11 @@ async function loadRhsUrl(p) {
   const name = p.latName || p.name;
   if (!name) return;
   try {
-    const data = await wFetch('/api/rhs/search', { q: name });
+    let data = await wFetch('/api/rhs/search', { q: name });
+    // iNaturalist 이름 변경 시 원래 이름으로 재시도
+    if ((!data || !data.rhsUrl) && p.name && p.name !== name) {
+      data = await wFetch('/api/rhs/search', { q: p.name });
+    }
     if (data && data.rhsUrl && !p.rhsUrl) {
       p.rhsUrl = data.rhsUrl;
       renderActiveTab();
