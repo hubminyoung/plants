@@ -4243,6 +4243,26 @@ document.addEventListener('keydown', function(e) {
     el.innerHTML = `<div class="dv-wi-title">겨울 구조 구성 (수량 가중)</div>${stack}${rows}`;
   }
 
+  /* ── 속(Genus) → wc 조회 테이블 (renderDotView fallback) ── */
+  window.WI_GENUS = {
+    // k 검정
+    Agastache:'#1a1a1a', Achillea:'#1a1a1a', Rudbeckia:'#1a1a1a',
+    Monarda:'#1a1a1a',   Echinacea:'#1a1a1a', Helenium:'#1a1a1a',
+    Echinops:'#1a1a1a',  Hylotelephium:'#1a1a1a', Patrinia:'#1a1a1a',
+    Veronicastrum:'#1a1a1a', Liatris:'#1a1a1a', Persicaria:'#1a1a1a',
+    Actaea:'#1a1a1a',    Cimicifuga:'#1a1a1a', Sanguisorba:'#1a1a1a',
+    // m 밀짚
+    Ratibida:'#d4c878',  Solidago:'#d4c878',   Datisca:'#d4c878',  Phlomis:'#d4c878',
+    Miscanthus:'#d4c878',Molinia:'#d4c878',    Calamagrostis:'#d4c878',
+    Panicum:'#d4c878',   Sporobolus:'#d4c878', Stipa:'#d4c878',    Nassella:'#d4c878',
+    Pennisetum:'#d4c878',Deschampsia:'#d4c878',Chasmanthium:'#d4c878',Cortaderia:'#d4c878',
+    // b 갈색
+    Symphyotrichum:'#8b5a2b', Aster:'#8b5a2b', Eurybia:'#8b5a2b',
+    Doellingeria:'#8b5a2b',   Boltonia:'#8b5a2b',
+    // s 실버
+    Perovskia:'#c0c0c0', Eryngium:'#c0c0c0',  Artemisia:'#c0c0c0',
+  };
+
   window.SP_PLANTS = pl;
   window.SP_WIN    = WIN;
   window.dvRebuild = buildTable;
@@ -4263,7 +4283,9 @@ function renderDotView() {
     const activeColor = p.selectedFlowerColor || (p.flowerColors && p.flowerColors[0]) || null;
     const c = activeColor ? c2css(activeColor) : '#4caf7d';
     const r = spMatch ? spMatch.r : 5;
-    const wc = spMatch ? spMatch.wc : null;
+    const wiG = window.WI_GENUS || {};
+    const genus = lat.split(' ')[0].replace(/^./, c => c.toUpperCase());
+    const wc = spMatch ? spMatch.wc : (wiG[genus] || null);
     const n = Math.max(5, Math.round(400 / Math.max(1, r * r)));
     return { name: p.latName || p.name || p.korName || '', bloom: p.bloomMonths || [], wc, c, r, n };
   }).filter(p => p.name);
