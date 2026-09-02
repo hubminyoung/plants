@@ -3457,22 +3457,35 @@ function bcRenderBgs() {
   // 기존 레이어 제거
   [...canvas.querySelectorAll('.bc-bg-layer')].forEach(el => el.remove());
   // 각 레이어 렌더
-  BC.bgs.forEach(b => {
+  BC.bgs.forEach((b, idx) => {
     const el = document.createElement('div');
     el.className = 'bc-bg-layer';
     el.dataset.bgid = b.id;
-    el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
+    el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;z-index:${idx+1}`;
     const bgTx = b.imgPanX||0, bgTy = b.imgPanY||0, bgSc = b.imgScale||1;
     const bgImgScale = (bgSc!==1||bgTx||bgTy) ? `transform:translate(${bgTx}px,${bgTy}px) scale(${bgSc});transform-origin:center center;` : '';
-    el.innerHTML = `<div class="bc-bg-handle" title="드래그=이동">⠿</div>
+    el.innerHTML = `<div class="bc-bg-handle" title="드래그=이동">
+        <span style="flex:1;display:flex;align-items:center;justify-content:center;">⠿</span>
+        <button class="bc-bg-zup" title="앞으로" onclick="bcBgZMove(${b.id},1)" style="background:none;border:none;color:#fff;cursor:pointer;font-size:11px;padding:0 4px;line-height:1">▲</button>
+        <button class="bc-bg-zdn" title="뒤로" onclick="bcBgZMove(${b.id},-1)" style="background:none;border:none;color:#fff;cursor:pointer;font-size:11px;padding:0 4px;line-height:1">▼</button>
+      </div>
       <div style="width:100%;height:calc(100% - 20px);overflow:hidden;"><img src="${b.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;${bgImgScale}"></div>
       <div class="bc-bg-del" onclick="bcDelBg(${b.id})" title="삭제">✕</div>
       <div class="bc-bg-resize" data-bgid="${b.id}"></div>`;
-    el.querySelector('.bc-bg-handle').addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); const pos=evPos(e); BC.drag={type:'bg',id:b.id,sx:pos.x,sy:pos.y,ox:b.x,oy:b.y}; });
+    el.querySelector('.bc-bg-handle').addEventListener('mousedown', e => { if(e.target.tagName==='BUTTON') return; e.preventDefault(); e.stopPropagation(); const pos=evPos(e); BC.drag={type:'bg',id:b.id,sx:pos.x,sy:pos.y,ox:b.x,oy:b.y}; });
     el.addEventListener('mousedown', e => bcBgDragStart(e, b.id));
     el.querySelector('.bc-bg-resize').addEventListener('mousedown', e => bcBgResizeStart(e, b.id));
-    canvas.insertBefore(el, canvas.firstChild);
+    canvas.appendChild(el);
   });
+}
+function bcBgZMove(id, dir) {
+  const idx = BC.bgs.findIndex(b => b.id === id);
+  if (idx < 0) return;
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= BC.bgs.length) return;
+  [BC.bgs[idx], BC.bgs[swapIdx]] = [BC.bgs[swapIdx], BC.bgs[idx]];
+  bcRenderBgs();
+  bcPushHistory();
 }
 // 하위호환용 alias
 function bcRenderBg() { bcRenderBgs(); }
