@@ -1,0 +1,104 @@
+name: MBG Queue Update
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # 매 시간 정각
+  workflow_dispatch:        # 수동 실행 가능
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process MBG queue
+        run: |
+          node << 'EOF'
+          const WORKER = 'https://plantlist.younrake.workers.dev';
+
+          function ent(s) {
+            return (s||'').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ')
+              .replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(+n))
+              .replace(/&[a-z]+;/g,'').replace(/\s+/g,' ').trim();
+          }
+          function stripTags(s){ return (s||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); }
+          function field(html, label){
+            const re = new RegExp(label+':\\s*(?:<[^>]+>\\s*)*([^<\\n]+)','i');
+            const m = html.match(re);
+            return m ? ent(m[1]).replace(/\s*(Culture|Problems|Uses|Noteworthy Characteristics)\s*$/i,'').trim() : '';
+          }
+          function section(html, heading){
+            const re = new RegExp('<h[2-6][^>]*>\\s*'+heading+'\\s*</h[2-6]>\\s*<p[^>]*>([\\s\\S]*?)</p>','i');
+            const m = html.match(re);
+            return m ? ent(stripTags(m[1])).slice(0,800) : '';
+          }
+          function parseMbg(html){
+            if(!html.includes('Common Name:')) return null;
+            return {
+              commonName: field(html,'Common Name'),
+              plantType:  field(html,'Type'),
+              family:     field(html,'Family'),
+              nativeRange:field(html,'Native Range'),
+              zone:       field(html,'Zone'),
+              heightFeet: field(html,'Height'),
+              spreadFeet: field(html,'Spread'),
+              bloomTime:  field(html,'Bloom Time'),
+              bloomColor: field(html,'Bloom Description'),
+              sun:        field(html,'Sun'),
+              water:      field(html,'Water'),
+              maintenance:field(html,'Maintenance'),
+              culture:    section(html,'Culture'),
+              noteworthy: section(html,'Noteworthy Characteristics'),
+              problems:   section(html,'Problems'),
+              uses:       section(html,'Uses'),
+            };
+          }
+
+          const MBG_UA = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://plantfinder.mobot.org/',
+          };
+
+          async function main() {
+            // 1. 큐 가져오기
+            const qRes = await fetch(WORKER + '/api/mbg/queue');
+            const { queue } = await qRes.json();
+            if (!queue || queue.length === 0) {
+              console.log('큐 비어있음, 종료');
+              return;
+            }
+            console.log(`큐 ${queue.length}개 처리 시작`);
+
+            let ok = 0, skip = 0;
+            for (const item of queue) {
+              try {
+                const html = await fetch(
+                  `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${item.taxonid}&isprofile=0`,
+                  { headers: MBG_UA }
+                ).then(r => r.text());
+
+                const data = parseMbg(html);
+                if (data) {
+                  await fetch(WORKER + '/api/mbg/kv-save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ taxonid: item.taxonid, data }),
+                  });
+                  console.log(`✓ ${item.name}`);
+                  ok++;
+                } else {
+                  console.log(`- ${item.name} (MBG에 없음)`);
+                  skip++;
+                }
+              } catch(e) {
+                console.error(`✗ ${item.name}: ${e.message}`);
+              }
+            }
+
+            // 2. 큐 비우기
+            await fetch(WORKER + '/api/mbg/queue/clear', { method: 'POST' });
+            console.log(`완료: 저장 ${ok}개, 건너뜀 ${skip}개`);
+          }
+
+          main().catch(e => { console.error(e); process.exit(1); });
+          EOF
