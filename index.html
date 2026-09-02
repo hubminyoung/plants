@@ -465,7 +465,9 @@ table.dtbl tr:last-child td { border-bottom: none; }
 #bc-canvas { position:relative;width:3000px;height:2000px;background:#ffffff; }
 #bc-bg-hint { position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;font-size:0.9rem;text-align:center;line-height:2;pointer-events:auto; }
 #bc-bg-img { display:block;max-width:100%;user-select:none;pointer-events:none; }
-.bc-bg-layer { position:absolute;cursor:move;z-index:1;border:1.5px dashed #aab8a0;box-sizing:border-box; }
+.bc-bg-layer { position:absolute;cursor:default;z-index:1;border:1.5px dashed #aab8a0;box-sizing:border-box; }
+.bc-bg-handle { position:absolute;top:0;left:0;right:0;height:20px;background:rgba(82,183,136,.75);color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:grab;z-index:5;user-select:none;letter-spacing:2px; }
+.bc-bg-handle:active { cursor:grabbing; }
 .bc-bg-layer:hover { border-color:#52b788; }
 .bc-bg-del { position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;z-index:5; }
 .bc-bg-resize { position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 40%,rgba(82,183,136,.8) 40%);z-index:5; }
@@ -3462,9 +3464,11 @@ function bcRenderBgs() {
     el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
     const bgTx = b.imgPanX||0, bgTy = b.imgPanY||0, bgSc = b.imgScale||1;
     const bgImgScale = (bgSc!==1||bgTx||bgTy) ? `transform:translate(${bgTx}px,${bgTy}px) scale(${bgSc});transform-origin:center center;` : '';
-    el.innerHTML = `<div style="width:100%;height:100%;overflow:hidden;"><img src="${b.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;${bgImgScale}"></div>
+    el.innerHTML = `<div class="bc-bg-handle" title="드래그=이동">⠿</div>
+      <div style="width:100%;height:calc(100% - 20px);overflow:hidden;"><img src="${b.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;${bgImgScale}"></div>
       <div class="bc-bg-del" onclick="bcDelBg(${b.id})" title="삭제">✕</div>
       <div class="bc-bg-resize" data-bgid="${b.id}"></div>`;
+    el.querySelector('.bc-bg-handle').addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); const pos=evPos(e); BC.drag={type:'bg',id:b.id,sx:pos.x,sy:pos.y,ox:b.x,oy:b.y}; });
     el.addEventListener('mousedown', e => bcBgDragStart(e, b.id));
     el.querySelector('.bc-bg-resize').addEventListener('mousedown', e => bcBgResizeStart(e, b.id));
     canvas.insertBefore(el, canvas.firstChild);
@@ -3518,6 +3522,7 @@ function bcBgDragStart(e, bgId) {
   const b = BC.bgs.find(x => x.id === bgId);
   if (!b) return;
   const pos = evPos(e);
+  // 확대된 상태 → 이미지 내부 패닝 (핸들바로 레이어 이동)
   if ((b.imgScale||1) > 1) {
     BC.drag = { type:'bg-img-pan', id: bgId, sx:pos.x, sy:pos.y, px:b.imgPanX||0, py:b.imgPanY||0 };
     return;
