@@ -1390,7 +1390,12 @@ async function loadPlant(p) {
   const searchQ = (cultivarMatch && p.latName)
     ? acceptedBase.split(' ')[0] + ' ' + cultivarMatch[1]
     : acceptedBase;
-  const mbg = await wFetch('/api/mbg/search', { q: searchQ });
+  let mbg = await wFetch('/api/mbg/search', { q: searchQ });
+  // iNaturalist가 이름을 바꾼 경우 원래 이름으로 재시도
+  if (!mbg?.taxonid && p.name && searchQ !== p.name.replace(/\s*[''][^'']+['']\s*$/, '').trim()) {
+    const origQ = p.name.replace(/\s*[''][^'']+['']\s*$/, '').trim();
+    mbg = await wFetch('/api/mbg/search', { q: origQ });
+  }
   if (mbg?.taxonid) {
     p.mbgTaxonId = mbg.taxonid;
     if (mbg.staticSlug) p.mbgStaticSlug = mbg.staticSlug;
@@ -1543,7 +1548,12 @@ async function loadKnagardenDetail(p, korName) {
 async function loadNaturadbDetail(p) {
   const q = p.latName || p.name;
   if (!q) return;
-  const det = await wFetch('/api/naturadb/details', { q });
+  let det = await wFetch('/api/naturadb/details', { q });
+
+  // iNaturalist가 이름을 바꾼 경우 원래 이름으로 재시도
+  if ((!det || det.error) && p.name && p.name !== q) {
+    det = await wFetch('/api/naturadb/details', { q: p.name });
+  }
 
   if (det && !det.error) {
 
