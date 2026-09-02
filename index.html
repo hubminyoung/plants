@@ -3397,6 +3397,7 @@ document.addEventListener('keydown', function(e) {
     const outer = document.getElementById('bc-outer');
     if (!outer) return;
     outer.addEventListener('wheel', function(e) {
+      if (!e.ctrlKey) return; // Ctrl+휠만 확대/축소
       const node = e.target.closest('.bc-node');
       const bg   = e.target.closest('.bc-bg-layer');
       if (!node && !bg) return;
@@ -3530,7 +3531,7 @@ document.addEventListener('paste', function(ev) {
 
 // ── 컨셉이미지 레이어 드래그/리사이즈 ────────────────────────────────────────
 function bcBgDragStart(e, bgId) {
-  if (e.target.classList.contains('bc-bg-resize') || e.target.classList.contains('bc-bg-del')) return;
+  if (e.target.classList.contains('bc-bg-resize') || e.target.classList.contains('bc-bg-del') || e.target.tagName === 'BUTTON') return;
   e.preventDefault(); e.stopPropagation();
   const b = BC.bgs.find(x => x.id === bgId);
   if (!b) return;
