@@ -751,7 +751,7 @@ async function mbgKvSave(req, env) {
   const { taxonid, data } = body;
   if (!taxonid || !data) return { error: 'taxonid and data required' };
   try {
-    await env.PLANT_DATA.put('mbg_detail_' + taxonid, JSON.stringify(data), { expirationTtl: 60 * 60 * 24 * 365 });
+    await env.PLANT_DATA.put('mbg_detail_' + taxonid, JSON.stringify(data));
     return { ok: true, taxonid };
   } catch(e) { return { error: e.message }; }
 }
