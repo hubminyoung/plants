@@ -1450,6 +1450,11 @@ async function loadPlant(p) {
     const origQ = p.name.replace(/\s*[''][^'']+['']\s*$/, '').trim();
     mbg = await wFetch('/api/mbg/search', { q: origQ });
   }
+  // 괄호형 이름 (Genus (desc)) — 속명만으로 재시도
+  if (!mbg?.taxonid && /\(/.test(p.name)) {
+    const genusOnly = p.name.split(/\s/)[0];
+    if (genusOnly) mbg = await wFetch('/api/mbg/search', { q: genusOnly });
+  }
   if (mbg?.taxonid) {
     p.mbgTaxonId = mbg.taxonid;
     if (mbg.staticSlug) p.mbgStaticSlug = mbg.staticSlug;
@@ -1490,7 +1495,33 @@ async function loadPlant(p) {
     } catch(_) {}
     plantsToLS();
     renderAll();
+    // 모든 소스 실패 시 경고
+    const hasAnyData = p.mbgTaxonId || p.naturadbUrl || p.rhsUrl || p.culture || p.ndbStandort || p.height;
+    if (!hasAnyData) {
+      p.notFound = true;
+      showNotFoundToast(p.name);
+    }
   }
+}
+
+function showNotFoundToast(name) {
+  let wrap = document.getElementById('notfound-toasts');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'notfound-toasts';
+    wrap.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:320px';
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement('div');
+  t.style.cssText = 'background:#fff3cd;border:1.5px solid #f5c842;border-radius:8px;padding:10px 14px;font-size:0.82rem;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;gap:10px;align-items:flex-start';
+  t.innerHTML = `<span style="font-size:1.1rem;flex-shrink:0">⚠️</span>
+    <div>
+      <div style="font-weight:700;margin-bottom:3px;color:#856404">"${name}" 정보를 찾지 못했습니다</div>
+      <div style="color:#664d03">정확한 학명을 확인해주세요.<br><small style="opacity:.7">MBG · NDB · RHS 모두 검색 실패</small></div>
+    </div>
+    <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;cursor:pointer;font-size:1rem;color:#999;flex-shrink:0;line-height:1">✕</button>`;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 12000);
 }
 
 async function loadGardeniaDetail(p) {
@@ -2033,6 +2064,7 @@ function renderChips() {
     const com = p.commonName || '';
     return `<span class="chip">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
+      ${p.notFound ? '<span title="정보를 찾지 못했습니다 — 학명을 확인해주세요" style="font-size:0.85rem;cursor:help">⚠️</span>' : ''}
       <span>${kor || lat}</span>
       ${kor ? `<span class="chip-latin">${lat}</span>` : ''}
       ${com ? `<span class="chip-common">${com}</span>` : ''}
