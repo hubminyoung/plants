@@ -1726,12 +1726,23 @@ async function loadKnagardenDetail(p, korName) {
 }
 
 async function loadNaturadbDetail(p) {
-  const q = p.latName || p.name;
+  // specificEpithet(종소명)이 있으면 더 정확한 NDB 슬러그 구성
+  // 예: Narcissus + cyclamineus + 'Tete-a-Tete' → narcissus-cyclamineus-tete-a-tete
+  const _cultivarM = (p.name || '').match(/([''''][^'''']+[''''])/);
+  const _genus = (p.latName || p.name || '').split(/\s/)[0];
+  const _specificQ = (p.specificEpithet && _genus && _cultivarM)
+    ? `${_genus} ${p.specificEpithet} ${_cultivarM[1]}`
+    : null;
+
+  const q = _specificQ || p.latName || p.name;
   if (!q) return;
   let det = await wFetch('/api/naturadb/details', { q });
 
-  // iNaturalist가 이름을 바꾼 경우 원래 이름으로 재시도
-  if ((!det || det.error) && p.name && p.name !== q) {
+  // 실패 시 fallback 순서: specificQ → latName → name
+  if ((!det || det.error) && _specificQ && _specificQ !== (p.latName || p.name)) {
+    det = await wFetch('/api/naturadb/details', { q: p.latName || p.name });
+  }
+  if ((!det || det.error) && p.name && p.name !== (p.latName || p.name)) {
     det = await wFetch('/api/naturadb/details', { q: p.name });
   }
 

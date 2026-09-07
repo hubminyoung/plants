@@ -50,6 +50,7 @@ export default {
       else if (pathname === '/api/mbg/queue/add')       data = await mbgQueueAdd(req, env);
       else if (pathname === '/api/mbg/queue/clear')     data = await mbgQueueClear(env);
       else if (pathname === '/api/mbg/kv-save')         data = await mbgKvSave(req, env);
+      else if (pathname === '/api/mbg/debug')           data = await mbgDebug(searchParams);
       else if (pathname === '/api/board/save')  data = await boardSave(req, env);
       else if (pathname === '/api/board/load')  data = await boardLoad(req, env);
       else if (pathname === '/api/img/save')    data = await imgSave(req, env);
@@ -150,8 +151,36 @@ async function getMbgTaxonMap() {
   return _mbgTaxonMapPromise;
 }
 
-// MBG는 비미국 Cloudflare IP에서 차단됨 → 정적 폴백
+// MBG는 비미국 Cloudflare IP에서 차단됨 + plantfinder.mobot.org SSL 526 오류 → 정적 폴백
+// 새 식물 추가: Tampermonkey 스크립트로 MBG 방문 시 KV 자동 저장 (장기 해법)
 const STATIC_MBG = {
+  'narcissus-tete-a-tete': {
+    commonName: "miscellaneous daffodil", plantType: "Bulb",
+    family: "Amaryllidaceae", nativeRange: "Europe", zone: "4 to 8",
+    heightFeet: "0.50 to 0.75 feet", spreadFeet: "0.25 to 0.50 feet",
+    bloomTime: "April", bloomColor: "Buttercup yellow",
+    specificEpithet: "cyclamineus",
+    sun: "Full sun to part shade", water: "Medium", maintenance: "Low",
+    flower: "Showy, Good Cut", tolerate: "Rabbit, Deer, Drought",
+    attracts: "", suggestedUse: "Naturalizing",
+    culture: "Easily grown in average, medium moisture, well-drained soils in full sun to part shade. Good soil drainage is essential. Best in organically rich loams. Plant bulbs in early to mid fall.",
+    noteworthy: "Narcissus 'Tete-a-Tete' is a miscellaneous daffodil (Division XII). This very early blooming, miniature daffodil rises only to 6-8\" tall and features 1-3 buttercup-yellow flowers with long, narrow trumpets and slightly reflexed petals per stem. Bulbs multiply rapidly.",
+    problems: "No serious insect or disease problems. Bulb rot may occur in poorly-drained soils. Deer and rabbits tend to avoid this plant.",
+    uses: "May be massed or grown in rock gardens, border fronts, near shrubs or trees, in wild gardens or naturalized areas. Popular for containers, window boxes and indoor forcing.",
+  },
+  'narcissus-ice-follies': {
+    commonName: "large-cupped daffodil", plantType: "Bulb",
+    family: "Amaryllidaceae", nativeRange: "Europe", zone: "3 to 8",
+    heightFeet: "1.25 to 1.50 feet", spreadFeet: "0.25 to 0.50 feet",
+    bloomTime: "April", bloomColor: "White with cream cup",
+    sun: "Full sun to part shade", water: "Medium", maintenance: "Low",
+    flower: "Showy, Good Cut, Fragrant", tolerate: "Rabbit, Deer, Drought",
+    attracts: "", suggestedUse: "Naturalizing",
+    culture: "Easily grown in average, medium moisture, well-drained soils in full sun to part shade. Plant bulbs in early to mid fall at a depth 2-3 times the bulb diameter.",
+    noteworthy: "Narcissus 'Ice Follies' is a large-cupped daffodil (Division 2) with broad white petals surrounding a large, creamy-white, flat cup. One of the most popular and reliable daffodils.",
+    problems: "No serious insect or disease problems. Deer and rabbits tend to avoid this plant.",
+    uses: "Excellent for mass plantings, naturalizing, borders and cutting gardens.",
+  },
   'sporobolus-heterolepis': {
     commonName: 'Prairie Dropseed', plantType: 'Ornamental Grass',
     family: 'Poaceae', nativeRange: 'North America', zone: '3 to 9',
@@ -779,6 +808,23 @@ async function mbgFetchSearch(q) {
   const nm = html.match(/taxonid=\d+[^"]*"[^>]*>(?:<[^>]+>)*([^<]+)/i);
   const matchedName = nm ? nm[1].replace(/&amp;/g,'&').trim() : '';
   return { taxonid: m[1], matchedName };
+}
+
+async function mbgDebug(params) {
+  const taxonid = params.get('taxonid') || '251190';
+  const url = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
+  try {
+    const resp = await fetch(url, { headers: MBG_UA });
+    const html = await resp.text();
+    return {
+      status: resp.status,
+      hasCommonName: html.indexOf('Common Name:') >= 0,
+      first500: html.slice(0, 500),
+      bodyLen: html.length,
+    };
+  } catch(e) {
+    return { error: e.message };
+  }
 }
 
 async function mbgDetails(params, env) {
@@ -2110,9 +2156,19 @@ async function findNaturaDBUrl(q, NDB_HEADERS) {
 }
 
 // ── NaturaDB 식물 정보 ─────────────────────────────────────────────────────────
+// 식물명 → NDB 슬러그 직접 매핑 (자동 생성 슬러그가 NDB 실제 URL과 다른 경우)
+const NDB_SLUG_OVERRIDES = {
+  "narcissus 'tete-a-tete'": 'narcissus-cyclamineus-tete-a-tete',
+  'narcissus tete-a-tete':   'narcissus-cyclamineus-tete-a-tete',
+};
+
 async function naturadbDetails(params, env) {
   const q = (params.get('q') ?? '').trim();
   if (!q) return { error: 'q required' };
+
+  // 오버라이드 맵 체크 (정규화: 소문자 + 따옴표 제거)
+  const qNorm = q.toLowerCase().replace(/[''''‘’]/g, "'");
+  const overrideSlug = NDB_SLUG_OVERRIDES[qNorm] || NDB_SLUG_OVERRIDES[q.toLowerCase()];
 
   const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
   const toSlugFn = s => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -2129,7 +2185,7 @@ async function naturadbDetails(params, env) {
   const cultivarMatch = q.match(/[\u0027\u2018\u2019\u02BC\u2032]([^\u0027\u2018\u2019\u02BC\u2032]+)[\u0027\u2018\u2019\u02BC\u2032]/);
   const cultivarSlug = cultivarMatch ? toSlugFn(cultivarMatch[1].trim()) : null;
   const slugWithCultivar = cultivarSlug ? `${slugNoVar}-${cultivarSlug}` : null;
-  const slugCandidates = [...new Set([slugWithCultivar, slug, slugNoKeyword, slugNoVar].filter(Boolean))];
+  const slugCandidates = [...new Set([overrideSlug, slugWithCultivar, slug, slugNoKeyword, slugNoVar].filter(Boolean))];
 
   const ndbUrl = `https://www.naturadb.de/pflanzen/${slug}/`;
   const url    = ndbUrl;
