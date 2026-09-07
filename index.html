@@ -390,14 +390,14 @@ table.dtbl tr:last-child td { border-bottom: none; }
 /* ── Tab 6: Care ─────────────────────────────────────── */
 .care-table-wrap { overflow-x: auto; padding: 0 1rem 1rem; }
 .care-table { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 0.78rem; }
-.care-table th, .care-table td { border: 1px solid #ddeedd; padding: 6px 10px; vertical-align: top; }
-.care-table th { background: #f0f8ec; font-weight: 600; text-align: center; white-space: nowrap; color: #2d5a2d; }
+.care-table th, .care-table td { border: 1px solid #ddeedd; padding: 5px 8px; vertical-align: top; max-width: 180px; }
+.care-table th { background: #f0f8ec; font-weight: 600; text-align: center; white-space: nowrap; color: #2d5a2d; max-width: none; }
 .care-table th .care-src-badge { display:block; margin: 2px auto 0; }
-.care-table td:first-child { position: sticky; left: 0; z-index: 1; background: #fff; min-width: 140px; max-width: 180px; border-right: 2px solid #c8e0c0; }
+.care-table td:first-child { position: sticky; left: 0; z-index: 1; background: #fff; min-width: 120px; max-width: 150px; border-right: 2px solid #c8e0c0; }
 .care-table thead th:first-child { position: sticky; left: 0; z-index: 3; }
 .care-table tr:hover td { background: #fafff8; }
 .care-table tr:hover td:first-child { background: #f5fbf2; }
-.care-cell-wrap { max-height: 130px; overflow-y: auto; }
+.care-cell-wrap { max-height: 100px; overflow-y: auto; word-break: break-word; white-space: pre-wrap; font-size: 0.75rem; }
 .care-name-cell { font-weight: 700; font-size: 0.85rem; color: #1e4d1e; }
 .care-lat-cell  { font-style: italic; font-size: 0.68rem; color: #6a8a5a; }
 .care-src-badge {
