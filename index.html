@@ -1463,6 +1463,10 @@ async function loadPlant(p) {
     p.mbgTaxonId = mbg.taxonid;
     if (mbg.staticSlug) p.mbgStaticSlug = mbg.staticSlug;
     await loadMbgDetail(p);
+    // MBG detail KV 캐시 없을 시 Gardenia fallback (sunlight/height/bloom 모두 없으면)
+    if (!p.sunlight?.length && !p.height && !p.bloomMonths?.length) {
+      await loadGardeniaDetail(p);
+    }
   } else {
     // MBG에 없으면 gardenia.net 시도
     await loadGardeniaDetail(p);
