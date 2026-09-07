@@ -1990,9 +1990,13 @@ async function loadMbgDetail(p) {
   if (!p.mbgTaxonId) return;
 
   // 1순위: Service Worker 프록시 (사용자 IP로 MBG 접근, 차단 없음)
+  // navigator.serviceWorker.ready는 SW 미등록 시 영원히 hang → 2초 타임아웃 적용
   let det = null;
   try {
-    const swReg = await navigator.serviceWorker?.ready;
+    const swReg = await Promise.race([
+      navigator.serviceWorker?.ready ?? Promise.resolve(null),
+      new Promise(r => setTimeout(() => r(null), 2000))
+    ]);
     if (swReg) {
       const r = await Promise.race([
         fetch(`/plants/proxy/mbg?taxonid=${p.mbgTaxonId}`),

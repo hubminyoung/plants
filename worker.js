@@ -804,14 +804,35 @@ async function mbgDetails(params, env) {
     } catch(_) {}
   }
 
-  let html;
-  try {
-    const url = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
-    const resp = await fetch(url, { headers: MBG_UA });
-    html = await resp.text();
-  } catch(_) { html = ''; }
+  const MBG_DETAIL_URL = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
 
-  // MBG 라이브가 차단된 경우(또는 'Common Name:' 없는 응답) → staticSlug 폴백
+  let html = '';
+
+  // 전략 1: 직접 fetch (Cloudflare IP가 차단되면 실패)
+  try {
+    const resp = await fetch(MBG_DETAIL_URL, { headers: MBG_UA });
+    if (resp.ok) html = await resp.text();
+  } catch(_) {}
+
+  // 전략 2: allorigins.win CORS 프록시
+  if (html.indexOf('Common Name:') < 0) {
+    try {
+      const resp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(MBG_DETAIL_URL)}`,
+        { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
+      if (resp.ok) html = await resp.text();
+    } catch(_) {}
+  }
+
+  // 전략 3: corsproxy.io
+  if (html.indexOf('Common Name:') < 0) {
+    try {
+      const resp = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(MBG_DETAIL_URL)}`,
+        { signal: AbortSignal.timeout(8000) });
+      if (resp.ok) html = await resp.text();
+    } catch(_) {}
+  }
+
+  // 모든 전략 실패 → staticSlug 폴백
   if (html.indexOf('Common Name:') < 0) {
     if (staticSlug && STATIC_MBG[staticSlug]) return { ...STATIC_MBG[staticSlug], fromStatic: true };
     return {};
@@ -840,7 +861,7 @@ async function mbgDetails(params, env) {
     return ent(m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')).slice(0, 800);
   }
 
-  return {
+  const result = {
     commonName:   fieldVal('Common Name'),
     plantType:    fieldVal('Type'),
     family:       fieldVal('Family'),
@@ -865,6 +886,16 @@ async function mbgDetails(params, env) {
     problems:     sectionText('Problems'),
     uses:         sectionText('Uses'),
   };
+
+  // 성공 시 KV에 자동 저장 (다음 요청부터 캐시 사용)
+  if (env?.PLANT_DATA && result.commonName) {
+    try {
+      await env.PLANT_DATA.put('mbg_detail_' + taxonid, JSON.stringify(result),
+        { expirationTtl: 365 * 24 * 3600 });
+    } catch(_) {}
+  }
+
+  return result;
 }
 
 // ── Hugging Face Image Generation ────────────────────────────────────────────
