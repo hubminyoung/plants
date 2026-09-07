@@ -2818,7 +2818,7 @@ tr:nth-child(even) td{background:#f6fbf4;}
   html += '</tr>';
 
   for (const p of plants) {
-    const activeColor = p.selectedFlowerColor || p.flowerColors[0] || null;
+    const activeColor = p.selectedFlowerColor || (p.flowerColors||[])[0] || null;
     const bloomHex = activeColor ? c2css(activeColor) : '#4caf7d';
     const korName = p.korName || p.name || '';
     const latName = p.latName || p.name || '';
@@ -2896,8 +2896,8 @@ function renderSeasonal() {
     });
   } else if (seasonalSort.by === 'bloom') {
     sorted.sort((a, b) => {
-      const ma = a.bloomMonths.length ? Math.min(...a.bloomMonths) : 13;
-      const mb = b.bloomMonths.length ? Math.min(...b.bloomMonths) : 13;
+      const ma = (a.bloomMonths||[]).length ? Math.min(...a.bloomMonths) : 13;
+      const mb = (b.bloomMonths||[]).length ? Math.min(...b.bloomMonths) : 13;
       return seasonalSort.dir === 'asc' ? ma - mb : mb - ma;
     });
   }
@@ -2911,11 +2911,11 @@ function renderSeasonal() {
 
   const headCells = MO_LABELS.map(m => `<div>${m}</div>`).join('');
   const rows = sorted.map((p, i) => {
-    const activeColor = p.selectedFlowerColor || p.flowerColors[0] || null;
+    const activeColor = p.selectedFlowerColor || (p.flowerColors||[])[0] || null;
     const bloomBg = activeColor ? c2css(activeColor) : '#74c476';
     const hasWinter = !!p.winterInterest;
     const cells = [1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
-      if (p.bloomMonths.includes(m)) {
+      if ((p.bloomMonths||[]).includes(m)) {
         return `<div class="s-cell"><div class="bloom-bar" style="background:${bloomBg}" title="${MO_LABELS[m-1]} 개화">🌸</div></div>`;
       }
       // 동절기 구조미: 12, 1, 2월에 표시
