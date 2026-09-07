@@ -1223,6 +1223,9 @@ function parsePlants() {
 
   // 전처리: 분류계급 마침표 제거, * 제거
   const normalized = raw
+    // 따옴표 전부 → 직따옴표 통일 (곡따옴표·역따옴표·큰따옴표·뒤집힘 모두)
+    .replace(/[''‛‚`´ʼ′‵]/g, "'")   // 단따옴표 계열
+    .replace(/[""„‟«»]/g, "'")       // 쌍따옴표 계열 → 단따옴표
     .replace(/\bvar\./g, 'var')
     .replace(/\bsubsp\./g, 'subsp')
     .replace(/\bssp\./g, 'ssp')
@@ -1441,9 +1444,10 @@ async function loadPlant(p) {
       return inner.replace(SKIP, '').replace(/\s+/g, ' ').trim();
     }).replace(/\s+/g, ' ').trim();
   }
+  const normQuotes = s => s.replace(/[‘’ʼ′]/g, "'");
   const searchQ = (cultivarMatch && p.latName)
-    ? acceptedBase.split(' ')[0] + ' ' + cultivarMatch[1]
-    : simplifyParenName(acceptedBase);
+    ? normQuotes(acceptedBase.split(' ')[0] + ' ' + cultivarMatch[1])
+    : simplifyParenName(normQuotes(acceptedBase));
   let mbg = await wFetch('/api/mbg/search', { q: searchQ });
   // iNaturalist가 이름을 바꾼 경우 원래 이름으로 재시도
   if (!mbg?.taxonid && p.name && searchQ !== p.name.replace(/\s*[''][^'']+['']\s*$/, '').trim()) {
