@@ -2479,7 +2479,18 @@ function renderEcology() {
         <input type="file" accept="image/*" onchange="ecoAddImgFile(event,${pflanzIdx})">
       </label>` : '';
 
-    return `<div class="eco-card">
+    // data attributes for filtering
+    const dSun = (p.sunlight||[]).join(',').toLowerCase();
+    const dMaint = (p.maintenance||'').toLowerCase();
+    const dZones = (() => {
+      const h = p.hardiness || p.ndbHardiness || '';
+      const m = h.match(/(\d+)\s*[-\u2013]\s*(\d+)/);
+      if (m) { const z=[]; for(let i=+m[1];i<=+m[2];i++) z.push(i); return z.join(','); }
+      const s = h.match(/\d+/); return s ? s[0] : '';
+    })();
+    const dName = [namePrimary, nameSecondary||'', p.commonName||''].join(' ').toLowerCase();
+
+    return `<div class="eco-card" data-sun="${escA(dSun)}" data-maint="${escA(dMaint)}" data-zones="${escA(dZones)}" data-name="${escA(dName)}">
       <div class="eco-card-hd${ecoActivePlant===pflanzIdx?' eco-hd-active':''}" onclick="ecoSetActive(${pflanzIdx})">
         <div class="eco-card-hd-left">
           ${p.korName && /[가-힣]/.test(p.korName) ? `<div class="eco-card-primary">${p.korName}</div>` : ''}
@@ -3152,6 +3163,52 @@ loadNativePlantDB();
 
 // ── 생태탭 식물 이미지 ─────────────────────────────────────────────────────────
 let ecoActivePlant = null; // 현재 선택된 식물 인덱스
+
+function ecoChipToggle(btn) {
+  btn.classList.toggle('active');
+  ecoFilter();
+}
+
+function ecoFilter() {
+  const q = (document.getElementById('eco-search-input')?.value || '').toLowerCase().trim();
+  const zoneVal = parseInt(document.getElementById('eco-zone-input')?.value || '');
+  const activeChips = [...document.querySelectorAll('.eco-chip.active')];
+  const sunFilters  = activeChips.filter(c => c.dataset.filter==='sun').map(c => c.dataset.val);
+  const maintFilters= activeChips.filter(c => c.dataset.filter==='maint').map(c => c.dataset.val);
+
+  const cards = document.querySelectorAll('#eco-content .eco-card');
+  let visible = 0;
+  cards.forEach(card => {
+    let show = true;
+    // 이름 검색
+    if (q && !card.dataset.name.includes(q)) show = false;
+    // 일조 필터 (OR)
+    if (show && sunFilters.length) {
+      const sun = card.dataset.sun || '';
+      const ok = sunFilters.some(f => {
+        if (f === 'shade') return sun.includes('shade') && !sun.includes('part');
+        if (f === 'part')  return sun.includes('part');
+        if (f === 'full sun') return sun.includes('full sun') || sun === 'sun';
+        return sun.includes(f);
+      });
+      if (!ok) show = false;
+    }
+    // 관리요구 필터 (OR)
+    if (show && maintFilters.length) {
+      const ok = maintFilters.some(f => card.dataset.maint === f || (f === 'low' && card.dataset.maint === 'minimum'));
+      if (!ok) show = false;
+    }
+    // Zone 필터
+    if (show && !isNaN(zoneVal)) {
+      const zones = (card.dataset.zones || '').split(',').map(Number).filter(Boolean);
+      if (zones.length && !zones.includes(zoneVal)) show = false;
+    }
+    card.classList.toggle('eco-card-hidden', !show);
+    if (show) visible++;
+  });
+  const countEl = document.getElementById('eco-search-count');
+  if (countEl) countEl.textContent = cards.length ? `${visible} / ${cards.length}` : '';
+}
 
 function ecoSetActive(idx) {
   ecoActivePlant = idx;
