@@ -1504,6 +1504,41 @@ async function loadPlant(p) {
   }
 }
 
+function chipEditName(idx, e) {
+  e.stopPropagation();
+  const chip = document.querySelectorAll('#chipArea .chip')[idx];
+  if (!chip) return;
+  const p = plants[idx];
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = p.name;
+  input.style.cssText = 'width:160px;padding:2px 6px;border:1.5px solid #f5c842;border-radius:4px;font-size:0.8rem;outline:none';
+  input.title = '정확한 학명 입력 후 Enter';
+  const nameSpan = chip.querySelector('span:not(.chip-dot):not(.chip-latin):not(.chip-common)');
+  if (nameSpan) nameSpan.replaceWith(input);
+  input.focus(); input.select();
+  const confirm = () => {
+    const newName = input.value.trim();
+    if (newName && newName !== p.name) retryWithName(idx, newName);
+    else renderChips();
+  };
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') confirm(); if (e.key === 'Escape') renderChips(); });
+  input.addEventListener('blur', confirm);
+}
+
+function retryWithName(idx, newName) {
+  const p = plants[idx];
+  if (!p) return;
+  p.name = newName; p.latName = newName;
+  p.notFound = false; p.done = false; p.fetching = false;
+  ['mbgTaxonId','mbgStaticSlug','culture','noteworthy','problems','uses','height','spreadStr',
+   'ndbStandort','ndbOekologie','rhsUrl','rhsCultivation','rhsPruning','rhsPropagation',
+   'commonName','korName','family','sunlight','watering','maintenance','bloomMonths','flowerColors'
+  ].forEach(k => delete p[k]);
+  loadPlant(p);
+  renderAll();
+}
+
 function notFoundRetry(origName, inputId, toastEl) {
   const newName = document.getElementById(inputId)?.value.trim();
   if (!newName) return;
@@ -2087,8 +2122,8 @@ function renderChips() {
     const com = p.commonName || '';
     return `<span class="chip" draggable="true" data-idx="${i}" title="드래그로 순서 변경">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
-      ${p.notFound ? '<span title="정보를 찾지 못했습니다 — 학명을 확인해주세요" style="font-size:0.85rem;cursor:help">⚠️</span>' : ''}
-      <span>${kor || lat}</span>
+      ${p.notFound ? `<span onclick="chipEditName(${i},event)" title="클릭하여 학명 수정" style="font-size:0.85rem;cursor:pointer">⚠️</span>` : ''}
+      <span onclick="${p.notFound ? `chipEditName(${i},event)` : ''}" style="${p.notFound ? 'cursor:pointer;text-decoration:underline dotted #f5c842' : ''}">${kor || lat}</span>
       ${kor ? `<span class="chip-latin">${lat}</span>` : ''}
       ${com ? `<span class="chip-common">${com}</span>` : ''}
       <button class="chip-rm" data-idx="${i}">✕</button>
@@ -2444,6 +2479,10 @@ function escA(s) {
     .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
     .replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+function escH(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 function renderEcology() {
   const el = document.getElementById('eco-content');
@@ -2604,7 +2643,19 @@ function renderEcology() {
     })();
     const dName = [namePrimary, nameSecondary||'', p.commonName||''].join(' ').toLowerCase();
 
+    const notFoundBanner = p.notFound ? `
+      <div style="background:#fff3cd;border-bottom:1.5px solid #f5c842;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>⚠️</span>
+        <span style="flex:1;font-size:0.8rem;color:#664d03;min-width:140px"><b>${escH(p.name)}</b> 정보를 찾지 못했습니다. 학명을 수정해주세요:</span>
+        <input type="text" placeholder="${escA(p.name)}"
+          onkeydown="if(event.key==='Enter'){retryWithName(${pflanzIdx},this.value.trim())}"
+          style="padding:4px 8px;border:1.5px solid #f5c842;border-radius:5px;font-size:0.8rem;width:200px;outline:none">
+        <button onclick="retryWithName(${pflanzIdx},this.previousElementSibling.value.trim())"
+          style="padding:4px 10px;background:#f5c842;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:0.8rem">재검색</button>
+      </div>` : '';
+
     return `<div class="eco-card" data-sun="${escA(dSun)}" data-maint="${escA(dMaint)}" data-zones="${escA(dZones)}" data-name="${escA(dName)}" data-colors="${escA(dColors)}" data-months="${escA(dMonths)}">
+      ${notFoundBanner}
       <div class="eco-card-hd${ecoActivePlant===pflanzIdx?' eco-hd-active':''}" onclick="ecoSetActive(${pflanzIdx})">
         <div class="eco-card-hd-left">
           ${p.korName && /[가-힣]/.test(p.korName) ? `<div class="eco-card-primary">${p.korName}</div>` : ''}
