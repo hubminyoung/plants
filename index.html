@@ -388,33 +388,18 @@ table.dtbl tr:last-child td { border-bottom: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Tab 6: Care ─────────────────────────────────────── */
-.care-cards { display: flex; flex-direction: column; gap: 0.75rem; }
-.care-card {
-  background: white; border-radius: 10px; overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.07); border: 1px solid #eaf0e6;
-}
-.care-card-hd {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 0.65rem 1rem; background: #f0f8ec; border-bottom: 1px solid #ddeedd;
-}
-.care-card-name { font-size: 0.95rem; font-weight: 700; color: #1e4d1e; }
-.care-card-lat  { font-style:italic; font-size:0.72rem; color:#6a8a5a; margin-left:0.4rem; }
-.care-accords   { display:flex; flex-direction:column; }
-/* Accordion rows */
-.care-accord { border-bottom: 1px solid #f0f5ec; }
-.care-accord:last-child { border-bottom: none; }
-.care-accord-hd {
-  display: flex; align-items: center; gap: 0.45rem;
-  padding: 0.5rem 1rem; cursor: pointer; user-select: none;
-  font-size: 0.8rem; font-weight: 600; color: #2d5a2d;
-  background: #fafff8;
-  transition: background 0.1s;
-}
-.care-accord-hd:hover { background: #f0f8ec; }
-.care-accord .care-chevron { margin-left: auto; font-size: 0.7rem; color: #8aaa7a; transition: transform 0.2s; }
-.care-accord.open .care-chevron { transform: rotate(180deg); }
-.care-accord-body { display: none; padding: 0.5rem 1rem 0.7rem 1rem; background: #fff; }
-.care-accord.open .care-accord-body { display: block; }
+.care-table-wrap { overflow-x: auto; padding: 0 1rem 1rem; }
+.care-table { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 0.78rem; }
+.care-table th, .care-table td { border: 1px solid #ddeedd; padding: 6px 10px; vertical-align: top; }
+.care-table th { background: #f0f8ec; font-weight: 600; text-align: center; white-space: nowrap; color: #2d5a2d; }
+.care-table th .care-src-badge { display:block; margin: 2px auto 0; }
+.care-table td:first-child { position: sticky; left: 0; z-index: 1; background: #fff; min-width: 140px; max-width: 180px; border-right: 2px solid #c8e0c0; }
+.care-table thead th:first-child { position: sticky; left: 0; z-index: 3; }
+.care-table tr:hover td { background: #fafff8; }
+.care-table tr:hover td:first-child { background: #f5fbf2; }
+.care-cell-wrap { max-height: 130px; overflow-y: auto; }
+.care-name-cell { font-weight: 700; font-size: 0.85rem; color: #1e4d1e; }
+.care-lat-cell  { font-style: italic; font-size: 0.68rem; color: #6a8a5a; }
 .care-src-badge {
   font-size: 0.6rem; padding: 0.08rem 0.3rem; border-radius: 6px;
   background: #e8f4e8; color: #4a7a3a; border: 1px solid #c8e0c0;
