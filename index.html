@@ -2818,76 +2818,58 @@ function renderCare() {
   const el = document.getElementById('care-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div>'; return; }
 
-  const ld = (p,v) => p.fetching ? '<span class="loading-val">…</span>' : (v||'—');
+  const COLS = [
+    { keys: ['ndbStandort'],                              icon: '📍', label: '입지',     src: 'NDB' },
+    { keys: ['ndbOekologie'],                             icon: '🦋', label: '생태',     src: 'NDB' },
+    { keys: ['ndbVerwendung'],                            icon: '🎯', label: '용도',     src: 'NDB' },
+    { keys: ['ndbSchnitt','rhsPruning'],                  icon: '✂️', label: '가지치기', src: 'NDB/RHS' },
+    { keys: ['ndbVermehrung','rhsPropagation'],           icon: '🌱', label: '번식',     src: 'NDB/RHS' },
+    { keys: ['ndbSchaedlinge','rhsPests','rhsDiseases','problems'], icon: '🐛', label: '병해충', src: 'NDB/RHS/MBG' },
+    { keys: ['ndbInteressantes'],                         icon: '💡', label: '흥미',     src: 'NDB' },
+    { keys: ['culture','rhsCultivation'],                 icon: '🌱', label: '재배법',   src: 'MBG/RHS' },
+    { keys: ['noteworthy'],                               icon: '✨', label: '주목',     src: 'MBG' },
+    { keys: ['uses'],                                     icon: '🎯', label: '활용',     src: 'MBG' },
+    { keys: ['rhsLocations'],                             icon: '🏡', label: '식재유형', src: 'RHS' },
+  ];
 
-  const cards = plants.map((p, pi) => {
-    const { primary: namePrimary, secondary: nameSecondary } = pNames(p);
-    const sq = encodeURIComponent((p.latName || p.name || '')
-      .replace(/[\u2018\u2019\u02BC\u2032]/g,'')
-      .replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi,'')
-      .replace(/\./g,'').replace(/\s+/g,' ').trim());
+  const activeCols = COLS.filter(c => plants.some(p => c.keys.some(k => p[k])));
 
-    function careAccordion(id, icon, title, text, badge) {
-      if (!text && !p.fetching) return '';
-      const val = p.fetching ? '<span class="loading-val">불러오는 중…</span>' : text;
-      const bdg = badge ? `<span class="care-src-badge">${badge}</span>` : '';
-      return `<div class="care-accord open">
-        <div class="care-accord-hd" onclick="this.parentNode.classList.toggle('open')">
-          <span>${icon} ${title}</span>
-          ${bdg}
-          ${text ? `<button class="translate-btn" onclick="event.stopPropagation();translateCare('${id}','${id}-btn')" id="${id}-btn">🌐 번역</button>` : ''}
-          <span class="care-chevron">▾</span>
-        </div>
-        <div class="care-accord-body">
-          <div class="care-text" id="${id}" data-orig="${escA(text||'')}">${val||''}</div>
-        </div>
-      </div>`;
-    }
+  const thead = `<thead><tr>
+    <th style="position:sticky;left:0;z-index:3;background:#f0f8ec">수종</th>
+    ${activeCols.map(c => `<th>${c.icon} ${c.label}<br><span class="care-src-badge">${c.src}</span></th>`).join('')}
+  </tr></thead>`;
 
-    const sectHtml = [
-      // MBG (1순위 - 가장 정확)
-      careAccordion(`care-cult-${pi}`, '🌱', '재배법', p.culture, 'MBG'),
-      careAccordion(`care-note-${pi}`, '✨', '주목할 특징', p.noteworthy, 'MBG'),
-      careAccordion(`care-prob-${pi}`, '⚠️', '병해충/문제점', p.problems, 'MBG'),
-      careAccordion(`care-uses-${pi}`, '🎯', '활용', p.uses, 'MBG'),
-      // NDB (독일어 DB)
-      careAccordion(`ndb-standort-${pi}`, '📍', '입지', p.ndbStandort, 'NDB'),
-      careAccordion(`ndb-oeko-${pi}`,     '🦋', '생태', p.ndbOekologie, 'NDB'),
-      careAccordion(`ndb-verw-${pi}`,     '🎯', '용도', p.ndbVerwendung, 'NDB'),
-      careAccordion(`ndb-schnitt-${pi}`,  '✂️', '가지치기', p.ndbSchnitt, 'NDB'),
-      careAccordion(`ndb-verm-${pi}`,     '🌱', '번식', p.ndbVermehrung, 'NDB'),
-      careAccordion(`ndb-pest-${pi}`,     '🐛', '병해충', p.ndbSchaedlinge, 'NDB'),
-      careAccordion(`ndb-fact-${pi}`,     '💡', '흥미로운 사실', p.ndbInteressantes, 'NDB'),
-      // RHS (별도 섹션)
-      careAccordion(`rhs-cult-${pi}`,  '🌱', '재배법', p.rhsCultivation, 'RHS'),
-      careAccordion(`rhs-prop-${pi}`,  '🌱', '번식', p.rhsPropagation, 'RHS'),
-      careAccordion(`rhs-prun-${pi}`,  '✂️', '가지치기', p.rhsPruning, 'RHS'),
-      careAccordion(`rhs-pest-${pi}`,  '🐛', '병해충/질병', p.rhsPests || p.rhsDiseases, 'RHS'),
-      careAccordion(`rhs-loc-${pi}`,   '🏡', '식재 유형', p.rhsLocations, 'RHS'),
-    ].filter(Boolean).join('');
-
-    return `<div class="care-card">
-      <div class="care-card-hd">
-        <div>
-          <span class="care-card-name">${namePrimary}</span>
-          ${nameSecondary ? `<span class="care-card-lat">${nameSecondary}</span>` : ''}
-        </div>
-        <div class="eco-ext-links">
-          <a href="${mbgHref(p)}" target="_blank" title="Missouri Botanical Garden" style="${p.mbgTaxonId?'':'opacity:0.6'}">🌺 MBG</a>
-          <a href="${p.naturadbUrl||''}" target="_blank" rel="noopener" style="${p.naturadbUrl?'':'opacity:0.3;pointer-events:none'}">🌿 NDB</a>
-          <a href="${p.gaissmayerUrl||''}" target="_blank" rel="noopener" style="${p.gaissmayerUrl?'':'opacity:0.3;pointer-events:none'}">🌱 Gsm</a>
-          <a href="${p.rhsUrl||''}" target="_blank" rel="noopener" style="${p.rhsUrl?'':'opacity:0.3;pointer-events:none'}">🌹 RHS</a>
-          ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener">🌸 KNA</a>` : ''}
-        </div>
+  const tbody = plants.map((p, pi) => {
+    const { primary, secondary } = pNames(p);
+    const nameTd = `<td>
+      <div class="care-name-cell">${primary}</div>
+      ${secondary ? `<div class="care-lat-cell">${secondary}</div>` : ''}
+      <div class="eco-ext-links" style="margin-top:4px;font-size:0.68rem">
+        <a href="${mbgHref(p)}" target="_blank" style="${p.mbgTaxonId?'':'opacity:0.4'}">MBG</a>
+        <a href="${p.naturadbUrl||''}" target="_blank" style="${p.naturadbUrl?'':'opacity:0.2;pointer-events:none'}">NDB</a>
+        <a href="${p.gaissmayerUrl||''}" target="_blank" style="${p.gaissmayerUrl?'':'opacity:0.2;pointer-events:none'}">Gsm</a>
+        <a href="${p.rhsUrl||''}" target="_blank" style="${p.rhsUrl?'':'opacity:0.2;pointer-events:none'}">RHS</a>
       </div>
-      <div class="care-accords">
-        ${sectHtml || '<div style="padding:0.6rem 1rem;color:#aaa;font-size:0.8rem">데이터 없음</div>'}
-      </div>
-    </div>`;
+    </td>`;
+
+    const dataTds = activeCols.map((c, ci) => {
+      const text = c.keys.map(k => p[k]).filter(Boolean).join('\n\n');
+      if (!text && !p.fetching) return `<td style="color:#ccc;text-align:center">—</td>`;
+      const cellId = `cc-${pi}-${ci}`;
+      const val = p.fetching ? '<span class="loading-val">…</span>' : text;
+      return `<td>
+        <div class="care-cell-wrap"><div class="care-text" id="${cellId}" data-orig="${escA(text||'')}">${val}</div></div>
+        ${text ? `<button class="translate-btn" onclick="translateCare('${cellId}','${cellId}-btn')" id="${cellId}-btn" style="margin-top:3px">🌐</button>` : ''}
+      </td>`;
+    }).join('');
+
+    return `<tr>${nameTd}${dataTds}</tr>`;
   }).join('');
 
-  el.innerHTML = `<div class="care-cards">${cards}</div>
-    <p class="src-note" style="padding:0 1rem 0.5rem">* Missouri Botanical Garden Plant Finder. 🌐 번역 버튼으로 한국어 번역 (HF API 키 필요)</p>`;
+  el.innerHTML = `<div class="care-table-wrap">
+    <table class="care-table">${thead}<tbody>${tbody}</tbody></table>
+    <p class="src-note" style="padding:0.5rem 0">* 🌐 버튼으로 한국어 번역 (HF API 키 필요)</p>
+  </div>`;
 }
 
 // 독일어 원예 전문용어 사전
