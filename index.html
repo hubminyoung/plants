@@ -1504,6 +1504,28 @@ async function loadPlant(p) {
   }
 }
 
+function ecoEditName(idx, btn) {
+  const p = plants[idx];
+  if (!p) return;
+  const nameDiv = btn.previousElementSibling;
+  if (!nameDiv) return;
+  const cur = p.latName || p.name;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = cur;
+  input.style.cssText = 'padding:2px 6px;border:1.5px solid #f5c842;border-radius:4px;font-size:0.8rem;outline:none;width:200px';
+  nameDiv.replaceWith(input);
+  btn.style.display = 'none';
+  input.focus(); input.select();
+  const confirm = () => {
+    const newName = input.value.trim();
+    if (newName && newName !== cur) retryWithName(idx, newName);
+    else renderAll();
+  };
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') confirm(); if (e.key === 'Escape') renderAll(); });
+  input.addEventListener('blur', confirm);
+}
+
 function chipEditName(idx, e) {
   e.stopPropagation();
   const chip = document.querySelectorAll('#chipArea .chip')[idx];
@@ -1528,13 +1550,20 @@ function chipEditName(idx, e) {
 
 function retryWithName(idx, newName) {
   const p = plants[idx];
-  if (!p) return;
-  p.name = newName; p.latName = newName;
-  p.notFound = false; p.done = false; p.fetching = false;
-  ['mbgTaxonId','mbgStaticSlug','culture','noteworthy','problems','uses','height','spreadStr',
-   'ndbStandort','ndbOekologie','rhsUrl','rhsCultivation','rhsPruning','rhsPropagation',
-   'commonName','korName','family','sunlight','watering','maintenance','bloomMonths','flowerColors'
-  ].forEach(k => delete p[k]);
+  if (!p || !newName) return;
+  // 이미지만 보존하고 나머지 전부 초기화
+  const savedImgs = p.images || [];
+  const savedHidden = p.hiddenImages || [];
+  Object.keys(p).forEach(k => {
+    if (!['name','images','hiddenImages'].includes(k)) delete p[k];
+  });
+  p.name = newName;
+  p.latName = newName;
+  p.images = savedImgs;
+  p.hiddenImages = savedHidden;
+  p.notFound = false;
+  p.done = false;
+  p.fetching = false;
   loadPlant(p);
   renderAll();
 }
@@ -2122,8 +2151,8 @@ function renderChips() {
     const com = p.commonName || '';
     return `<span class="chip" draggable="true" data-idx="${i}" title="드래그로 순서 변경">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
-      ${p.notFound ? `<span onclick="chipEditName(${i},event)" title="클릭하여 학명 수정" style="font-size:0.85rem;cursor:pointer">⚠️</span>` : ''}
-      <span onclick="${p.notFound ? `chipEditName(${i},event)` : ''}" style="${p.notFound ? 'cursor:pointer;text-decoration:underline dotted #f5c842' : ''}">${kor || lat}</span>
+      ${p.notFound ? `<span style="font-size:0.85rem">⚠️</span>` : ''}
+      <span onclick="chipEditName(${i},event)" title="클릭하여 학명 수정" style="cursor:pointer;text-decoration:underline dotted #aaa">${kor || lat}</span>
       ${kor ? `<span class="chip-latin">${lat}</span>` : ''}
       ${com ? `<span class="chip-common">${com}</span>` : ''}
       <button class="chip-rm" data-idx="${i}">✕</button>
@@ -2659,9 +2688,13 @@ function renderEcology() {
       <div class="eco-card-hd${ecoActivePlant===pflanzIdx?' eco-hd-active':''}" onclick="ecoSetActive(${pflanzIdx})">
         <div class="eco-card-hd-left">
           ${p.korName && /[가-힣]/.test(p.korName) ? `<div class="eco-card-primary">${p.korName}</div>` : ''}
-          ${(p.latName||p.name) ? `<div class="eco-card-latin">${p.latName||p.name}</div>` : ''}
+          <div style="display:flex;align-items:center;gap:5px">
+            ${(p.latName||p.name) ? `<div class="eco-card-latin">${p.latName||p.name}</div>` : ''}
+            ${!p.korName && !p.latName ? `<div class="eco-card-primary">${p.name}</div>` : ''}
+            <button onclick="event.stopPropagation();ecoEditName(${pflanzIdx},this)" title="학명 수정"
+              style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:${p.notFound?'#f5c842':'#bbb'};padding:0 2px;line-height:1">${p.notFound?'⚠️✏️':'✏️'}</button>
+          </div>
           ${p.commonName ? `<div style="font-size:0.68rem;color:#888;margin-top:0.05rem">${p.commonName}</div>` : ''}
-          ${!p.korName && !p.latName ? `<div class="eco-card-primary">${p.name}</div>` : ''}
         </div>
         <div class="eco-img-strip">${imgThumbsHtml}${addImgHtml}</div>
         <div class="eco-card-hd-right">
