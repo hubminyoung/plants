@@ -1445,9 +1445,9 @@ async function loadPlant(p) {
     }).replace(/\s+/g, ' ').trim();
   }
   const normQuotes = s => s.replace(/[‘’ʼ′]/g, "'");
-  const searchQ = (cultivarMatch && p.latName)
-    ? normQuotes(acceptedBase.split(' ')[0] + ' ' + cultivarMatch[1])
-    : simplifyParenName(normQuotes(acceptedBase));
+  const searchQ = cultivarMatch
+    ? normQuotes((acceptedBase || p.name).split(' ')[0] + ' ' + cultivarMatch[1])
+    : simplifyParenName(normQuotes(acceptedBase || p.name));
   let mbg = await wFetch('/api/mbg/search', { q: searchQ });
   // iNaturalist가 이름을 바꾼 경우 원래 이름으로 재시도
   if (!mbg?.taxonid && p.name && searchQ !== p.name.replace(/\s*[''\u2018\u2019\u0027][^''\u2018\u2019\u0027]+[''\u2018\u2019\u0027]\s*$/, '').trim()) {
