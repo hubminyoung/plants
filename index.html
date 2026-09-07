@@ -158,6 +158,19 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 
 /* ── Ecology Card Layout ─────────────────────────────── */
 .eco-cards { display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem 1rem; }
+.eco-filter-bar { display:flex; flex-direction:column; gap:6px; padding:10px 14px 8px; background:#f8fbf6; border-bottom:1px solid #e0eed8; position:sticky; top:0; z-index:10; }
+.eco-search-input { width:100%; padding:6px 10px; border:1px solid #c8dfc0; border-radius:6px; font-size:0.85rem; outline:none; }
+.eco-search-input:focus { border-color:#52b788; box-shadow:0 0 0 2px rgba(82,183,136,.15); }
+.eco-filter-chips { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.eco-filter-label { font-size:0.72rem; color:#888; white-space:nowrap; }
+.eco-filter-sep { width:1px; height:18px; background:#ddd; margin:0 4px; }
+.eco-chip { padding:3px 9px; border-radius:20px; border:1.5px solid #c8dfc0; background:#fff; font-size:0.75rem; cursor:pointer; transition:all .15s; color:#444; }
+.eco-chip:hover { border-color:#52b788; background:#f0faf4; }
+.eco-chip.active { background:#52b788; border-color:#52b788; color:#fff; font-weight:600; }
+.eco-zone-input { width:52px; padding:3px 6px; border:1.5px solid #c8dfc0; border-radius:6px; font-size:0.78rem; text-align:center; outline:none; }
+.eco-zone-input:focus { border-color:#52b788; }
+.eco-search-count { font-size:0.75rem; color:#888; align-self:flex-end; }
+.eco-card-hidden { display:none !important; }
 .eco-card { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
 .eco-card-hd { display: flex; justify-content: space-between; align-items: flex-start;
   padding: 0.75rem 1rem 0.5rem; background: #f7fbf4; border-bottom: 1px solid #e0eed8;
@@ -549,7 +562,27 @@ table.dtbl tr:last-child td { border-bottom: none; }
 
 <!-- ── Tab Panes ──────────────────────────────────────────────────────────── -->
 <div id="pane-images"   class="tab-pane active"><div id="img-content"><div class="empty"><div class="emo">📷</div><p>식물을 입력하면 이미지를 불러옵니다.</p></div></div></div>
-<div id="pane-ecology"  class="tab-pane"><div id="eco-content"><div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div></div></div>
+<div id="pane-ecology" class="tab-pane">
+  <div class="eco-filter-bar">
+    <input type="search" id="eco-search-input" placeholder="수종명 검색…" oninput="ecoFilter()" autocomplete="off" class="eco-search-input">
+    <div class="eco-filter-chips">
+      <span class="eco-filter-label">일조</span>
+      <button class="eco-chip" data-filter="sun" data-val="full sun" onclick="ecoChipToggle(this)">☀️ 양지</button>
+      <button class="eco-chip" data-filter="sun" data-val="part" onclick="ecoChipToggle(this)">🌤 반음지</button>
+      <button class="eco-chip" data-filter="sun" data-val="shade" onclick="ecoChipToggle(this)">🌥 음지</button>
+      <span class="eco-filter-sep"></span>
+      <span class="eco-filter-label">관리</span>
+      <button class="eco-chip" data-filter="maint" data-val="low" onclick="ecoChipToggle(this)">🟢 낮음</button>
+      <button class="eco-chip" data-filter="maint" data-val="medium" onclick="ecoChipToggle(this)">🟡 보통</button>
+      <button class="eco-chip" data-filter="maint" data-val="high" onclick="ecoChipToggle(this)">🔴 높음</button>
+      <span class="eco-filter-sep"></span>
+      <span class="eco-filter-label">Zone</span>
+      <input type="number" id="eco-zone-input" placeholder="예: 5" min="1" max="13" oninput="ecoFilter()" class="eco-zone-input">
+    </div>
+    <span id="eco-search-count" class="eco-search-count"></span>
+  </div>
+  <div id="eco-content"><div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div></div>
+</div>
 <div id="pane-seasonal" class="tab-pane"><div id="sea-content"><div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div></div></div>
 <div id="pane-dotview" class="tab-pane">
   <style>
@@ -2331,6 +2364,35 @@ function renderEcology() {
       ? (p.flowerColors||[]).map(c => `<span class="tag tag-fc" style="background:${c2css(c)};color:${isDark(c)?'white':'#333'}">${COLOR_KO[c.toLowerCase()]||c}</span>`).join('')
       : ld(p,'');
     const sunStr = (p.sunlight||[]).map(s => SUN_KO[s]||s).join(' ~ ') || ld(p,'');
+
+    // ── 시각적 인디케이터
+    function sunViz() {
+      if (!p.sunlight || !p.sunlight.length) return ld(p,'');
+      const s = (p.sunlight[0]||'').toLowerCase();
+      let lvl = 2;
+      if (/full.?sun|^sun$/.test(s)) lvl = 3;
+      else if (/full.?shade|^shade$/.test(s)) lvl = 1;
+      const dot = (on) => `<span style="width:11px;height:11px;border-radius:50%;display:inline-block;background:${on?'#f4b942':'#e0e0e0'}"></span>`;
+      return `<span style="display:inline-flex;align-items:center;gap:3px">${dot(true)}${dot(lvl>=2)}${dot(lvl>=3)}<small style="color:#666;margin-left:4px">${sunStr}</small></span>`;
+    }
+    function waterViz() {
+      const w = p.watering;
+      if (!w) return ld(p,'');
+      const v = w.toLowerCase();
+      let lvl = 2;
+      if (/drought|xeric|very.?low|^low/.test(v)) lvl = 1;
+      else if (/high|moist|wet/.test(v)) lvl = 3;
+      const label = waterKoLookup(w) || w;
+      const drop = (on) => `<span style="width:10px;height:13px;display:inline-block;clip-path:polygon(50% 0%,100% 60%,80% 100%,20% 100%,0% 60%);background:${on?'#4a9fd4':'#e0e0e0'}"></span>`;
+      return `<span style="display:inline-flex;align-items:center;gap:3px">${drop(true)}${drop(lvl>=2)}${drop(lvl>=3)}<small style="color:#666;margin-left:4px">${label}</small></span>`;
+    }
+    function maintViz() {
+      const m = p.maintenance;
+      if (!m) return ld(p,'');
+      const cfg = { low:['#4caf50','낮음'], minimum:['#4caf50','최소'], medium:['#ff9800','보통'], high:['#f44336','높음'] };
+      const [color, label] = cfg[m.toLowerCase()] || ['#999', MAINT_KO[m]||m];
+      return `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span><span>${label}</span></span>`;
+    }
     const origin = [p.native, translateNativeRange(p.nativeRange)].filter(Boolean).join(' / ') || ld(p,'');
 
     const f = (lbl, val) => `<div class="eco-f"><span class="eco-lbl">${lbl}</span><span class="eco-val">${val}</span></div>`;
@@ -2350,8 +2412,8 @@ function renderEcology() {
 
     // ── 서식처
     const s2 = [
-      f('일조',         sunStr),
-      f('수분요구',     waterKoLookup(p.watering) || ld(p, '')),
+      f('일조',         sunViz()),
+      f('수분요구',     waterViz()),
       f('바닥',         nld(p, p.ndbBoden)),
       f('영양소',       nld(p, p.ndbNaehrstoffe)),
       f('pH 값',        nld(p, p.ndbPH)),
@@ -2397,7 +2459,7 @@ function renderEcology() {
     // ── 관리/용도
     const verwendungTxt = p.ndbVerwendung || '';
     const s6 = [
-      f('관리요구',  MAINT_KO[p.maintenance] || ld(p, p.maintenance)),
+      f('관리요구',  maintViz()),
       p.gsmPflanzZeitpunkt ? f('식재적기', p.gsmPflanzZeitpunkt) : '',
     ].join('');
 
