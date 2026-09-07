@@ -647,7 +647,6 @@ table.dtbl tr:last-child td { border-bottom: none; }
       <col class="mc"><col class="mc"><col class="mc"><col class="mc">
     </colgroup><tbody id="dv-tb"></tbody></table>
   </div>
-  <div id="dv-wi-chart"></div>
 </div>
 <div id="pane-density"  class="tab-pane">
   <div class="density-card">
@@ -1235,7 +1234,7 @@ function parsePlants() {
 
   // 1. 학명 패턴: 반드시 이명법(속명+종명) 또는 속명+'품종명' 구조 필요
   //    → East, Shade, Garden 같은 일반 영단어 단독은 제외
-  const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+×?\s*[a-z][a-z-]{1,})+(?:\s+'[^']*(?:'s[^']*)*')?|\s+'[^']*(?:'s[^']*)*')/g;
+  const latinRe = /[A-Z][a-z]{2,}(?:(?:\s+×?\s*[a-z][a-z-]{1,})+(?:\s+'[^']*(?:'s[^']*)*')?|\s+'[^']*(?:'s[^']*)*'|\s+\([^)]+\))/g;
 
   // 2. 줄 단위 전처리: 같은 줄에 국명+학명이 함께 있으면 국명 제거
   //    (국명은 나중에 native_plants.json DB에서 자동으로 채워짐)
@@ -1246,7 +1245,7 @@ function parsePlants() {
   }).join('\n');
 
   // 3. 구분자로 세그먼트 분리 (줄바꿈·탭·콤마·슬래시·기호)
-  const segs = cleaned.split(/[\n\t,;/+|()\[\]:·]+/).map(s => s.trim()).filter(Boolean);
+  const segs = cleaned.split(/[\n\t,;/+|\[\]:·]+/).map(s => s.trim()).filter(Boolean);
 
   const latins = new Set();
   const koreans = new Set();
@@ -4356,7 +4355,6 @@ document.addEventListener('keydown', function(e) {
       });
       tb.appendChild(row);
     });
-    renderWiChart(activePl);
   }
 
   const WC_KEY = { '#1a1a1a':'k', '#d4c878':'m', '#8b5a2b':'b', '#c0c0c0':'s' };
