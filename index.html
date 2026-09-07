@@ -169,6 +169,9 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-chip.active { background:#52b788; border-color:#52b788; color:#fff; font-weight:600; }
 .eco-zone-input { width:52px; padding:3px 6px; border:1.5px solid #c8dfc0; border-radius:6px; font-size:0.78rem; text-align:center; outline:none; }
 .eco-zone-input:focus { border-color:#52b788; }
+.eco-color-chip { padding:3px 7px; border-radius:20px; }
+.eco-color-chip::before { content:''; display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--cc,#ccc); border:1px solid rgba(0,0,0,.15); margin-right:3px; vertical-align:middle; }
+.eco-month-chip { padding:2px 5px; min-width:22px; font-size:0.72rem; }
 .eco-search-count { font-size:0.75rem; color:#888; align-self:flex-end; }
 .eco-card-hidden { display:none !important; }
 .eco-card { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
@@ -578,6 +581,31 @@ table.dtbl tr:last-child td { border-bottom: none; }
       <span class="eco-filter-sep"></span>
       <span class="eco-filter-label">Zone</span>
       <input type="number" id="eco-zone-input" placeholder="예: 5" min="1" max="13" oninput="ecoFilter()" class="eco-zone-input">
+    </div>
+    <div class="eco-filter-chips">
+      <span class="eco-filter-label">꽃색</span>
+      <button class="eco-chip eco-color-chip" data-filter="color" data-val="white"   onclick="ecoChipToggle(this)" style="--cc:#ffffff">흰</button>
+      <button class="eco-chip eco-color-chip" data-filter="color" data-val="yellow"  onclick="ecoChipToggle(this)" style="--cc:#f4d03f">노</button>
+      <button class="eco-chip eco-color-chip" data-filter="color" data-val="pink"    onclick="ecoChipToggle(this)" style="--cc:#f1948a">분홍</button>
+      <button class="eco-chip eco-color-chip" data-filter="color" data-val="red"     onclick="ecoChipToggle(this)" style="--cc:#e74c3c">빨</button>
+      <button class="eco-chip eco-color-chip" data-filter="color" data-val="purple"  onclick="ecoChipToggle(this)" style="--cc:#8e44ad">보라</button>
+      <button class="eco-chip eco-color-chip" data-filter="color" data-val="blue"    onclick="ecoChipToggle(this)" style="--cc:#2e86c1">파랑</button>
+      <button class="eco-chip eco-color-chip" data-filter="color" data-val="orange"  onclick="ecoChipToggle(this)" style="--cc:#e67e22">주황</button>
+      <button class="eco-chip eco-color-chip" data-filter="color" data-val="lavender" onclick="ecoChipToggle(this)" style="--cc:#bb8fce">연보라</button>
+      <span class="eco-filter-sep"></span>
+      <span class="eco-filter-label">개화기</span>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="1"  onclick="ecoChipToggle(this)">1</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="2"  onclick="ecoChipToggle(this)">2</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="3"  onclick="ecoChipToggle(this)">3</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="4"  onclick="ecoChipToggle(this)">4</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="5"  onclick="ecoChipToggle(this)">5</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="6"  onclick="ecoChipToggle(this)">6</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="7"  onclick="ecoChipToggle(this)">7</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="8"  onclick="ecoChipToggle(this)">8</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="9"  onclick="ecoChipToggle(this)">9</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="10" onclick="ecoChipToggle(this)">10</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="11" onclick="ecoChipToggle(this)">11</button>
+      <button class="eco-chip eco-month-chip" data-filter="month" data-val="12" onclick="ecoChipToggle(this)">12</button>
     </div>
     <span id="eco-search-count" class="eco-search-count"></span>
   </div>
@@ -2482,6 +2510,8 @@ function renderEcology() {
     // data attributes for filtering
     const dSun = (p.sunlight||[]).join(',').toLowerCase();
     const dMaint = (p.maintenance||'').toLowerCase();
+    const dColors = (p.flowerColors||[]).join(',').toLowerCase();
+    const dMonths = (p.bloomMonths||[]).join(',');
     const dZones = (() => {
       const h = p.hardiness || p.ndbHardiness || '';
       const m = h.match(/(\d+)\s*[-\u2013]\s*(\d+)/);
@@ -2490,7 +2520,7 @@ function renderEcology() {
     })();
     const dName = [namePrimary, nameSecondary||'', p.commonName||''].join(' ').toLowerCase();
 
-    return `<div class="eco-card" data-sun="${escA(dSun)}" data-maint="${escA(dMaint)}" data-zones="${escA(dZones)}" data-name="${escA(dName)}">
+    return `<div class="eco-card" data-sun="${escA(dSun)}" data-maint="${escA(dMaint)}" data-zones="${escA(dZones)}" data-name="${escA(dName)}" data-colors="${escA(dColors)}" data-months="${escA(dMonths)}">
       <div class="eco-card-hd${ecoActivePlant===pflanzIdx?' eco-hd-active':''}" onclick="ecoSetActive(${pflanzIdx})">
         <div class="eco-card-hd-left">
           ${p.korName && /[가-힣]/.test(p.korName) ? `<div class="eco-card-primary">${p.korName}</div>` : ''}
@@ -2931,8 +2961,7 @@ function renderCare() {
       const cellId = `cc-${pi}-${ci}`;
       const val = p.fetching ? '<span class="loading-val">…</span>' : text;
       return `<td>
-        <div class="care-cell-wrap"><div class="care-text" id="${cellId}" data-orig="${escA(text||'')}">${val}</div></div>
-        ${text ? `<button class="translate-btn" onclick="translateCare('${cellId}','${cellId}-btn')" id="${cellId}-btn" style="margin-top:3px">🌐</button>` : ''}
+        <div class="care-cell-wrap"><div class="care-text">${val}</div></div>
       </td>`;
     }).join('');
 
@@ -2941,7 +2970,7 @@ function renderCare() {
 
   el.innerHTML = `<div class="care-table-wrap">
     <table class="care-table">${thead}<tbody>${tbody}</tbody></table>
-    <p class="src-note" style="padding:0.5rem 0">* 🌐 버튼으로 한국어 번역 (HF API 키 필요)</p>
+    <p class="src-note" style="padding:0.5rem 0">* MBG · NDB · RHS 데이터</p>
   </div>`;
 }
 
@@ -3173,8 +3202,10 @@ function ecoFilter() {
   const q = (document.getElementById('eco-search-input')?.value || '').toLowerCase().trim();
   const zoneVal = parseInt(document.getElementById('eco-zone-input')?.value || '');
   const activeChips = [...document.querySelectorAll('.eco-chip.active')];
-  const sunFilters  = activeChips.filter(c => c.dataset.filter==='sun').map(c => c.dataset.val);
-  const maintFilters= activeChips.filter(c => c.dataset.filter==='maint').map(c => c.dataset.val);
+  const sunFilters   = activeChips.filter(c => c.dataset.filter==='sun').map(c => c.dataset.val);
+  const maintFilters = activeChips.filter(c => c.dataset.filter==='maint').map(c => c.dataset.val);
+  const colorFilters = activeChips.filter(c => c.dataset.filter==='color').map(c => c.dataset.val);
+  const monthFilters = activeChips.filter(c => c.dataset.filter==='month').map(c => c.dataset.val);
 
   const cards = document.querySelectorAll('#eco-content .eco-card');
   let visible = 0;
@@ -3202,6 +3233,16 @@ function ecoFilter() {
     if (show && !isNaN(zoneVal)) {
       const zones = (card.dataset.zones || '').split(',').map(Number).filter(Boolean);
       if (zones.length && !zones.includes(zoneVal)) show = false;
+    }
+    // 꽃색 필터 (OR)
+    if (show && colorFilters.length) {
+      const colors = card.dataset.colors || '';
+      if (!colors || !colorFilters.some(c => colors.includes(c))) show = false;
+    }
+    // 개화기 필터 (OR)
+    if (show && monthFilters.length) {
+      const months = (card.dataset.months || '').split(',');
+      if (!monthFilters.some(m => months.includes(m))) show = false;
     }
     card.classList.toggle('eco-card-hidden', !show);
     if (show) visible++;
