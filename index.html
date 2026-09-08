@@ -1459,6 +1459,30 @@ async function loadPlant(p) {
     const genusOnly = p.name.split(/\s/)[0];
     if (genusOnly) mbg = await wFetch('/api/mbg/search', { q: genusOnly });
   }
+  // Worker taxonid 실패 시 → SW 브라우저 프록시로 MBG 직접 검색 (사용자 IP, 차단 없음)
+  if (!mbg?.taxonid) {
+    try {
+      const swReg2 = await Promise.race([
+        navigator.serviceWorker?.ready ?? Promise.resolve(null),
+        new Promise(r => setTimeout(() => r(null), 2000))
+      ]);
+      if (swReg2) {
+        // trademark 제거 + × 정규화한 검색어 사용
+        const swQ = searchQ.replace(/×/g, 'x').replace(/\s+[A-Z][A-Z\s]{3,}$/, '').trim();
+        const sr = await Promise.race([
+          fetch(`/plants/proxy/mbg/search?q=${encodeURIComponent(swQ)}`),
+          new Promise((_,rj) => setTimeout(() => rj(new Error('sw search timeout')), 10000))
+        ]);
+        const sHtml = await sr.text();
+        const sm = sHtml.match(/taxonid=(\d+)/i);
+        if (sm) {
+          const snm = sHtml.match(/taxonid=\d+[^"]*"[^>]*>(?:<[^>]+>)*([^<]+)/i);
+          mbg = { taxonid: sm[1], matchedName: snm ? snm[1].replace(/&amp;/g,'&').trim() : swQ, fromSW: true };
+        }
+      }
+    } catch(_) {}
+  }
+
   if (mbg?.taxonid) {
     p.mbgTaxonId = mbg.taxonid;
     if (mbg.staticSlug) p.mbgStaticSlug = mbg.staticSlug;

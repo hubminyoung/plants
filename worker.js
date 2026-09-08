@@ -675,7 +675,7 @@ async function mbgSearch(params, env) {
   if (!q) return { taxonid: null };
 
   // STATIC_MBG 폴백: MBG가 Cloudflare IP에서 차단될 경우 정적 데이터 사용
-  const toSlug = s => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const toSlug = s => s.toLowerCase().replace(/×/g, 'x').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
   // 1) 재배종명 제거
   const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
   // 2) "var."/"subsp." 키워드만 제거, 변종명 유지 (예: "Crocus tommasinianus var roseus" → "Crocus tommasinianus roseus")
@@ -688,10 +688,13 @@ async function mbgSearch(params, env) {
   // GitHub JSON taxonid 조회 (MBG 라이브 차단 우회) — STATIC_MBG보다 먼저 체크
   let githubTaxonId = null;
   let githubMatchedName = null;
+  const hasCultivar = /['''ʼ′"""]/.test(q);
   try {
     const taxonMap = await getMbgTaxonMap();
     const toKey = s => s.toLowerCase().replace(/[''ʼ′]/g, "'").replace(/\s+/g, ' ').trim();
     for (const candidate of [q, base, baseNoKeyword, baseNoVar, baseSpecies]) {
+      // cultivar 있는 쿼리에서 속명 한 단어만으로 매칭 방지 (오매칭 차단)
+      if (hasCultivar && candidate.trim().split(/\s+/).length <= 1) continue;
       const tid = taxonMap.get(toKey(candidate));
       if (tid) { githubTaxonId = tid; githubMatchedName = candidate; break; }
     }
@@ -728,6 +731,8 @@ async function mbgSearch(params, env) {
   } catch(_) {}
 
   for (const candidate of [q, base, baseNoKeyword, baseNoVar, baseSpecies]) {
+    // cultivar 있는 쿼리에서 속명 한 단어만으로 STATIC 매칭 방지
+    if (hasCultivar && candidate.trim().split(/\s+/).length <= 1) continue;
     const slug = toSlug(candidate);
     if (STATIC_MBG[slug]) {
       // STATIC_MBG 히트: 실제 taxonid가 GitHub JSON에 있으면 그걸 사용 (MBG 링크 직접 연결)
@@ -748,17 +753,52 @@ async function mbgSearch(params, env) {
     let result = await mbgFetchSearch(q);
     if (result.taxonid) return result;
 
-    // Fallback 1: genus only
     const genus = q.split(' ')[0];
-    if (genus && genus !== q) {
-      result = await mbgFetchSearch(genus);
-      if (result.taxonid) return { ...result, fallback: 'genus' };
+    // cultivar 추출 (따옴표 종류 모두 포함)
+    const cultivarM = q.match(/['‘’ʼ′“”]([^'‘’ʼ′“”]+)['‘’ʼ′“”]/);
+
+    // Tier 2: cultivar 명 변형 시도
+    // 'Midnight Prairie Blues' → 'Midnight Prairieblues' (끝 두 단어 합치기)
+    // 'Midnight Prairie Blues' → 'Midnight' (첫 단어만)
+    if (cultivarM) {
+      const cvWords = cultivarM[1].trim().split(/\s+/);
+      const perms = [];
+      if (cvWords.length >= 3) {
+        const merged = [...cvWords.slice(0, -2), cvWords.slice(-2).join('')].join(' ');
+        perms.push(`${genus} '${merged}'`);
+      }
+      if (cvWords.length >= 2) {
+        perms.push(`${genus} '${cvWords[0]}'`);
+      }
+      for (const perm of perms) {
+        result = await mbgFetchSearch(perm);
+        if (result.taxonid) return { ...result, fallback: 'cultivar_perm' };
+      }
     }
 
-    // Fallback 2: 속명 동의어 (예: Cimicifuga → Actaea)
+    // Tier 3: genus 전체 검색 + cultivar 유사도 매칭
+    if (genus && genus !== q) {
+      if (cultivarM) {
+        const allResults = await mbgFetchSearchAll(genus);
+        if (allResults.length) {
+          let best = null, bestScore = 0;
+          for (const r of allResults) {
+            const score = cultivarWordOverlap(cultivarM[1].trim(), r.name);
+            if (score > bestScore) { bestScore = score; best = r; }
+          }
+          // 단어 1.5개 이상 일치 시 채택 (1개 단어 + 부분일치 포함)
+          if (best && bestScore >= 1.5) return { taxonid: best.taxonid, matchedName: best.name, fallback: 'genus_fuzzy' };
+        }
+      } else {
+        result = await mbgFetchSearch(genus);
+        if (result.taxonid) return { ...result, fallback: 'genus' };
+      }
+    }
+
+    // Tier 4: 속명 동의어 (예: Cimicifuga → Actaea)
     const synGenus = GENUS_SYNONYMS[(genus || q).toLowerCase()];
     if (synGenus && synGenus !== (genus || q).toLowerCase()) {
-      const cultivarPart = q.match(/([''][^'']+[''])/)?.[1];
+      const cultivarPart = cultivarM?.[0];
       if (cultivarPart) {
         result = await mbgFetchSearch(`${synGenus} ${cultivarPart}`);
         if (result.taxonid) return { ...result, fallback: 'synonym_cultivar' };
@@ -808,6 +848,41 @@ async function mbgFetchSearch(q) {
   const nm = html.match(/taxonid=\d+[^"]*"[^>]*>(?:<[^>]+>)*([^<]+)/i);
   const matchedName = nm ? nm[1].replace(/&amp;/g,'&').trim() : '';
   return { taxonid: m[1], matchedName };
+}
+
+// genus 검색 결과 전체 파싱 (Tier 3 fuzzy 매칭용)
+async function mbgFetchSearchAll(q) {
+  const url = `https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=${encodeURIComponent(q)}`;
+  const html = await (await fetch(url, { headers: MBG_UA })).text();
+  const results = [];
+  const re = /PlantFinderDetails\.aspx\?taxonid=(\d+)[^"]*"[^>]*>([^<]+)/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const name = m[2].replace(/&amp;/g,'&').replace(/&times;/g,'×').trim();
+    if (name) results.push({ taxonid: m[1], name });
+  }
+  return results;
+}
+
+// cultivar 이름 단어 겹침 점수 (합쳐진 단어도 부분 포함으로 처리)
+function cultivarWordOverlap(inputCultivar, candidateName) {
+  const norm = s => s.toLowerCase()
+    .replace(/['''ʼ′""×]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/).filter(w => w.length > 2);
+
+  const inputWords = norm(inputCultivar);
+  const candWords  = norm(candidateName);
+
+  let score = 0;
+  for (const iw of inputWords) {
+    for (const cw of candWords) {
+      if (iw === cw) { score += 1; break; }
+      // 합쳐진 단어 처리: 'prairieblues' ↔ 'prairie'+'blues'
+      if (cw.includes(iw) || iw.includes(cw)) { score += 0.6; break; }
+    }
+  }
+  return score;
 }
 
 async function mbgDebug(params) {
@@ -2171,7 +2246,7 @@ async function naturadbDetails(params, env) {
   const overrideSlug = NDB_SLUG_OVERRIDES[qNorm] || NDB_SLUG_OVERRIDES[q.toLowerCase()];
 
   const base = q.replace(/\s*['''''][^''''']+[''''']\s*/g, '').trim();
-  const toSlugFn = s => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const toSlugFn = s => s.toLowerCase().replace(/×/g, 'x').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
   const slug = toSlugFn(base);
   // var./subsp. 키워드만 제거, 변종명 유지 (예: "Crocus tommasinianus var roseus" → "crocus-tommasinianus-roseus")
   const baseNoKeyword = base.replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s)/gi, '').replace(/\s+/g, ' ').trim();
