@@ -1505,7 +1505,8 @@ async function loadPlant(p) {
     renderAll();
     // 모든 소스 실패 시 경고
     const hasAnyData = p.mbgTaxonId || p.naturadbUrl || p.rhsUrl || p.culture || p.ndbStandort || p.height
-      || p.ndbPlantingDistance || p.ndbSocial || p.ndbToxic || p.ndbBees;
+      || p.pflanzAbstand || p.geselligkeit || p.pflanzCount
+      || p.ndbGiftig || p.ndbWildbienen || p.ndbPflanzenart || p.ndbWuchs || p.bloomMonths?.length;
     if (!hasAnyData) {
       p.notFound = true;
       // 토스트 제거 — 카드 내 ⚠️ 배너 + 칩 마크로 표시
