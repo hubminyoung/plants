@@ -45,6 +45,7 @@ export default {
       else if (pathname === '/api/rhs/search')         data = await rhsSearch(searchParams, env);
       else if (pathname === '/api/rhs/build-index')    data = await rhsBuildIndex(env);
       else if (pathname === '/api/rhs/details')        data = await rhsDetails(searchParams);
+      else if (pathname === '/api/rhs/debug')          data = await rhsDebug(searchParams, env);
       else if (pathname === '/api/mbg/batch-script')   return mbgBatchScript(searchParams, env, req);
       else if (pathname === '/api/mbg/queue')           data = await mbgQueueGet(env);
       else if (pathname === '/api/mbg/queue/add')       data = await mbgQueueAdd(req, env);
@@ -1473,6 +1474,18 @@ async function getRhsMap(env) {
     if (data) { _rhsMapCache = data; return data; }
   } catch(e) {}
   return null;
+}
+
+async function rhsDebug(params, env) {
+  const genus = (params.get('genus') ?? '').toLowerCase().trim();
+  const map = await getRhsMap(env);
+  if (!map) return { error: 'no map in KV' };
+  if (genus) {
+    return { genus, entries: map[genus] ?? null, found: !!map[genus] };
+  }
+  // 'b'로 시작하는 속명 샘플 20개
+  const bGenera = Object.keys(map).filter(g => g.startsWith('b')).slice(0, 30);
+  return { totalGenera: Object.keys(map).length, bGenera };
 }
 
 async function rhsBuildIndex(env) {
