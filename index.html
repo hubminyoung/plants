@@ -1504,10 +1504,11 @@ async function loadPlant(p) {
     plantsToLS();
     renderAll();
     // 모든 소스 실패 시 경고
-    const hasAnyData = p.mbgTaxonId || p.naturadbUrl || p.rhsUrl || p.culture || p.ndbStandort || p.height;
+    const hasAnyData = p.mbgTaxonId || p.naturadbUrl || p.rhsUrl || p.culture || p.ndbStandort || p.height
+      || p.ndbPlantingDistance || p.ndbSocial || p.ndbToxic || p.ndbBees;
     if (!hasAnyData) {
       p.notFound = true;
-      showNotFoundToast(p.name);
+      // 토스트 제거 — 카드 내 ⚠️ 배너 + 칩 마크로 표시
     }
   }
 }
@@ -2696,18 +2697,22 @@ function renderEcology() {
     const dName = [namePrimary, nameSecondary||'', p.commonName||''].join(' ').toLowerCase();
 
     const notFoundBanner = p.notFound ? `
-      <div style="background:#fff3cd;border-bottom:1.5px solid #f5c842;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="background:#fff3cd;border-bottom:1.5px solid #f5c842;padding:6px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span>⚠️</span>
-        <span style="flex:1;font-size:0.8rem;color:#664d03;min-width:140px"><b>${escH(p.name)}</b> 정보를 찾지 못했습니다. 학명을 수정해주세요:</span>
-        <input type="text" placeholder="${escA(p.name)}"
-          onkeydown="if(event.key==='Enter'){retryWithName(${pflanzIdx},this.value.trim())}"
-          style="padding:4px 8px;border:1.5px solid #f5c842;border-radius:5px;font-size:0.8rem;width:200px;outline:none">
-        <button onclick="retryWithName(${pflanzIdx},this.previousElementSibling.value.trim())"
-          style="padding:4px 10px;background:#f5c842;border:none;border-radius:5px;cursor:pointer;font-weight:600;font-size:0.8rem">재검색</button>
+        <span style="font-size:0.78rem;color:#664d03">정보를 찾지 못했습니다</span>
       </div>` : '';
+    const nameEditRow = `
+      <div style="padding:5px 14px;border-bottom:1px solid #e8f0e4;display:flex;gap:6px;align-items:center;background:${p.notFound?'#fffbe6':'#f9faf7'}">
+        <span style="font-size:0.7rem;color:#aaa;white-space:nowrap;flex-shrink:0">학명</span>
+        <input type="text" value="${escA(p.latName||p.name)}"
+          onkeydown="if(event.key==='Enter'){retryWithName(${pflanzIdx},this.value.trim())}"
+          style="flex:1;padding:3px 6px;border:1px solid ${p.notFound?'#f5c842':'#d0d8cc'};border-radius:4px;font-size:0.78rem;outline:none;color:#444;min-width:0">
+        <button onclick="retryWithName(${pflanzIdx},this.previousElementSibling.value.trim())"
+          style="padding:3px 9px;background:${p.notFound?'#f5c842':'#4a7a4a'};color:${p.notFound?'#664d03':'#fff'};border:none;border-radius:4px;cursor:pointer;font-size:0.74rem;font-weight:600;white-space:nowrap">재검색</button>
+      </div>`;
 
     return `<div class="eco-card" data-sun="${escA(dSun)}" data-maint="${escA(dMaint)}" data-zones="${escA(dZones)}" data-name="${escA(dName)}" data-colors="${escA(dColors)}" data-months="${escA(dMonths)}">
-      ${notFoundBanner}
+      ${notFoundBanner}${nameEditRow}
       <div class="eco-card-hd${ecoActivePlant===pflanzIdx?' eco-hd-active':''}" onclick="ecoSetActive(${pflanzIdx})">
         <div class="eco-card-hd-left">
           ${p.korName && /[가-힣]/.test(p.korName) ? `<div class="eco-card-primary">${p.korName}</div>` : ''}
