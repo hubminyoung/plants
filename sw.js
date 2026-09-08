@@ -33,11 +33,5 @@ self.addEventListener('fetch', event => {
     ));
   }
 
-  // /plants/proxy/mbg/search?q=XXX — 이름 검색 (taxonid 찾기)
-  else if (url.pathname.endsWith('/proxy/mbg/search') && url.searchParams.get('q')) {
-    const q = url.searchParams.get('q');
-    event.respondWith(mbgResponse(
-      fetch(`https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=${encodeURIComponent(q)}`, { headers: MBG_HEADERS })
-    ));
-  }
+  // /plants/proxy/mbg/search — CORS로 인해 브라우저에서 MBG 접근 불가, 사용 안 함
 });
