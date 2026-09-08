@@ -839,9 +839,33 @@ async function mbgSaveTaxon(req, env) {
   return { ok: true, saved };
 }
 
+async function mbgFetchRaw(mbgUrl) {
+  // 1차: 직접 fetch (Cloudflare IP → MBG, 차단될 가능성 높음)
+  try {
+    const r = await Promise.race([
+      fetch(mbgUrl, { headers: MBG_UA }),
+      new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), 6000)),
+    ]);
+    if (r.ok) {
+      const html = await r.text();
+      if (html.includes('taxonid') || html.includes('PlantFinder')) return html;
+    }
+  } catch(_) {}
+  // 2차: allorigins.win 프록시 경유 (다른 IP, 차단 우회 시도)
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(mbgUrl)}`;
+    const r = await Promise.race([
+      fetch(proxyUrl),
+      new Promise((_, rj) => setTimeout(() => rj(new Error('proxy timeout')), 10000)),
+    ]);
+    if (r.ok) return await r.text();
+  } catch(_) {}
+  return '';
+}
+
 async function mbgFetchSearch(q) {
   const url = `https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=${encodeURIComponent(q)}`;
-  const html = await (await fetch(url, { headers: MBG_UA })).text();
+  const html = await mbgFetchRaw(url);
 
   const m = html.match(/taxonid=(\d+)/i);
   if (!m) return { taxonid: null };
@@ -854,7 +878,7 @@ async function mbgFetchSearch(q) {
 // genus 검색 결과 전체 파싱 (Tier 3 fuzzy 매칭용)
 async function mbgFetchSearchAll(q) {
   const url = `https://plantfinder.mobot.org/PlantFinderListResults.aspx?basic=${encodeURIComponent(q)}`;
-  const html = await (await fetch(url, { headers: MBG_UA })).text();
+  const html = await mbgFetchRaw(url);
   const results = [];
   const re = /PlantFinderDetails\.aspx\?taxonid=(\d+)[^"]*"[^>]*>([^<]+)/gi;
   let m;
