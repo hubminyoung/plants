@@ -4815,7 +4815,7 @@ document.addEventListener('keydown', function(e) {
     const totalW=bloomPl.reduce((s,p)=>s+p.n,0)||1;
 
     // 월별 r 상한
-    const R_CAP_SPRING = (mn<=2)          ? 3.0        // 2월: Crocus — 참고이미지 기준
+    const R_CAP_SPRING = (mn<=2)          ? 1.8        // 2월: Crocus — 참고이미지 기준
                        : (mn>=3&&mn<=4)   ? mapR(3.5)  // 3-4월: Narcissus 기준
                        : (mn===5)         ? mapR(11)   // 5월: Allium 진보라 기준
                        : (mn>=6&&mn<=7)   ? mapR(5)    // 6-7월: Nepeta 파랑 기준
@@ -4839,14 +4839,18 @@ document.addEventListener('keydown', function(e) {
       return '#'+[hue2rgb(p,q,h+1/3),hue2rgb(p,q,h),hue2rgb(p,q,h-1/3)].map(x=>Math.round(Math.max(0,Math.min(1,x))*255).toString(16).padStart(2,'0')).join('');
     }
 
-    // n = cap × share × intensity (비정규화 — 달별 밀도가 계절 정보)
-    // 2월: p.n 직접 사용 (~400 합계)
+    // 2월 개화 식물 판별 (개화 시작월 ≤ 2)
+    const isFebPlant = p => p.bloom.length && Math.min(...p.bloom) <= 2;
+
+    // n = cap × share × intensity
+    // 2월 개화 식물은 달이 바뀌어도 2월 스타일 유지
     const data=bloomPl.map(p=>({
-      r: Math.min(mapR(p.r), R_CAP_SPRING),
-      c: mn<=2 ? boostSat(p.c, 0.50) : p.c,
-      n: mn<=2
+      r: isFebPlant(p) ? Math.min(mapR(p.r), 1.8) : Math.min(mapR(p.r), R_CAP_SPRING),
+      c: p.c,
+      n: isFebPlant(p)
         ? Math.max(1, Math.round(p.n*2))
-        : Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
+        : Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn))),
+      feb: isFebPlant(p)
     }));
 
     // hue 캡: 같은 hue 버킷(60°)이 전체의 45% 초과 시 축소
@@ -4873,7 +4877,7 @@ document.addEventListener('keydown', function(e) {
 
     // pool 생성 → shuffle
     const pool=[];
-    data.forEach(d=>{ for(let i=0;i<d.n;i++) pool.push({r:d.r,c:d.c}); });
+    data.forEach(d=>{ for(let i=0;i<d.n;i++) pool.push({r:d.r,c:d.c,feb:d.feb}); });
     for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]; }
 
     // 그리드 배치
@@ -4916,19 +4920,23 @@ document.addEventListener('keydown', function(e) {
       }
     }
 
-    // 렌더
-    // 2월: jitter 1.2 (유기적 산포), alpha 0.55, 30% 확률 클러스터
-    const jitter = mn<=2 ? 1.2 : 0.65;
-    const alpha = mn<=2 ? 0.55 : 0.85;
-    ctx.globalAlpha=alpha;
-    pool.forEach((p,i)=>{
+    // 렌더 — 일반 식물 (alpha 0.85, jitter 0.65)
+    ctx.globalAlpha=0.85;
+    pool.filter(p=>!p.feb).forEach((p,i)=>{
+      const cell=cells[i%cells.length];
+      const x=Math.max(p.r+1,Math.min(S-p.r-1, cell.cx+(rand()-.5)*cw*0.65));
+      const y=Math.max(p.r+1,Math.min(S-p.r-1, cell.cy+(rand()-.5)*ch*0.65));
+      ctx.beginPath(); ctx.arc(x,y,p.r,0,Math.PI*2); ctx.fillStyle=p.c; ctx.fill();
+    });
+    // 렌더 — 2월 개화 식물 (alpha 0.55, jitter 1.2, 클러스터)
+    ctx.globalAlpha=0.55;
+    pool.filter(p=>p.feb).forEach((p,i)=>{
       const cell=cells[i%cells.length];
       const r=p.r;
-      const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*jitter));
-      const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*jitter));
+      const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*1.2));
+      const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*1.2));
       ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=p.c; ctx.fill();
-      // 2월: 30% 확률로 인접 2~4개 클러스터 (chain 효과)
-      if(mn<=2 && rand()<0.30){
+      if(rand()<0.30){
         const clust=2+Math.floor(rand()*3);
         for(let k=0;k<clust;k++){
           const ox=(rand()-.5)*(r*4+4), oy=(rand()-.5)*(r*4+4);
