@@ -4843,8 +4843,8 @@ document.addEventListener('keydown', function(e) {
     const matchGenus = (p, re) => re.test(p.name||'') || re.test(p.genus||'');
     const smallDenseMult = p => {
       if (p.bloom.length && Math.min(...p.bloom) <= 2) return 6;
-      if (matchGenus(p, /sisyrinchium/i)) return 6;
-      if (matchGenus(p, /coreopsis/i)) return 3.0;
+      if (matchGenus(p, /sisyrinchium/i)) return 9;
+      if (matchGenus(p, /coreopsis/i)) return 4.5;
       return 0;
     };
     const isFebPlant = p => smallDenseMult(p) > 0;
