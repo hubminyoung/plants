@@ -4844,11 +4844,15 @@ document.addEventListener('keydown', function(e) {
     const buckets={};
     data.forEach(d=>{ const b=hexHueBucket(d.c); buckets[b]=(buckets[b]||0)+d.n; });
     const totalN=data.reduce((s,d)=>s+d.n,0)||1;
-    const maxN=totalN*0.45;
-    data.forEach(d=>{
-      const b=hexHueBucket(d.c);
-      if(buckets[b]>maxN) d.n=Math.max(1,Math.round(d.n*(maxN/buckets[b])));
-    });
+    // hue cap: 2가지 이상 hue가 있을 때만 적용 (단색 달에는 적용 안 함)
+    const distinctHues=Object.keys(buckets).length;
+    if(distinctHues >= 2){
+      const maxN=totalN*0.45;
+      data.forEach(d=>{
+        const b=hexHueBucket(d.c);
+        if(buckets[b]>maxN) d.n=Math.max(1,Math.round(d.n*(maxN/buckets[b])));
+      });
+    }
 
     // pool 생성 → shuffle
     const pool=[];
@@ -4864,32 +4868,32 @@ document.addEventListener('keydown', function(e) {
     for(let row=0;row<ROWS;row++) for(let col=0;col<COLS;col++) cells.push({cx:(col+.5)*cw,cy:(row+.5)*ch});
     for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]; }
 
-    // 2-4월: 5-10월 개화 식물을 진회색으로 바닥에 깔기 (피었을 때와 동일한 r·n)
+    // 2-4월: 7-8월 개화 식물을 그 달의 렌더링 그대로 회색으로 먼저 깔기
     if(mn>=2 && mn<=4){
-      const dormPl=activePl.filter(p=>!p.bloom.includes(mn)&&p.bloom.some(m=>m>=5&&m<=10));
-      if(dormPl.length){
-        const dRand=rng(mn*3571+99991);
-        const dTotalW=dormPl.reduce((s,p)=>s+p.n,0)||1;
-        // 피크 intensity 1.0 기준 — 개화 시 그 식물이 차지할 점 수 그대로
-        const dData=dormPl.map(p=>({
-          r: mapR(p.r),
-          n: Math.max(1, Math.round(CAP*(p.n/dTotalW)))
+      const sumPl=activePl.filter(p=>p.bloom.some(m=>m===7||m===8)&&!p.bloom.includes(mn));
+      if(sumPl.length){
+        const sRand=rng(7*7919+31337); // 7월 seed 고정
+        const sTotalW=sumPl.reduce((s,p)=>s+p.n,0)||1;
+        const R_CAP_7=mapR(5); // 6-7월 cap
+        const sData=sumPl.map(p=>({
+          r: Math.min(mapR(p.r), R_CAP_7),
+          n: Math.max(1, Math.round(CAP*(p.n/sTotalW)*1.0))
         }));
-        const dPool=[];
-        dData.forEach(d=>{ for(let i=0;i<d.n;i++) dPool.push(Math.min(d.r, 4)); });
-        for(let i=dPool.length-1;i>0;i--){ const j=Math.floor(dRand()*(i+1));[dPool[i],dPool[j]]=[dPool[j],dPool[i]]; }
-        const dCOLS=Math.ceil(Math.sqrt(dPool.length*1.4));
-        const dROWS=Math.ceil(dPool.length/dCOLS);
-        const dcw=S/dCOLS, dch=S/dROWS;
-        const dCells=[];
-        for(let row=0;row<dROWS;row++) for(let col=0;col<dCOLS;col++) dCells.push({cx:(col+.5)*dcw,cy:(row+.5)*dch});
-        for(let i=dCells.length-1;i>0;i--){ const j=Math.floor(dRand()*(i+1));[dCells[i],dCells[j]]=[dCells[j],dCells[i]]; }
+        const sPool=[];
+        sData.forEach(d=>{ for(let i=0;i<d.n;i++) sPool.push(d.r); });
+        for(let i=sPool.length-1;i>0;i--){ const j=Math.floor(sRand()*(i+1));[sPool[i],sPool[j]]=[sPool[j],sPool[i]]; }
+        const sCOLS=Math.ceil(Math.sqrt(sPool.length*1.4));
+        const sROWS=Math.ceil(sPool.length/sCOLS);
+        const scw=S/sCOLS, sch=S/sROWS;
+        const sCells=[];
+        for(let row=0;row<sROWS;row++) for(let col=0;col<sCOLS;col++) sCells.push({cx:(col+.5)*scw,cy:(row+.5)*sch});
+        for(let i=sCells.length-1;i>0;i--){ const j=Math.floor(sRand()*(i+1));[sCells[i],sCells[j]]=[sCells[j],sCells[i]]; }
         ctx.globalAlpha=0.35;
         ctx.fillStyle='#5a5a5a';
-        dPool.forEach((r,i)=>{
-          const cell=dCells[i%dCells.length];
-          const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(dRand()-.5)*dcw*0.65));
-          const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(dRand()-.5)*dch*0.65));
+        sPool.forEach((r,i)=>{
+          const cell=sCells[i%sCells.length];
+          const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(sRand()-.5)*scw*0.65));
+          const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(sRand()-.5)*sch*0.65));
           ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
         });
         ctx.globalAlpha=1;
