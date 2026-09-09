@@ -321,9 +321,23 @@ table.eco tr:hover td { background: #f4faf2; }
 .season-head div { padding: 0.4rem 0.15rem; text-align: center; }
 .season-head div:first-child { text-align: left; padding-left: 0.7rem; }
 .season-row {
-  display: grid; grid-template-columns: 170px 60px repeat(12, 1fr);
+  display: grid; grid-template-columns: 170px 52px 60px repeat(12, 1fr);
   border-bottom: 1px solid #eaf0e6; background: white;
   transition: 0.1s;
+}
+.s-thumb {
+  display:flex; align-items:center; justify-content:center;
+  padding:3px; border-right:1px solid #eaf0e6;
+}
+.s-thumb img {
+  width:42px; height:42px; object-fit:cover; border-radius:5px;
+  cursor:pointer; border:1.5px solid #d0d0d0; transition:border-color 0.15s;
+}
+.s-thumb img:hover { border-color:#52b788; }
+.s-thumb-empty {
+  width:42px; height:42px; border-radius:5px; background:#f0f0f0;
+  border:1.5px dashed #ccc; display:flex; align-items:center; justify-content:center;
+  font-size:16px; color:#bbb;
 }
 .season-row:hover { background: #f6fbf4; }
 .s-name {
@@ -497,6 +511,26 @@ table.dtbl tr:last-child td { border-bottom: none; }
 </style>
 </head>
 <body>
+
+<!-- 계절도표 이미지 모달 -->
+<div id="sea-img-modal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);align-items:center;justify-content:center"
+  onclick="if(event.target===this)this.style.display='none'">
+  <div style="position:relative;width:88vw;height:88vh;border-radius:12px;overflow:hidden;background:#111;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;padding:10px 14px;background:#1a1a1a;gap:10px;flex-shrink:0">
+      <span id="sea-img-info" style="font-size:0.8rem;color:#aaa;flex:1">클릭 → 꽃색 지정  |  스크롤 → 줌  |  드래그 → 이동</span>
+      <button onclick="document.getElementById('sea-img-modal').style.display='none'"
+        style="background:none;border:none;color:#888;font-size:1.2rem;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <canvas id="sea-img-cv" style="flex:1;width:100%;cursor:crosshair;user-select:none"
+      onwheel="seaImgWheel(event)"
+      onmousedown="seaImgDown(event)"
+      onmousemove="seaImgMove(event)"
+      onmouseup="seaImgUp()"
+      onmouseleave="seaImgUp()"
+      onclick="seaImgClick(event)">
+    </canvas>
+  </div>
+</div>
 
 <!-- 비밀번호 입력 오버레이 -->
 <div id="pw-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center">
@@ -3005,6 +3039,100 @@ tr:nth-child(even) td{background:#f6fbf4;}
   URL.revokeObjectURL(url);
 }
 
+// ── 계절도표 썸네일 셀 ────────────────────────────────────────────────────────
+function seaThumbCell(p, pi) {
+  const imgs = (p.images||[]).filter(u => !p.hiddenImages?.includes(u));
+  const src = imgs[0] || p.imageUrl || null;
+  if (!src) return `<div class="s-thumb"><div class="s-thumb-empty">🌿</div></div>`;
+  return `<div class="s-thumb">
+    <img src="${src}" loading="lazy" onclick="openSeaImgModal(${pi})"
+      onerror="this.parentNode.innerHTML='<div class=\\'s-thumb-empty\\'>🌿</div>'">
+  </div>`;
+}
+
+// ── 계절도표 이미지 모달 (팬·줌·색상 픽업) ───────────────────────────────────
+let _seaMod = { pi:-1, img:null, sc:1, ox:0, oy:0, drag:false, lx:0, ly:0 };
+
+function openSeaImgModal(pi) {
+  const p = plants[pi];
+  const imgs = (p.images||[]).filter(u => !p.hiddenImages?.includes(u));
+  const src = imgs[0] || p.imageUrl || null;
+  if (!src) return;
+  _seaMod.pi = pi; _seaMod.sc = 1; _seaMod.ox = 0; _seaMod.oy = 0;
+  const modal = document.getElementById('sea-img-modal');
+  const cv = document.getElementById('sea-img-cv');
+  const info = document.getElementById('sea-img-info');
+  info.textContent = '클릭 → 꽃색 지정  |  스크롤 → 줌  |  드래그 → 이동';
+  modal.style.display = 'flex';
+  const img = new Image(); img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    _seaMod.img = img;
+    requestAnimationFrame(() => {
+    cv.width = cv.offsetWidth || 800;
+    cv.height = cv.offsetHeight || 600;
+    _seaMod.sc = Math.min(cv.width/img.width, cv.height/img.height);
+    _seaMod.ox = (cv.width - img.width*_seaMod.sc)/2;
+    _seaMod.oy = (cv.height - img.height*_seaMod.sc)/2;
+    seaDrawImg();
+    }); // rAF
+  };
+  img.src = src;
+}
+
+function seaDrawImg() {
+  const cv = document.getElementById('sea-img-cv');
+  const ctx = cv.getContext('2d');
+  const m = _seaMod;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#111'; ctx.fillRect(0,0,cv.width,cv.height);
+  if(!m.img) return;
+  ctx.drawImage(m.img, m.ox, m.oy, m.img.width*m.sc, m.img.height*m.sc);
+}
+
+function seaImgWheel(e) {
+  e.preventDefault();
+  const cv = document.getElementById('sea-img-cv');
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.15 : 0.87;
+  const m = _seaMod;
+  m.ox = mx - (mx - m.ox)*factor;
+  m.oy = my - (my - m.oy)*factor;
+  m.sc *= factor;
+  seaDrawImg();
+}
+
+function seaImgDown(e) { _seaMod.drag=true; _seaMod.lx=e.clientX; _seaMod.ly=e.clientY; }
+function seaImgMove(e) {
+  if(!_seaMod.drag) return;
+  _seaMod.ox += e.clientX-_seaMod.lx; _seaMod.oy += e.clientY-_seaMod.ly;
+  _seaMod.lx=e.clientX; _seaMod.ly=e.clientY;
+  seaDrawImg();
+}
+function seaImgUp() { _seaMod.drag=false; }
+
+function seaImgClick(e) {
+  if(_seaMod.drag) return;
+  const cv = document.getElementById('sea-img-cv');
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const m = _seaMod;
+  // 캔버스 픽셀 → 이미지 좌표
+  const ix = Math.round((mx - m.ox)/m.sc), iy = Math.round((my - m.oy)/m.sc);
+  if(!m.img || ix<0 || iy<0 || ix>=m.img.width || iy>=m.img.height) return;
+  const ctx = cv.getContext('2d');
+  const px = ctx.getImageData(mx,my,1,1).data;
+  const hex = '#'+[px[0],px[1],px[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
+  // 꽃색 지정
+  const p = plants[m.pi];
+  if(!p.flowerColors) p.flowerColors=[];
+  if(!p.flowerColors.includes(hex)) p.flowerColors.push(hex);
+  p.selectedFlowerColor = hex;
+  plantsToLS();
+  document.getElementById('sea-img-info').textContent = `✅ 지정됨: ${hex}`;
+  setTimeout(()=>{ document.getElementById('sea-img-modal').style.display='none'; renderSeasonal(); },600);
+}
+
 function renderSeasonal() {
   const el = document.getElementById('sea-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div>'; return; }
@@ -3100,7 +3228,7 @@ function renderSeasonal() {
             onchange="(function(){var p=plants[${pi}];if(!p.winterStructure)p.winterStructure={};p.winterStructure.color=this.value;renderSeasonal();})()"
             style="width:20px;height:18px;padding:0;border:1px solid #aaa;border-radius:3px;cursor:pointer">` : ''}
         </div>
-      </div>${heightCell}${cells}
+      </div>${seaThumbCell(p, pi)}${heightCell}${cells}
     </div>`;
   }).join('');
 
@@ -3114,7 +3242,7 @@ function renderSeasonal() {
     </div>
     <div class="season-wrap">
       <div class="season-grid">
-        <div class="season-head"><div>식물명</div><div>수고</div>${headCells}</div>
+        <div class="season-head"><div>식물명</div><div style="text-align:center">사진</div><div>수고</div>${headCells}</div>
         ${rows}
       </div>
     </div>
@@ -4629,14 +4757,11 @@ document.addEventListener('keydown', function(e) {
     const totalW=bloomPl.reduce((s,p)=>s+p.n,0)||1;
 
     // w_i = share × intensity, 그달 합으로 정규화 → 항상 CAP에 가깝게 채움
-    const wArr=bloomPl.map(p=>(p.n/totalW)*intensity(p.bloom,mn));
-    const totalWi=wArr.reduce((s,v)=>s+v,0)||1;
-    // floor=0.5: Σw가 작은 달(초봄·늦가을)은 cap의 절반만 채움 → 밀도가 계절 정보
-    const denom=Math.max(totalWi, 0.5);
-    const data=bloomPl.map((p,i)=>({
+    // n = cap × share × intensity (비정규화 — 달별 밀도가 계절 정보)
+    const data=bloomPl.map(p=>({
       r: mapR(p.r),
       c: p.c,
-      n: Math.max(1, Math.round(CAP*wArr[i]/denom))
+      n: Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
     }));
 
     // hue 캡: 같은 hue 버킷(60°)이 전체의 45% 초과 시 축소
