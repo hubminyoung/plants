@@ -1014,6 +1014,27 @@ function plantsToLS() {
   // 식재리스트_list 는 더 이상 저장하지 않음 (식물목록은 매번 새로 검색)
   // 기존 데이터 정리
   try { localStorage.removeItem('식재리스트_list'); } catch(e) {}
+
+  // 2) 색상 저장 (식재리스트_colors) — selectedFlowerColor, flowerColors
+  try {
+    const existing = JSON.parse(localStorage.getItem('식재리스트_colors') || '[]');
+    const merged = [...existing];
+    plants.forEach(p => {
+      const key = (s) =>
+        (p.latName && s.latName && s.latName === p.latName) ||
+        (p.korName && s.korName && s.korName === p.korName) ||
+        (s.name && p.name && s.name === p.name);
+      const idx = merged.findIndex(key);
+      const entry = {
+        name: p.name, korName: p.korName||'', latName: p.latName||'',
+        selectedFlowerColor: p.selectedFlowerColor || null,
+        flowerColors: p.flowerColors || [],
+      };
+      if (idx >= 0) merged[idx] = entry;
+      else merged.push(entry);
+    });
+    localStorage.setItem('식재리스트_colors', JSON.stringify(merged));
+  } catch(e) {}
 }
 function plantsFromLS(restorePlants) {
   try {
@@ -1037,6 +1058,27 @@ function plantsFromLS(restorePlants) {
       );
       if (p && s.images?.length) p.images = [...s.images];
     });
+    // 색상 복원
+    const colRaw = localStorage.getItem('식재리스트_colors');
+    if (colRaw) {
+      const cols = JSON.parse(colRaw);
+      cols.forEach(s => {
+        const p = plants.find(x =>
+          (s.latName && x.latName && x.latName === s.latName) ||
+          (s.korName && x.korName && x.korName === s.korName) ||
+          (s.name && x.name && x.name === s.name)
+        );
+        if (p) {
+          if (s.selectedFlowerColor) p.selectedFlowerColor = s.selectedFlowerColor;
+          if (s.flowerColors?.length) {
+            // API로 받아온 색상과 사용자 지정 색 병합 (중복 제거)
+            const merged = [...(p.flowerColors||[])];
+            s.flowerColors.forEach(c => { if(!merged.includes(c)) merged.push(c); });
+            p.flowerColors = merged;
+          }
+        }
+      });
+    }
   } catch(e) { console.error('plantsFromLS error:', e); }
 }
 
@@ -1331,6 +1373,17 @@ async function addPlant() {
   const p = mkPlant(n);
   plants.push(p);
   restoreImgForPlant(p);  // localStorage 캐시 (빠름)
+  // 색상 복원 (loadPlant 전에 미리 적용)
+  try {
+    const cols = JSON.parse(localStorage.getItem('식재리스트_colors') || '[]');
+    const s = cols.find(s =>
+      (p.latName && s.latName && s.latName === p.latName) ||
+      (p.korName && s.korName && s.korName === p.korName) ||
+      (s.name && p.name && s.name === p.name)
+    );
+    if (s?.selectedFlowerColor) p.selectedFlowerColor = s.selectedFlowerColor;
+    if (s?.flowerColors?.length) p.flowerColors = [...s.flowerColors];
+  } catch(e) {}
   inp.value = '';
   plantsToLS();
   renderAll();
@@ -1517,6 +1570,16 @@ async function loadPlant(p) {
         if (fsRes?.r) { p.flowerR = fsRes.r; p.flowerDiamCm = fsRes.diameterCm; }
       } catch(_) {}
     }
+    // loadPlant 완료 후 저장된 selectedFlowerColor 재적용 (API가 덮어쓴 경우 대비)
+    try {
+      const cols = JSON.parse(localStorage.getItem('식재리스트_colors') || '[]');
+      const s = cols.find(s =>
+        (p.latName && s.latName && s.latName === p.latName) ||
+        (p.korName && s.korName && s.korName === p.korName) ||
+        (s.name && p.name && s.name === p.name)
+      );
+      if (s?.selectedFlowerColor && !p.selectedFlowerColor) p.selectedFlowerColor = s.selectedFlowerColor;
+    } catch(e) {}
     plantsToLS();
     renderAll();
     // 모든 소스 실패 시 경고
@@ -2073,7 +2136,14 @@ function applyMbgDet(p, det) {
   }
   if (det.water)       p.watering    = det.water.toLowerCase();
   if (det.maintenance) p.maintenance = det.maintenance.toLowerCase();
-  if (det.bloomColor)  { p.flowerColors = mbgExtractColors(det.bloomColor); p.bloomColorRaw = det.bloomColor; }
+  if (det.bloomColor)  {
+    const apiColors = mbgExtractColors(det.bloomColor);
+    p.bloomColorRaw = det.bloomColor;
+    // 사용자가 추가한 색(hex)은 유지하면서 API 색 병합
+    const userHex = (p.flowerColors||[]).filter(c => c.startsWith('#') && !apiColors.includes(c));
+    p.flowerColors = [...apiColors, ...userHex];
+    // selectedFlowerColor는 덮어쓰지 않음
+  }
   if (det.bloomTime)   p.bloomMonths  = mbgMonthsToNums(det.bloomTime);
   if (!p.family && det.family) p.family = det.family;
   p.nativeRange = det.nativeRange || '';
