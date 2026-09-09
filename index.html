@@ -4678,9 +4678,12 @@ function renderDotView() {
     const spMatch = spPl.find(sp =>
       lat && sp.name.toLowerCase().split(' ').slice(0,2).join(' ') === lat.split(' ').slice(0,2).join(' ')
     );
-    // r·n은 SP_PLANTS calibrated값, 색은 식물 데이터에서
+    // r: SP_PLANTS 크기값, n: 실제 식재밀도(pflanzCount) 우선, 없으면 SP_PLANTS n
     const r  = spMatch ? spMatch.r  : 5;
-    const n  = spMatch ? spMatch.n  : Math.max(5, Math.round(400 / Math.max(1, r * r)));
+    const pflanz = parseFloat(p.pflanzCount);
+    const n  = (pflanz > 0) ? Math.round(pflanz)
+             : spMatch     ? spMatch.n
+             : Math.max(5, Math.round(400 / Math.max(1, r * r)));
     // 색 우선순위: 계절도표 직접 지정 > SP_PLANTS calibrated색 > API 꽃색
     // 모든 색은 muteHex()로 자연스러운 톤으로 통일
     const selColor = p.selectedFlowerColor;
