@@ -4473,86 +4473,52 @@ document.addEventListener('keydown', function(e) {
 
   function rng(s){ s=s>>>0; return()=>{s=(s*1664525+1013904223)>>>0;return s/0xffffffff;}; }
 
-  // SP_PLANTS 배경용 소형 포인트 — 월별 1회 계산 후 캐시
-  const _bgCache = {};
-  function getBgCircles(mn, bgPl) {
-    if (_bgCache[mn]) return _bgCache[mn];
-    const S=246, rand=rng(mn*3571+99991);
-    const pool=[];
-    bgPl.forEach(p=>{
-      const isBlooming=p.bloom.includes(mn);
-      // 배경 점은 크기 고정(r=2), 개수는 식물당 2개로 제한
-      for(let i=0;i<2;i++) pool.push({r:2, c:p.c, blooming:isBlooming});
-    });
-    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]; }
-    const COLS=Math.ceil(Math.sqrt(pool.length*1.6));
-    const ROWS=Math.ceil(pool.length/COLS);
-    const cw=S/COLS, ch=S/ROWS;
-    const cells=[];
-    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) cells.push({cx:(c+.5)*cw,cy:(r+.5)*ch});
-    for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]; }
-    _bgCache[mn] = pool.map((p,i)=>{
-      const cell=cells[i%cells.length];
-      const x=Math.max(3,Math.min(S-3, cell.cx+(rand()-.5)*cw*.7));
-      const y=Math.max(3,Math.min(S-3, cell.cy+(rand()-.5)*ch*.7));
-      return {x,y,r:p.r,c:p.c,blooming:p.blooming};
-    });
-    return _bgCache[mn];
-  }
-
-  function drawGrid(cv, mn, activePl, bgPl) {
+  function drawGrid(cv, mn, activePl) {
     const S=246;
     cv.width=S; cv.height=S;
     const ctx=cv.getContext('2d');
     ctx.fillStyle='#d0d0d0'; ctx.fillRect(0,0,S,S);
-    if(!activePl.length && !bgPl.length) return;
+    if(!activePl.length) return;
     const rand=rng(mn*7919+31337);
 
-    // ── 레이어 1: SP_PLANTS 배경 (아주 연하게) ──
-    if(bgPl.length) {
-      const bgCircles = getBgCircles(mn, bgPl);
-      bgCircles.forEach(c=>{
-        ctx.globalAlpha = c.blooming ? 0.35 : 0.13;
-        ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
-      });
-      ctx.globalAlpha=1;
-    }
+    // 총 점 수가 너무 적으면 캔버스가 듬성해짐 → 목표 300개 기준으로 n 스케일업
+    const rawTotal = activePl.reduce((s,p)=>s+p.n, 0);
+    const scale = rawTotal < 200 ? Math.ceil(200 / Math.max(1, rawTotal)) : 1;
 
-    // ── 레이어 2: 검색된 식물 (선명하게) ──
-    if(activePl.length) {
-      const pool=[];
-      activePl.forEach(p=>{
-        const isBlooming=p.bloom.includes(mn);
-        for(let i=0;i<p.n;i++) pool.push({r:p.r, c:p.c, blooming:isBlooming});
-      });
-      for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]; }
-      const COLS=Math.ceil(Math.sqrt(pool.length*1.6));
-      const ROWS=Math.ceil(pool.length/COLS);
-      const cw=S/COLS, ch=S/ROWS;
-      const cells=[];
-      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) cells.push({cx:(c+.5)*cw,cy:(r+.5)*ch});
-      for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]; }
-      const circles=pool.map((p,i)=>{
-        const cell=cells[i%cells.length];
-        const r=p.r*(0.78+rand()*0.44);
-        const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*.65));
-        const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
-        return {x,y,r,c:p.c,blooming:p.blooming};
-      });
-      circles.filter(c=>!c.blooming).forEach(c=>{
-        ctx.globalAlpha=0.32;
-        ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
-      });
-      ctx.globalAlpha=1;
-      circles.filter(c=>c.blooming).forEach(c=>{
-        ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
-      });
-    }
+    const pool=[];
+    activePl.forEach(p=>{
+      const isBlooming=p.bloom.includes(mn);
+      const cnt = p.n * scale;
+      for(let i=0;i<cnt;i++) pool.push({r:p.r, c:p.c, blooming:isBlooming});
+    });
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]; }
+    const total=pool.length;
+    const COLS=Math.ceil(Math.sqrt(total*1.6));
+    const ROWS=Math.ceil(total/COLS);
+    const cw=S/COLS, ch=S/ROWS;
+    const cells=[];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) cells.push({cx:(c+.5)*cw,cy:(r+.5)*ch});
+    for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]; }
+    const circles=pool.map((p,i)=>{
+      const cell=cells[i%cells.length];
+      const r=p.r*(0.78+rand()*0.44);
+      const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*.65));
+      const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
+      return {x,y,r,c:p.c,blooming:p.blooming};
+    });
+    // 비개화=연한 식물색, 개화=선명
+    circles.filter(c=>!c.blooming).forEach(c=>{
+      ctx.globalAlpha=0.28;
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    circles.filter(c=>c.blooming).forEach(c=>{
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
+    });
     ctx.globalAlpha=1;
   }
 
-  function buildTable(activePl, bgPl) {
-    bgPl = bgPl || [];
+  function buildTable(activePl) {
     const tb=document.getElementById('dv-tb');
     tb.innerHTML='';
     const lr=document.createElement('tr'); lr.className='dot-lbl';
@@ -4563,7 +4529,7 @@ document.addEventListener('keydown', function(e) {
     dr.appendChild(document.createElement('td'));
     MN.forEach((_,i)=>{
       const mn=i+1, td=document.createElement('td');
-      if(DOT.has(mn)){ const cv=document.createElement('canvas'); cv._mn=mn; td.appendChild(cv); drawGrid(cv,mn,activePl,bgPl); }
+      if(DOT.has(mn)){ const cv=document.createElement('canvas'); cv._mn=mn; td.appendChild(cv); drawGrid(cv,mn,activePl); }
       dr.appendChild(td);
     });
     tb.appendChild(dr);
@@ -4666,7 +4632,7 @@ document.addEventListener('keydown', function(e) {
 
   window.SP_PLANTS = pl;
   window.SP_WIN    = WIN;
-  window.dvRebuild = (activePl, bgPl) => buildTable(activePl, bgPl !== undefined ? bgPl : pl);
+  window.dvRebuild = buildTable;
   buildTable(pl);
 })();
 
@@ -4674,7 +4640,7 @@ document.addEventListener('keydown', function(e) {
 function renderDotView() {
   const spPl = window.SP_PLANTS || [];
   if (!plants.length) {
-    window.dvRebuild(spPl, []); // 검색 없을 땐 SP_PLANTS 단독 표시
+    window.dvRebuild(spPl);
     return;
   }
   const mapped = plants.map(p => {
@@ -4691,8 +4657,7 @@ function renderDotView() {
     const n = Math.max(5, Math.round(400 / Math.max(1, r * r)));
     return { name: p.latName || p.name || p.korName || '', bloom: p.bloomMonths || [], wc, c, r, n };
   }).filter(p => p.name);
-  // activePl = 검색된 식물, bgPl = SP_PLANTS 전체 (배경)
-  window.dvRebuild(mapped.length ? mapped : spPl, mapped.length ? spPl : []);
+  window.dvRebuild(mapped.length ? mapped : spPl);
 }
 
 // 페이지 로드: 식물목록 복원 안 함 (매번 새로 검색).
