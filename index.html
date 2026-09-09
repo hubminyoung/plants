@@ -4840,10 +4840,11 @@ document.addEventListener('keydown', function(e) {
     }
 
     // 소형 밀집 도트 배수 (0 = 일반 렌더)
+    const matchGenus = (p, re) => re.test(p.name||'') || re.test(p.genus||'');
     const smallDenseMult = p => {
       if (p.bloom.length && Math.min(...p.bloom) <= 2) return 6;
-      if (p.name && /sisyrinchium/i.test(p.name)) return 6;
-      if (p.name && /coreopsis/i.test(p.name)) return 2.4;
+      if (matchGenus(p, /sisyrinchium/i)) return 6;
+      if (matchGenus(p, /coreopsis/i)) return 3.0;
       return 0;
     };
     const isFebPlant = p => smallDenseMult(p) > 0;
@@ -5200,7 +5201,7 @@ function renderDotView() {
 
     const bloomSrc = (p.bloomRaw||[]).map(r=>r.src+'['+r.start+'-'+r.end+']').join(' | ') || 'none';
     console.log(`[dotview] ${genus.padEnd(18)} tier=${matchTier} r=${r.toFixed(1)} n=${n} bloom=${(p.bloomMonths||[]).join(',')} src=${bloomSrc}`);
-    return { name: latName || p.korName || '', bloom: p.bloomMonths || [], wc, c, r, n };
+    return { name: latName || p.korName || '', genus, bloom: p.bloomMonths || [], wc, c, r, n };
   }).filter(p => p.name);
 
   window.dvRebuild(mapped.length ? mapped : spPl);
