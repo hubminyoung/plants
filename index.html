@@ -4628,11 +4628,13 @@ document.addEventListener('keydown', function(e) {
     // share: p.n을 상대적 식재밀도 가중치로 사용
     const totalW=bloomPl.reduce((s,p)=>s+p.n,0)||1;
 
-    // 각 식물의 실제 n 계산
-    const data=bloomPl.map(p=>({
+    // w_i = share × intensity, 그달 합으로 정규화 → 항상 CAP에 가깝게 채움
+    const wArr=bloomPl.map(p=>(p.n/totalW)*intensity(p.bloom,mn));
+    const totalWi=wArr.reduce((s,v)=>s+v,0)||1;
+    const data=bloomPl.map((p,i)=>({
       r: mapR(p.r),
       c: p.c,
-      n: Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
+      n: Math.max(1, Math.round(CAP*wArr[i]/totalWi))
     }));
 
     // hue 캡: 같은 hue 버킷(60°)이 전체의 45% 초과 시 축소
