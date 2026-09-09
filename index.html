@@ -1501,6 +1501,13 @@ async function loadPlant(p) {
         if (d.hiddenImages?.length) p.hiddenImages = [...d.hiddenImages];
       }
     } catch(_) {}
+    // 꽃 크기(r) — 학명 기반 자동 조회, 최초 1회만
+    if (!p.flowerR && latForSearch) {
+      try {
+        const fsRes = await wFetch('/api/gemini/flower-size', { q: latForSearch });
+        if (fsRes?.r) { p.flowerR = fsRes.r; p.flowerDiamCm = fsRes.diameterCm; }
+      } catch(_) {}
+    }
     plantsToLS();
     renderAll();
     // 모든 소스 실패 시 경고
@@ -4678,8 +4685,8 @@ function renderDotView() {
     const spMatch = spPl.find(sp =>
       lat && sp.name.toLowerCase().split(' ').slice(0,2).join(' ') === lat.split(' ').slice(0,2).join(' ')
     );
-    // r: SP_PLANTS 크기값, n: 실제 식재밀도(pflanzCount) 우선, 없으면 SP_PLANTS n
-    const r  = spMatch ? spMatch.r  : 5;
+    // r: 꽃크기API > SP_PLANTS > 기본값
+    const r  = p.flowerR || (spMatch ? spMatch.r : 5);
     const pflanz = parseFloat(p.pflanzCount);
     const n  = (pflanz > 0) ? Math.round(pflanz)
              : spMatch     ? spMatch.n
