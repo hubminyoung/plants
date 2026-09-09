@@ -4841,36 +4841,99 @@ function dvDownload() {
   a.click();
 }
 
+// 속(genus) 평균 r — SP_PLANTS 매칭 실패 시 3단계 폴백
+const GENUS_R = {
+  Crocus:5,Narcissus:3.5,Scilla:2,Ornithogalum:2.5,Allium:8,
+  Tulipa:4,Galanthus:2,Hyacinthus:3,Muscari:2,Fritillaria:3.5,
+  Armeria:2.5,Iberis:3,Petrorhagia:2.5,Calamintha:3,Salvia:4,
+  Nepeta:4,Agastache:5.5,Perovskia:5,Lavendula:3.5,Lavandula:3.5,
+  Coreopsis:5.5,Rudbeckia:6.5,Helenium:6,Echinacea:7,Ratibida:5.5,
+  Achillea:6,Hemerocallis:7,Knautia:5,Scabiosa:4.5,Centaurea:5,
+  Monarda:7,Phlox:5,Geranium:4.5,Lychnis:4,Dianthus:3.5,
+  Symphyotrichum:6,Aster:6,Doellingeria:5,Boltonia:5,
+  Eremurus:8,Digitalis:4,Actaea:4,Veronicastrum:4,
+  Sanguisorba:5,Eupatorium:5,Thalictrum:4,Baptisia:6,
+  Sisyrinchium:3,Oenothera:5,
+};
+
 function renderDotView() {
   const spPl = window.SP_PLANTS || [];
   if (!plants.length) {
     window.dvRebuild(spPl);
     return;
   }
+
+  // lat 정규화 함수: 소문자, 따옴표/품종명 제거
+  function normLat(s) {
+    return (s||'').toLowerCase()
+      .replace(/['''‘’ʼ]/g,"'")
+      .replace(/\s*'[^']*'/g,'')        // 품종명 제거
+      .replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+/gi,'') // infraspecific 제거
+      .trim();
+  }
+
+  // SP 매칭: 3단계
+  function findSp(latName) {
+    const lat = (latName||'').toLowerCase();
+    const lat2 = lat.split(/\s+/).slice(0,2).join(' ');           // 속+종 2단어
+    const latNorm = normLat(latName);                              // 품종 제거
+    const latNorm2 = latNorm.split(/\s+/).slice(0,2).join(' ');   // 속+종(정규화)
+    const genus = lat.split(/\s+/)[0];
+
+    // 1단계: 속+종 직접 2단어 매칭
+    let m = spPl.find(sp => {
+      const s2 = sp.name.toLowerCase().split(/\s+/).slice(0,2).join(' ');
+      return lat2 && s2 === lat2;
+    });
+    if (m) return m;
+
+    // 2단계: 품종명 제거 후 매칭
+    m = spPl.find(sp => {
+      const sn = normLat(sp.name).split(/\s+/).slice(0,2).join(' ');
+      return latNorm2 && sn === latNorm2;
+    });
+    if (m) return m;
+
+    // 3단계: 속(genus)만 매칭 (첫 번째 결과)
+    m = spPl.find(sp => sp.name.toLowerCase().split(/\s+/)[0] === genus);
+    return m || null;
+  }
+
   const mapped = plants.map(p => {
-    const lat = (p.latName || p.name || '').toLowerCase();
-    const spMatch = spPl.find(sp =>
-      lat && sp.name.toLowerCase().split(' ').slice(0,2).join(' ') === lat.split(' ').slice(0,2).join(' ')
-    );
-    // r: 꽃크기API > SP_PLANTS > 기본값
-    const r  = p.flowerR || (spMatch ? spMatch.r : 5);
+    const latName = p.latName || p.name || '';
+    const lat = latName.toLowerCase();
+    const genus = lat.split(/\s+/)[0].replace(/^(.)/, c => c.toUpperCase());
+    const spMatch = findSp(latName);
+    const matchTier = spMatch ? (
+      // 어느 단계 매칭인지 디버그용
+      spMatch.name.toLowerCase().split(/\s+/)[0] === lat.split(/\s+/)[0] ? 'g' : 's'
+    ) : 'none';
+
+    // r: API꽃크기 > SP_PLANTS > 속평균 > 5
+    const r = p.flowerR
+      || (spMatch ? spMatch.r : null)
+      || GENUS_R[genus]
+      || 5;
+
     const pflanz = parseFloat(p.pflanzCount);
-    const n  = (pflanz > 0) ? Math.round(pflanz)
-             : spMatch     ? spMatch.n
-             : Math.max(5, Math.round(400 / Math.max(1, r * r)));
-    // 색 우선순위: 계절도표 직접 지정 > SP_PLANTS calibrated색 > API 꽃색
-    // 모든 색은 muteHex()로 자연스러운 톤으로 통일
+    const n = (pflanz > 0) ? Math.round(pflanz)
+            : spMatch      ? spMatch.n
+            : Math.max(5, Math.round(400 / Math.max(1, r * r)));
+
     const selColor = p.selectedFlowerColor;
     const rawC = selColor ? (selColor.startsWith('#') ? selColor : c2css(selColor))
                : spMatch  ? spMatch.c
                : (p.flowerColors&&p.flowerColors[0]) ? c2css(p.flowerColors[0])
                : '#4caf7d';
     const c = rawC.startsWith('#') ? muteHex(rawC) : rawC;
+
     const wiG = window.WI_GENUS || {};
-    const genus = lat.split(' ')[0].replace(/^./, c => c.toUpperCase());
     const wc = spMatch ? spMatch.wc : (wiG[genus] || null);
-    return { name: p.latName || p.name || p.korName || '', bloom: p.bloomMonths || [], wc, c, r, n };
+
+    console.log(`[dotview] ${genus.padEnd(18)} tier=${matchTier} r=${r.toFixed(1)} n=${n} bloom=${(p.bloomMonths||[]).join(',')}`);
+    return { name: latName || p.korName || '', bloom: p.bloomMonths || [], wc, c, r, n };
   }).filter(p => p.name);
+
   window.dvRebuild(mapped.length ? mapped : spPl);
 }
 
