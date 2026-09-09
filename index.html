@@ -2786,17 +2786,19 @@ function renderEcology() {
     <p class="src-note" style="padding:0 1rem 0.5rem">* 자생여부: 산림청 | 생태·형태: MBG + NaturaDB(🌿) | Ellenberg: EIVE</p>`;
 }
 function c2css(c) {
+  // 자연스러운 뮤트 팔레트 (개화 분포도용)
   const m = {
-    red:'#e85050', pink:'#e891b0', purple:'#9b59b6', blue:'#3498db', white:'#e8e8e8',
-    yellow:'#f1c40f', orange:'#e67e22', green:'#27ae60', lavender:'#967bb6',
-    magenta:'#c0306a', violet:'#7f4fbe', 'light blue':'#87ceeb',
-    bronze:'#cd7f32', silver:'#c0c0c0', 'silver-white':'#dce3e8', cream:'#fffdd0',
-    gold:'#ffd700', brown:'#8b5e3c', black:'#333333', tan:'#d2b48c',
-    straw:'#e4d96f', copper:'#b87333', rust:'#b7410e', burgundy:'#800020',
-    coral:'#ff7f50', salmon:'#fa8072', ivory:'#fffff0', chartreuse:'#7fff00',
-    maroon:'#800000', lilac:'#c8a2c8', 'blue-green':'#0d98ba',
+    red:'#c0524a', pink:'#d4849e', purple:'#7a5a9a', blue:'#5580b0',
+    white:'#d8d8d0', yellow:'#c8aa3a', orange:'#c07840', green:'#4a8860',
+    lavender:'#8878b0', magenta:'#a04870', violet:'#6a4898',
+    'light blue':'#7aaec0', bronze:'#9a6e42', silver:'#b0b0a8',
+    'silver-white':'#c8cec8', cream:'#d8d0a8', gold:'#b89830',
+    brown:'#7a5438', black:'#4a4848', tan:'#b0987a',
+    straw:'#c0b060', copper:'#9a6838', rust:'#985038', burgundy:'#702840',
+    coral:'#c07060', salmon:'#c08070', ivory:'#d0cca8', chartreuse:'#8aaa50',
+    maroon:'#6a2838', lilac:'#a888b0', 'blue-green':'#4a8898',
   };
-  return m[c?.toLowerCase()] || '#ccc';
+  return m[c?.toLowerCase()] || '#a8a8a0';
 }
 function isDark(c) { return ['red','purple','blue','green','magenta','violet','brown','burgundy','maroon','rust','copper','black','blue-green'].includes(c?.toLowerCase()); }
 
@@ -4508,7 +4510,7 @@ document.addEventListener('keydown', function(e) {
     });
     // 비개화=연한 식물색, 개화=선명
     circles.filter(c=>!c.blooming).forEach(c=>{
-      ctx.globalAlpha=0.28;
+      ctx.globalAlpha=0.15;
       ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
     });
     ctx.globalAlpha=1;
