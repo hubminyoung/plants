@@ -570,9 +570,10 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <input type="search" id="eco-search-input" placeholder="수종명 검색…" oninput="ecoFilter()" autocomplete="off" class="eco-search-input">
     <div class="eco-filter-chips">
       <span class="eco-filter-label">일조</span>
-      <button class="eco-chip" data-filter="sun" data-val="full sun" onclick="ecoChipToggle(this)">☀️ 양지</button>
-      <button class="eco-chip" data-filter="sun" data-val="part" onclick="ecoChipToggle(this)">🌤 반음지</button>
-      <button class="eco-chip" data-filter="sun" data-val="shade" onclick="ecoChipToggle(this)">🌥 음지</button>
+      <button class="eco-chip" data-filter="sun" data-val="full sun" onclick="ecoChipToggle(this)">○ 화창한</button>
+      <button class="eco-chip" data-filter="sun" data-val="part sun" onclick="ecoChipToggle(this)">Ø 부분 맑음</button>
+      <button class="eco-chip" data-filter="sun" data-val="part shade" onclick="ecoChipToggle(this)">◐ 부분 그늘</button>
+      <button class="eco-chip" data-filter="sun" data-val="shade" onclick="ecoChipToggle(this)">● 그늘</button>
       <span class="eco-filter-sep"></span>
       <span class="eco-filter-label">관리</span>
       <button class="eco-chip" data-filter="maint" data-val="low" onclick="ecoChipToggle(this)">🟢 낮음</button>
@@ -2555,11 +2556,24 @@ function renderEcology() {
     function sunViz() {
       if (!p.sunlight || !p.sunlight.length) return ld(p,'');
       const s = (p.sunlight[0]||'').toLowerCase();
-      let lvl = 2;
-      if (/full.?sun|^sun$/.test(s)) lvl = 3;
-      else if (/full.?shade|^shade$/.test(s)) lvl = 1;
-      const dot = (on) => `<span style="width:11px;height:11px;border-radius:50%;display:inline-block;background:${on?'#f4b942':'#e0e0e0'}"></span>`;
-      return `<span style="display:inline-flex;align-items:center;gap:3px">${dot(true)}${dot(lvl>=2)}${dot(lvl>=3)}<small style="color:#666;margin-left:4px">${sunStr}</small></span>`;
+      // SVG 원 아이콘: 채움 정도 4단계
+      function sunIcon(type) {
+        const C = '#4a7a4a', r = 7, cx = r+1, cy = r+1, d = r*2+2;
+        const sv = (inner) => `<svg width="${d}" height="${d}" viewBox="0 0 ${d} ${d}" style="flex-shrink:0">${inner}</svg>`;
+        const ring = `<circle cx="${cx}" cy="${cy}" r="${r}" stroke="${C}" stroke-width="1.5" fill="none"/>`;
+        if (type==='none')   return sv(ring);
+        if (type==='full')   return sv(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${C}"/>`);
+        if (type==='half')   return sv(ring + `<path d="M${cx} ${cy-r} A${r} ${r} 0 0 1 ${cx} ${cy+r} Z" fill="${C}"/>`);
+        // slash: Ø — 원 + 대각선
+        if (type==='slash')  return sv(ring + `<line x1="${cx-r*.65}" y1="${cy+r*.65}" x2="${cx+r*.65}" y2="${cy-r*.65}" stroke="${C}" stroke-width="1.5" stroke-linecap="round"/>`);
+        return sv(ring);
+      }
+      let icon, label;
+      if      (/full.?sun|^sun$/.test(s))        { icon = sunIcon('none');  label = '화창한'; }
+      else if (/part.?sun/.test(s))               { icon = sunIcon('slash'); label = '부분 맑음'; }
+      else if (/full.?shade|^shade$/.test(s))     { icon = sunIcon('full');  label = '그늘'; }
+      else                                         { icon = sunIcon('half');  label = '부분 그늘'; }
+      return `<span style="display:inline-flex;align-items:center;gap:5px">${icon}<small style="color:#555">${label}</small></span>`;
     }
     function waterViz() {
       const w = p.watering;
