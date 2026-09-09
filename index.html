@@ -2000,31 +2000,14 @@ function parseMbgHtmlClient(html) {
 async function loadMbgDetail(p) {
   if (!p.mbgTaxonId) return;
 
-  // 1순위: Service Worker 프록시 (사용자 IP로 MBG 접근, 차단 없음)
-  // navigator.serviceWorker.ready는 SW 미등록 시 영원히 hang → 2초 타임아웃 적용
+  // Worker /api/mbg/details: HTTP로 MBG 직접 접근 (TLS 526 우회 후 KV 캐시 활용)
   let det = null;
+  const params = { taxonid: p.mbgTaxonId };
+  if (p.mbgStaticSlug) params.staticSlug = p.mbgStaticSlug;
   try {
-    const swReg = await Promise.race([
-      navigator.serviceWorker?.ready ?? Promise.resolve(null),
-      new Promise(r => setTimeout(() => r(null), 2000))
-    ]);
-    if (swReg) {
-      const r = await Promise.race([
-        fetch(`/plants/proxy/mbg?taxonid=${p.mbgTaxonId}`),
-        new Promise((_,rj) => setTimeout(() => rj(new Error('sw timeout')), 12000))
-      ]);
-      const html = await r.text();
-      if (html.includes('Common Name:')) det = parseMbgHtmlClient(html);
-    }
-  } catch(_) {}
-
-  // 2순위: Worker KV 캐시 (Chrome 스크래핑 데이터)
-  if (!det) {
-    const params = { taxonid: p.mbgTaxonId };
-    if (p.mbgStaticSlug) params.staticSlug = p.mbgStaticSlug;
     const res = await wFetch('/api/mbg/details', params);
     if (res && !res.error && Object.keys(res).length > 0) det = res;
-  }
+  } catch(_) {}
 
   if (!det) {
     // KV에도 없음 → Worker KV 큐에 추가 (Claude in Chrome 배치 처리용)

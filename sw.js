@@ -25,11 +25,11 @@ function mbgResponse(promise) {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // /plants/proxy/mbg?taxonid=XXXXX — detail 조회
+  // /plants/proxy/mbg?taxonid=XXXXX — detail 조회 (HTTP: TLS 526 우회)
   if (url.pathname.endsWith('/proxy/mbg') && url.searchParams.get('taxonid')) {
     const taxonid = url.searchParams.get('taxonid');
     event.respondWith(mbgResponse(
-      fetch(`https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`, { headers: MBG_HEADERS })
+      fetch(`http://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`, { headers: MBG_HEADERS })
     ));
   }
 
