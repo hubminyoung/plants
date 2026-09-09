@@ -4736,18 +4736,18 @@ document.addEventListener('keydown', function(e) {
     /* 구근 대형 — geophyte → ∅ */
     {name:"Allium 'Purple Sensation'",                    bloom:[5,6],        c:'#7744bb', r:11,  n:9,   geophyte:true},
     /* 서리 후 쓰러짐 → ∅ */
-    {name:'Sisyrinchium angustifolium Lucerne',           bloom:[5,6,7],      c:'#6070cc', r:3.5, n:28,  h_winter_cm:30},
+    {name:'Sisyrinchium angustifolium Lucerne',           bloom:[5,6,7],      c:'#6070cc', r:2,   n:28,  h_winter_cm:30},
     {name:"Oenothera fruticosa 'Fireworks'",              bloom:[6,7,8],      c:'#f0c010', r:5,   n:20,  lodges_after_frost:true},
-    {name:'Coreopsis lanceolata',                         bloom:[6,7,8],      c:'#f5d020', r:6,   n:20,  lodges_after_frost:true},
+    {name:'Coreopsis lanceolata',                         bloom:[6,7,8],      c:'#f5d020', r:3,   n:20,  lodges_after_frost:true},
     {name:"Nepeta sibirica 'Chaudron'",                   bloom:[6,7,8],      c:'#8899dd', r:5,   n:24,  lodges_after_frost:true},
     {name:'Eremurus stenophyllus',                        bloom:[6,7],        c:'#f5d020', r:9,   n:7,   lodges_after_frost:true},
     /* 겨울 흥미요소 보유 */
     {name:'Monarda bradburyana',                          bloom:[6,7],        c:'#e06080', r:8,   n:13,  h_winter_cm:70,  part:['SH'],      geom:'BTN', L_star:22, terminal:true},
-    {name:'Ratibida columnifera',                         bloom:[6,7,8,9],    c:'#f5c020', r:6,   n:18,  h_winter_cm:80,  part:['SH'],      geom:'CON', L_star:66},
-    {name:"Achillea 'Coronation Gold'",                   bloom:[6,7,8],      c:'#e8c020', r:7,   n:18,  h_winter_cm:60,  part:['SH'],      geom:'PLT', L_star:24},
+    {name:'Ratibida columnifera',                         bloom:[6,7,8,9],    c:'#f5c020', r:3,   n:18,  h_winter_cm:80,  part:['SH'],      geom:'CON', L_star:66},
+    {name:"Achillea 'Coronation Gold'",                   bloom:[6,7,8],      c:'#e8c020', r:5,   n:18,  h_winter_cm:60,  part:['SH'],      geom:'PLT', L_star:24},
     {name:"Perovskia atriplicifolia 'Superba'",           bloom:[7,8,9],      c:'#aabbee', r:5.5, n:22,  h_winter_cm:100, part:['ST'],      geom:'HAZ', L_star:86},
     {name:'Knautia macedonica',                           bloom:[6,7,8,9,10], c:'#cc2244', r:5,   n:26,  h_winter_cm:70,  part:['SH'],      geom:'BTN', L_star:20, terminal:false},
-    {name:'Rudbeckia fulgida var. fulgida',               bloom:[7,8,9],      c:'#f5c010', r:7,   n:20,  h_winter_cm:70,  part:['SH'],      geom:'CON', L_star:18},
+    {name:'Rudbeckia fulgida var. fulgida',               bloom:[7,8,9],      c:'#f5c010', r:5,   n:20,  h_winter_cm:70,  part:['SH'],      geom:'CON', L_star:18},
     {name:"Agastache 'Blue Fortune'",                     bloom:[8,9],        c:'#7788dd', r:6,   n:22,  h_winter_cm:90,  part:['SH','ST'], geom:'SPR', L_star:20, stiff:true},
     {name:"Symphyotrichum oblongifolium 'October Skies'", bloom:[9,10],       c:'#8899d8', r:7,   n:18,  h_winter_cm:60,  part:['SH','ST'], geom:'HAZ', L_star:40, late_aster:true},
   ];
@@ -4799,9 +4799,16 @@ document.addEventListener('keydown', function(e) {
     // share: p.n을 상대적 식재밀도 가중치로 사용
     const totalW=bloomPl.reduce((s,p)=>s+p.n,0)||1;
 
+    // 월별 r 상한
+    const R_CAP_SPRING = (mn>=3&&mn<=4)  ? mapR(3.5)  // 3-4월: Narcissus 기준
+                       : (mn===5)         ? mapR(11)   // 5월: Allium 진보라 기준
+                       : (mn>=6&&mn<=7)   ? mapR(5)    // 6-7월: Nepeta 파랑 기준
+                       : (mn>=8&&mn<=10)  ? mapR(7)    // 8-10월: Symphyotrichum 파랑 기준
+                       : Infinity;
+
     // n = cap × share × intensity (비정규화 — 달별 밀도가 계절 정보)
     const data=bloomPl.map(p=>({
-      r: mapR(p.r),
+      r: Math.min(mapR(p.r), R_CAP_SPRING),
       c: p.c,
       n: Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
     }));
@@ -4850,7 +4857,7 @@ document.addEventListener('keydown', function(e) {
           n: Math.max(1, Math.round(CAP*(p.n/dTotalW)))
         }));
         const dPool=[];
-        dData.forEach(d=>{ for(let i=0;i<d.n;i++) dPool.push(d.r); });
+        dData.forEach(d=>{ for(let i=0;i<d.n;i++) dPool.push(Math.min(d.r, 4)); });
         for(let i=dPool.length-1;i>0;i--){ const j=Math.floor(dRand()*(i+1));[dPool[i],dPool[j]]=[dPool[j],dPool[i]]; }
         const dCOLS=Math.ceil(Math.sqrt(dPool.length*1.4));
         const dROWS=Math.ceil(dPool.length/dCOLS);
@@ -5048,13 +5055,13 @@ const GENUS_R = {
   Tulipa:4,Galanthus:2,Hyacinthus:3,Muscari:2,Fritillaria:3.5,
   Armeria:2.5,Iberis:3,Petrorhagia:2.5,Calamintha:3,Salvia:4,
   Nepeta:4,Agastache:5.5,Perovskia:5,Lavendula:3.5,Lavandula:3.5,
-  Coreopsis:5.5,Rudbeckia:6.5,Helenium:6,Echinacea:7,Ratibida:5.5,
-  Achillea:6,Hemerocallis:7,Knautia:5,Scabiosa:4.5,Centaurea:5,
+  Coreopsis:3,Rudbeckia:5,Helenium:5,Echinacea:6,Ratibida:3,
+  Achillea:5,Hemerocallis:7,Knautia:5,Scabiosa:4.5,Centaurea:5,
   Monarda:7,Phlox:5,Geranium:4.5,Lychnis:4,Dianthus:3.5,
   Symphyotrichum:6,Aster:6,Doellingeria:5,Boltonia:5,
   Eremurus:8,Digitalis:4,Actaea:4,Veronicastrum:4,
   Sanguisorba:5,Eupatorium:5,Thalictrum:4,Baptisia:6,
-  Sisyrinchium:3,Oenothera:5,
+  Sisyrinchium:2,Oenothera:5,
 };
 
 function renderDotView() {
