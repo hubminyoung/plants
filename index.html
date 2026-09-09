@@ -1059,10 +1059,12 @@ function plantsToLS() {
         (p.korName && s.korName && s.korName === p.korName) ||
         (s.name && p.name && s.name === p.name);
       const idx = merged.findIndex(key);
+      const prev = idx >= 0 ? merged[idx] : null;
       const entry = {
         name: p.name, korName: p.korName||'', latName: p.latName||'',
-        selectedFlowerColor: p.selectedFlowerColor || null,
-        flowerColors: p.flowerColors || [],
+        // 사용자 지정 색이 없으면 기존 저장값 유지 (클라우드 로드 후 덮어쓰기 방지)
+        selectedFlowerColor: p.selectedFlowerColor || prev?.selectedFlowerColor || null,
+        flowerColors: p.flowerColors?.length ? p.flowerColors : (prev?.flowerColors || []),
       };
       if (idx >= 0) merged[idx] = entry;
       else merged.push(entry);
@@ -4264,6 +4266,19 @@ function bcRestoreData(data) {
     data.plants.forEach(p => plants.push(p));
     // v3+: 이미지가 data에 포함됨. 구버전 호환: localStorage에서 복원
     if ((data.v||1) < 3 && typeof plantsFromLS === 'function') plantsFromLS();
+    // 로컬 색상 복원 (클라우드 저장본에 색상이 없는 경우 대비)
+    try {
+      const cols = JSON.parse(localStorage.getItem('식재리스트_colors') || '[]');
+      plants.forEach(p => {
+        const s = cols.find(s =>
+          (p.latName && s.latName && s.latName === p.latName) ||
+          (p.korName && s.korName && s.korName === p.korName) ||
+          (s.name && p.name && s.name === p.name)
+        );
+        if (s?.selectedFlowerColor && !p.selectedFlowerColor) p.selectedFlowerColor = s.selectedFlowerColor;
+        if (s?.flowerColors?.length && !p.flowerColors?.length) p.flowerColors = [...s.flowerColors];
+      });
+    } catch(e) {}
     plantsToLS(); // 불러온 이미지를 localStorage에도 동기화
   }
   BC.bgs = data.bgs || [];
@@ -4800,17 +4815,21 @@ document.addEventListener('keydown', function(e) {
     const totalW=bloomPl.reduce((s,p)=>s+p.n,0)||1;
 
     // 월별 r 상한
-    const R_CAP_SPRING = (mn>=3&&mn<=4)  ? mapR(3.5)  // 3-4월: Narcissus 기준
+    const R_CAP_SPRING = (mn<=2)          ? 2.2        // 2월: Crocus 소화 — px 직접 지정
+                       : (mn>=3&&mn<=4)   ? mapR(3.5)  // 3-4월: Narcissus 기준
                        : (mn===5)         ? mapR(11)   // 5월: Allium 진보라 기준
                        : (mn>=6&&mn<=7)   ? mapR(5)    // 6-7월: Nepeta 파랑 기준
                        : (mn>=8&&mn<=10)  ? mapR(7)    // 8-10월: Symphyotrichum 파랑 기준
                        : Infinity;
 
     // n = cap × share × intensity (비정규화 — 달별 밀도가 계절 정보)
+    // 2월 이하: 구근류 절대값 기준 (share 정규화 없음)
     const data=bloomPl.map(p=>({
       r: Math.min(mapR(p.r), R_CAP_SPRING),
       c: p.c,
-      n: Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
+      n: mn<=2
+        ? Math.min(Math.round(p.n*2), CAP)
+        : Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
     }));
 
     // hue 캡: 같은 hue 버킷(60°)이 전체의 45% 초과 시 축소
