@@ -4439,10 +4439,14 @@ document.addEventListener('keydown', function(e) {
   const pl = [
     /* 구근 · 소구근 — geophyte → ∅ */
     {name:'Crocus tommasinianus var. roseus',             bloom:[2,3],        c:'#c8a4d8', r:2,   n:130, geophyte:true},
+    {name:'Crocus tommasinianus var roseus',              bloom:[2,3],        c:'#c8a4d8', r:2,   n:130, geophyte:true},
     {name:"Crocus sieberi 'Firefly'",                     bloom:[2,3],        c:'#e8d0f0', r:2,   n:105, geophyte:true},
     {name:'Narcissus (early yellow)',                     bloom:[3,4],        c:'#f5d020', r:3.5, n:45,  geophyte:true},
+    {name:"Narcissus 'Tete-a-Tete'",                     bloom:[3,4],        c:'#d4b820', r:3,   n:50,  geophyte:true},
     {name:'Scilla sibirica',                              bloom:[3,4],        c:'#5575e8', r:2,   n:100, geophyte:true},
+    {name:'Scilla siberica',                              bloom:[3,4],        c:'#5575e8', r:2,   n:100, geophyte:true},
     {name:'Narcissus (late white)',                       bloom:[4,5],        c:'#ebebeb', r:3.5, n:38,  geophyte:true},
+    {name:"Narcissus 'Ice Follies'",                      bloom:[4,5],        c:'#e8e8e0', r:4,   n:35,  geophyte:true},
     {name:'Ornithogalum umbellatum',                      bloom:[4,5],        c:'#e0e0e0', r:2.5, n:55,  geophyte:true},
     /* 키 낮음 · 상록 → ∅ */
     {name:'Armeria maritima',                             bloom:[4,5,6],      c:'#e080a0', r:2.5, n:42,  h_winter_cm:25},
@@ -4508,12 +4512,14 @@ document.addEventListener('keydown', function(e) {
       const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
       return {x,y,r,c:p.c,blooming:p.blooming};
     });
-    // 비개화=작은 회색 점(r 최대 3 고정, 균일 배경), 개화=실제 크기 뮤트색
-    circles.filter(c=>!c.blooming).forEach(c=>{
-      ctx.globalAlpha=0.45;
-      ctx.beginPath(); ctx.arc(c.x,c.y,Math.min(c.r,3),0,Math.PI*2); ctx.fillStyle='#b0b0b0'; ctx.fill();
-    });
-    ctx.globalAlpha=1;
+    // 2-4월만: 비개화=작은 회색 점(꽃대/새싹), 5월~: 개화 식물만 표시
+    if(mn <= 4) {
+      circles.filter(c=>!c.blooming).forEach(c=>{
+        ctx.globalAlpha=0.45;
+        ctx.beginPath(); ctx.arc(c.x,c.y,Math.min(c.r,3),0,Math.PI*2); ctx.fillStyle='#b0b0b0'; ctx.fill();
+      });
+      ctx.globalAlpha=1;
+    }
     circles.filter(c=>c.blooming).forEach(c=>{
       ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
     });
@@ -4653,8 +4659,12 @@ function renderDotView() {
     // r·n은 SP_PLANTS calibrated값, 색은 식물 데이터에서
     const r  = spMatch ? spMatch.r  : 5;
     const n  = spMatch ? spMatch.n  : Math.max(5, Math.round(400 / Math.max(1, r * r)));
-    const activeColor = p.selectedFlowerColor || (p.flowerColors && p.flowerColors[0]) || null;
-    const c  = activeColor ? (activeColor.startsWith('#') ? activeColor : c2css(activeColor)) : (spMatch ? spMatch.c : '#4caf7d');
+    // 색 우선순위: 계절도표 직접 지정 > SP_PLANTS calibrated색 > API 꽃색
+    const selColor = p.selectedFlowerColor;
+    const c = selColor ? (selColor.startsWith('#') ? selColor : c2css(selColor))
+            : spMatch  ? spMatch.c
+            : (p.flowerColors&&p.flowerColors[0]) ? c2css(p.flowerColors[0])
+            : '#4caf7d';
     const wiG = window.WI_GENUS || {};
     const genus = lat.split(' ')[0].replace(/^./, c => c.toUpperCase());
     const wc = spMatch ? spMatch.wc : (wiG[genus] || null);
