@@ -647,6 +647,9 @@ table.dtbl tr:last-child td { border-bottom: none; }
   <div id="dv-toolbar">
     <button id="dv-dl-btn" onclick="dvDownload()">🖼️ 이미지 저장</button>
   </div>
+  <div id="dv-sticky-scroll" style="position:sticky;top:0;z-index:10;overflow-x:auto;overflow-y:hidden;height:14px;background:#1e1e1c;margin-bottom:2px;">
+    <div id="dv-sticky-inner" style="height:1px;"></div>
+  </div>
   <div id="dv-wrap">
     <table id="dv-t"><colgroup>
       <col class="nc">
@@ -2814,9 +2817,9 @@ function muteHex(hex) {
   }
   // 흰색/매우 밝은 색은 그대로 보존 (배경 #d0d0d0에서 구분 필요)
   if(l > 0.82) return '#f4f4f4';
-  // 채도 50-60%, 명도 40-65% 범위로 고정
-  s = Math.min(s, 0.55);
-  const tl = Math.max(0.40, Math.min(0.62, l));
+  // 채도 최대 75%, 명도 35-70% 범위 (자연스럽지만 생동감 유지)
+  s = Math.min(s, 0.75);
+  const tl = Math.max(0.35, Math.min(0.70, l));
   // HSL → RGB
   function hue2rgb(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;}
   let nr,ng,nb;
@@ -4523,9 +4526,9 @@ document.addEventListener('keydown', function(e) {
     if(!activePl.length) return;
     const rand=rng(mn*7919+31337);
 
-    // 총 점 수가 너무 적으면 캔버스가 듬성해짐 → 목표 300개 기준으로 n 스케일업
-    const rawTotal = activePl.reduce((s,p)=>s+p.n, 0);
-    const scale = rawTotal < 200 ? Math.ceil(200 / Math.max(1, rawTotal)) : 1;
+    // 개화 식물 기준으로 스케일 계산 (비개화가 많아도 개화 달이 텅 비지 않도록)
+    const bloomN = activePl.filter(p=>p.bloom.includes(mn)).reduce((s,p)=>s+p.n, 0);
+    const scale = bloomN < 150 ? Math.ceil(150 / Math.max(1, bloomN)) : 1;
 
     const pool=[];
     activePl.forEach(p=>{
@@ -4548,7 +4551,7 @@ document.addEventListener('keydown', function(e) {
       const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
       return {x,y,r,c:p.c,blooming:p.blooming};
     });
-    // 2-4월만: 비개화=작은 회색 점(꽃대/새싹), 5월~: 개화 식물만 표시
+    // 2-4월만: 꽃대/새싹 (비개화 식물)
     if(mn <= 4) {
       circles.filter(c=>!c.blooming).forEach(c=>{
         ctx.globalAlpha=0.45;
@@ -4606,6 +4609,8 @@ document.addEventListener('keydown', function(e) {
       });
       tb.appendChild(row);
     });
+    // sticky 스크롤바 너비 동기화
+    requestAnimationFrame(() => initDvStickyScroll());
   }
 
   const WC_KEY = { '#1a1a1a':'k', '#d4c878':'m', '#8b5a2b':'b', '#c0c0c0':'s' };
@@ -4679,6 +4684,20 @@ document.addEventListener('keydown', function(e) {
   window.dvRebuild = buildTable;
   buildTable(pl);
 })();
+
+/* 개화 분포도 상단 sticky 스크롤바 동기화 */
+function initDvStickyScroll() {
+  const wrap = document.getElementById('dv-wrap');
+  const sticky = document.getElementById('dv-sticky-scroll');
+  const inner = document.getElementById('dv-sticky-inner');
+  if (!wrap || !sticky || !inner) return;
+  function syncWidth() { inner.style.width = wrap.scrollWidth + 'px'; }
+  syncWidth();
+  try { new ResizeObserver(syncWidth).observe(wrap); } catch(_){}
+  let syncing = false;
+  sticky.addEventListener('scroll', () => { if(!syncing){syncing=true; wrap.scrollLeft = sticky.scrollLeft; syncing=false;} });
+  wrap.addEventListener('scroll', () => { if(!syncing){syncing=true; sticky.scrollLeft = wrap.scrollLeft; syncing=false;} });
+}
 
 /* 검색된 plants → 개화 분포도 변환 */
 function dvDownload() {
