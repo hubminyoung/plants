@@ -4815,7 +4815,7 @@ document.addEventListener('keydown', function(e) {
     const totalW=bloomPl.reduce((s,p)=>s+p.n,0)||1;
 
     // 월별 r 상한
-    const R_CAP_SPRING = (mn<=2)          ? 6.0        // 2월: Crocus — 참고이미지 기준
+    const R_CAP_SPRING = (mn<=2)          ? 3.0        // 2월: Crocus — 참고이미지 기준
                        : (mn>=3&&mn<=4)   ? mapR(3.5)  // 3-4월: Narcissus 기준
                        : (mn===5)         ? mapR(11)   // 5월: Allium 진보라 기준
                        : (mn>=6&&mn<=7)   ? mapR(5)    // 6-7월: Nepeta 파랑 기준
