@@ -4815,7 +4815,7 @@ document.addEventListener('keydown', function(e) {
     const totalW=bloomPl.reduce((s,p)=>s+p.n,0)||1;
 
     // 월별 r 상한
-    const R_CAP_SPRING = (mn<=2)          ? 2.2        // 2월: Crocus 소화 — px 직접 지정
+    const R_CAP_SPRING = (mn<=2)          ? 1.0        // 2월: Crocus 극소화 — 참고이미지 기준
                        : (mn>=3&&mn<=4)   ? mapR(3.5)  // 3-4월: Narcissus 기준
                        : (mn===5)         ? mapR(11)   // 5월: Allium 진보라 기준
                        : (mn>=6&&mn<=7)   ? mapR(5)    // 6-7월: Nepeta 파랑 기준
@@ -4823,12 +4823,13 @@ document.addEventListener('keydown', function(e) {
                        : Infinity;
 
     // n = cap × share × intensity (비정규화 — 달별 밀도가 계절 정보)
-    // 2월 이하: 구근류 절대값 기준 (share 정규화 없음)
+    // 2월 이하: 구근류 고밀도 — 참고이미지 기준 (CAP 대폭 상향)
+    const FEB_CAP = 2000;
     const data=bloomPl.map(p=>({
       r: Math.min(mapR(p.r), R_CAP_SPRING),
       c: p.c,
       n: mn<=2
-        ? Math.min(Math.round(p.n*3), CAP)
+        ? Math.min(Math.round(p.n*15), FEB_CAP)
         : Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
     }));
 
@@ -4875,8 +4876,8 @@ document.addEventListener('keydown', function(e) {
         const sRand=rng(7*7919+31337); // 7월 seed 고정
         const sTotalW=sumPl.reduce((s,p)=>s+p.n,0)||1;
         const sData=sumPl.map(p=>({
-          r: 3.5,  // dormant 뿌리 덩어리: 모든 식물 동일 3.5px
-          n: Math.max(1, Math.round(CAP*(p.n/sTotalW)*0.7))  // 70%만 채움
+          r: 2.5,  // dormant 뿌리 덩어리
+          n: Math.max(1, Math.round(CAP*(p.n/sTotalW)*0.35))  // 35%만 채움
         }));
         const sPool=[];
         sData.forEach(d=>{ for(let i=0;i<d.n;i++) sPool.push(d.r); });
@@ -4900,12 +4901,14 @@ document.addEventListener('keydown', function(e) {
     }
 
     // 렌더 (alpha 0.85 고정)
+    // 2월: 점이 매우 작고 많음 → jitter 크게 해서 유기적 체인 패턴
+    const jitter = mn<=2 ? 2.5 : 0.65;
     ctx.globalAlpha=0.85;
     pool.forEach((p,i)=>{
       const cell=cells[i%cells.length];
       const r=Math.min(p.r, Math.min(cw,ch)/2-0.5);
-      const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*0.65));
-      const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*0.65));
+      const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*jitter));
+      const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*jitter));
       ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=p.c; ctx.fill();
     });
     ctx.globalAlpha=1;
