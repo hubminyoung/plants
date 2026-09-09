@@ -615,8 +615,11 @@ table.dtbl tr:last-child td { border-bottom: none; }
 <div id="pane-seasonal" class="tab-pane"><div id="sea-content"><div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div></div></div>
 <div id="pane-dotview" class="tab-pane">
   <style>
-    #pane-dotview { overflow-x: auto; }
-    #dv-wrap { background:#2a2a28; border-radius:6px; padding:12px; overflow-x:auto; min-width: max-content; }
+    #pane-dotview { overflow-x: auto; padding-left:0; padding-right:0; }
+    #dv-wrap { background:#2a2a28; border-radius:6px; padding:12px; overflow-x:auto; min-width:0; }
+    #dv-toolbar { display:flex; justify-content:flex-end; padding:6px 1.2rem 4px; }
+    #dv-dl-btn { background:#52b788; color:white; border:none; border-radius:6px; padding:5px 14px; font-size:0.75rem; font-weight:600; cursor:pointer; }
+    #dv-dl-btn:hover { background:#3d9b70; }
     #dv-t { border-collapse:collapse; table-layout:fixed; width:1700px; }
     #dv-t col.nc { width:200px; } #dv-t col.mc { width:125px; }
     #dv-t tr.dot-lbl td { font-size:11px; color:#888; text-align:center; padding-bottom:4px; font-weight:500; }
@@ -641,6 +644,9 @@ table.dtbl tr:last-child td { border-bottom: none; }
     .dv-wi-pct { width:32px; color:#666; flex-shrink:0; }
     .dv-wi-names { color:#444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   </style>
+  <div id="dv-toolbar">
+    <button id="dv-dl-btn" onclick="dvDownload()">🖼️ 이미지 저장</button>
+  </div>
   <div id="dv-wrap">
     <table id="dv-t"><colgroup>
       <col class="nc">
@@ -2806,6 +2812,8 @@ function muteHex(hex) {
     else h=(rm-gm)/d+4;
     h/=6;
   }
+  // 흰색/매우 밝은 색은 그대로 보존 (배경 #d0d0d0에서 구분 필요)
+  if(l > 0.82) return '#f4f4f4';
   // 채도 50-60%, 명도 40-65% 범위로 고정
   s = Math.min(s, 0.55);
   const tl = Math.max(0.40, Math.min(0.62, l));
@@ -2816,20 +2824,19 @@ function muteHex(hex) {
   else{const q=tl<.5?tl*(1+s):tl+s-tl*s, p=2*tl-q;nr=hue2rgb(p,q,h+1/3);ng=hue2rgb(p,q,h);nb=hue2rgb(p,q,h-1/3);}
   return '#'+[nr,ng,nb].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join('');
 }
-function c2css(c) { if(!c) return '#a8a8a0'; if(c.startsWith('#')) return c;
-  // 자연스러운 뮤트 팔레트 (개화 분포도용)
+function c2css(c) { if(!c) return '#ccc'; if(c.startsWith('#')) return c;
+  // 선명한 팔레트 (계절도표 바 등 UI용) — 개화분포도는 muteHex()로 따로 뮤트
   const m = {
-    red:'#c0524a', pink:'#d4849e', purple:'#7a5a9a', blue:'#5580b0',
-    white:'#d8d8d0', yellow:'#c8aa3a', orange:'#c07840', green:'#4a8860',
-    lavender:'#8878b0', magenta:'#a04870', violet:'#6a4898',
-    'light blue':'#7aaec0', bronze:'#9a6e42', silver:'#b0b0a8',
-    'silver-white':'#c8cec8', cream:'#d8d0a8', gold:'#b89830',
-    brown:'#7a5438', black:'#4a4848', tan:'#b0987a',
-    straw:'#c0b060', copper:'#9a6838', rust:'#985038', burgundy:'#702840',
-    coral:'#c07060', salmon:'#c08070', ivory:'#d0cca8', chartreuse:'#8aaa50',
-    maroon:'#6a2838', lilac:'#a888b0', 'blue-green':'#4a8898',
+    red:'#e85050', pink:'#e891b0', purple:'#9b59b6', blue:'#3498db', white:'#e8e8e8',
+    yellow:'#f1c40f', orange:'#e67e22', green:'#27ae60', lavender:'#967bb6',
+    magenta:'#c0306a', violet:'#7f4fbe', 'light blue':'#87ceeb',
+    bronze:'#cd7f32', silver:'#c0c0c0', 'silver-white':'#dce3e8', cream:'#fffdd0',
+    gold:'#ffd700', brown:'#8b5e3c', black:'#333333', tan:'#d2b48c',
+    straw:'#e4d96f', copper:'#b87333', rust:'#b7410e', burgundy:'#800020',
+    coral:'#ff7f50', salmon:'#fa8072', ivory:'#fffff0', chartreuse:'#7fff00',
+    maroon:'#800000', lilac:'#c8a2c8', 'blue-green':'#0d98ba',
   };
-  return m[c?.toLowerCase()] || '#a8a8a0';
+  return m[c?.toLowerCase()] || '#ccc';
 }
 function isDark(c) { return ['red','purple','blue','green','magenta','violet','brown','burgundy','maroon','rust','copper','black','blue-green'].includes(c?.toLowerCase()); }
 
@@ -4674,6 +4681,31 @@ document.addEventListener('keydown', function(e) {
 })();
 
 /* 검색된 plants → 개화 분포도 변환 */
+function dvDownload() {
+  const canvases = [...document.querySelectorAll('#dv-t tr.dot-row canvas')];
+  if (!canvases.length) return;
+  const labels = [...document.querySelectorAll('#dv-t tr.dot-lbl td')].map(td => td.textContent.trim()).filter(t => t);
+  const S = 246, PAD = 8, LABEL_H = 20;
+  const total = canvases.length;
+  const W = total * (S + PAD) + PAD;
+  const H = LABEL_H + S + PAD;
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#2a2a28'; ctx.fillRect(0, 0, W, H);
+  canvases.forEach((cv, i) => {
+    const x = PAD + i * (S + PAD);
+    // 레이블
+    ctx.fillStyle = '#888'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    if (labels[i]) ctx.fillText(labels[i], x + S / 2, LABEL_H - 4);
+    ctx.drawImage(cv, x, LABEL_H);
+  });
+  const a = document.createElement('a');
+  a.download = '개화분포도.png';
+  a.href = out.toDataURL('image/png');
+  a.click();
+}
+
 function renderDotView() {
   const spPl = window.SP_PLANTS || [];
   if (!plants.length) {
