@@ -4845,10 +4845,10 @@ document.addEventListener('keydown', function(e) {
     // n = cap × share × intensity
     // 2월 개화 식물은 달이 바뀌어도 2월 스타일 유지
     const data=bloomPl.map(p=>({
-      r: isFebPlant(p) ? Math.min(mapR(p.r), 1.8) : Math.min(mapR(p.r), R_CAP_SPRING),
+      r: isFebPlant(p) ? Math.min(mapR(p.r), 2.0) : Math.min(mapR(p.r), R_CAP_SPRING),
       c: p.c,
       n: isFebPlant(p)
-        ? Math.max(1, Math.round(p.n*2))
+        ? Math.max(1, Math.round(p.n*6))
         : Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn))),
       feb: isFebPlant(p)
     }));
