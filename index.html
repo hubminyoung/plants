@@ -4838,17 +4838,35 @@ document.addEventListener('keydown', function(e) {
     for(let row=0;row<ROWS;row++) for(let col=0;col<COLS;col++) cells.push({cx:(col+.5)*cw,cy:(row+.5)*ch});
     for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]; }
 
-    // 2-4월: 비개화 식물 꽃대/눈 (작은 회색점) — 꽃보다 먼저 그림
+    // 2-4월: 5-10월 개화 식물을 진회색 레이어로 먼저 깔기
     if(mn>=2 && mn<=4){
-      const dormant=activePl.filter(p=>!p.bloom.includes(mn));
-      const dRand=rng(mn*3571+99991);
-      ctx.globalAlpha=0.40;
-      ctx.fillStyle='#a8a8a8';
-      dormant.forEach(()=>{
-        const x=dRand()*S, y=dRand()*S;
-        ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2); ctx.fill();
-      });
-      ctx.globalAlpha=1;
+      const dormPl=activePl.filter(p=>!p.bloom.includes(mn)&&p.bloom.some(m=>m>=5&&m<=10));
+      if(dormPl.length){
+        const dRand=rng(mn*3571+99991);
+        const dTotalW=dormPl.reduce((s,p)=>s+p.n,0)||1;
+        const dData=dormPl.map(p=>({
+          r: mapR(p.r),
+          n: Math.max(1, Math.round(CAP*(p.n/dTotalW)*0.6)) // 0.6 = 일률 중간 intensity
+        }));
+        const dPool=[];
+        dData.forEach(d=>{ for(let i=0;i<d.n;i++) dPool.push(d.r); });
+        for(let i=dPool.length-1;i>0;i--){ const j=Math.floor(dRand()*(i+1));[dPool[i],dPool[j]]=[dPool[j],dPool[i]]; }
+        const dCOLS=Math.ceil(Math.sqrt(dPool.length*1.4));
+        const dROWS=Math.ceil(dPool.length/dCOLS);
+        const dcw=S/dCOLS, dch=S/dROWS;
+        const dCells=[];
+        for(let row=0;row<dROWS;row++) for(let col=0;col<dCOLS;col++) dCells.push({cx:(col+.5)*dcw,cy:(row+.5)*dch});
+        for(let i=dCells.length-1;i>0;i--){ const j=Math.floor(dRand()*(i+1));[dCells[i],dCells[j]]=[dCells[j],dCells[i]]; }
+        ctx.globalAlpha=0.35;
+        ctx.fillStyle='#5a5a5a';
+        dPool.forEach((r,i)=>{
+          const cell=dCells[i%dCells.length];
+          const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(dRand()-.5)*dcw*0.65));
+          const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(dRand()-.5)*dch*0.65));
+          ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+        });
+        ctx.globalAlpha=1;
+      }
     }
 
     // 렌더 (alpha 0.85 고정)
