@@ -4481,11 +4481,13 @@ document.addEventListener('keydown', function(e) {
     if(!activePl.length) return;
     const rand=rng(mn*7919+31337);
     // 전체 식물을 pool에 — 개화=컬러, 동면=회색
+    // 개화 중인 식물만 표시 (비개화 회색 점 제거 — 모든 달이 회색으로 보이는 문제 방지)
     const pool=[];
     activePl.forEach(p=>{
-      const isBlooming=p.bloom.includes(mn);
-      for(let i=0;i<p.n;i++) pool.push({r:p.r, c:isBlooming?p.c:'#b4b4b4', blooming:isBlooming});
+      if(!p.bloom.includes(mn)) return;
+      for(let i=0;i<p.n;i++) pool.push({r:p.r, c:p.c});
     });
+    if(!pool.length) return; // 개화 없는 달은 배경만
     for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]; }
     const total=pool.length;
     const COLS=Math.ceil(Math.sqrt(total*1.6));
@@ -4494,19 +4496,14 @@ document.addEventListener('keydown', function(e) {
     const cells=[];
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) cells.push({cx:(c+.5)*cw,cy:(r+.5)*ch});
     for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]; }
-    // 위치 계산
     const circles=pool.map((p,i)=>{
       const cell=cells[i%cells.length];
       const r=p.r*(0.78+rand()*0.44);
       const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*.65));
       const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
-      return {x,y,r,c:p.c,blooming:p.blooming};
+      return {x,y,r,c:p.c};
     });
-    // 동면(회색) 먼저, 개화(컬러) 위에
-    circles.filter(c=>!c.blooming).forEach(c=>{
-      ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
-    });
-    circles.filter(c=>c.blooming).forEach(c=>{
+    circles.forEach(c=>{
       ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
     });
   }
