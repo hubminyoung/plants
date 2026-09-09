@@ -4599,8 +4599,8 @@ document.addEventListener('keydown', function(e) {
     if(!bloomPl.length) return;
 
     const rand=rng(mn*7919+31337);
-    const CAP=220;
-    const R_MAX=0.04*S;          // ≈9.84px
+    const CAP=260;
+    const R_MAX=0.032*S;         // ≈7.87px
     const R_MIN=R_MAX/3.5;       // ≈2.81px
 
     // r: log_map → clamp(R_MIN, R_MAX)
