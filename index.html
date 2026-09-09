@@ -4815,21 +4815,37 @@ document.addEventListener('keydown', function(e) {
     const totalW=bloomPl.reduce((s,p)=>s+p.n,0)||1;
 
     // 월별 r 상한
-    const R_CAP_SPRING = (mn<=2)          ? 1.0        // 2월: Crocus 극소화 — 참고이미지 기준
+    const R_CAP_SPRING = (mn<=2)          ? 2.5        // 2월: Crocus — 참고이미지 기준
                        : (mn>=3&&mn<=4)   ? mapR(3.5)  // 3-4월: Narcissus 기준
                        : (mn===5)         ? mapR(11)   // 5월: Allium 진보라 기준
                        : (mn>=6&&mn<=7)   ? mapR(5)    // 6-7월: Nepeta 파랑 기준
                        : (mn>=8&&mn<=10)  ? mapR(7)    // 8-10월: Symphyotrichum 파랑 기준
                        : Infinity;
 
+    // sat 부스트 함수 (February 보라 선명하게)
+    function boostSat(hex, targetS) {
+      if(!hex||hex.length<7) return hex;
+      const rv=parseInt(hex.slice(1,3),16)/255, gv=parseInt(hex.slice(3,5),16)/255, bv=parseInt(hex.slice(5,7),16)/255;
+      const max=Math.max(rv,gv,bv), min=Math.min(rv,gv,bv), l=(max+min)/2;
+      if(max===min) return hex;
+      let h=0; const d=max-min;
+      if(max===rv) h=(gv-bv)/d+(gv<bv?6:0);
+      else if(max===gv) h=(bv-rv)/d+2;
+      else h=(rv-gv)/d+4;
+      h/=6;
+      const s=targetS, tl=l;
+      function hue2rgb(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;}
+      const q=tl<.5?tl*(1+s):tl+s-tl*s, p=2*tl-q;
+      return '#'+[hue2rgb(p,q,h+1/3),hue2rgb(p,q,h),hue2rgb(p,q,h-1/3)].map(x=>Math.round(Math.max(0,Math.min(1,x))*255).toString(16).padStart(2,'0')).join('');
+    }
+
     // n = cap × share × intensity (비정규화 — 달별 밀도가 계절 정보)
-    // 2월 이하: 구근류 고밀도 — 참고이미지 기준 (CAP 대폭 상향)
-    const FEB_CAP = 2000;
+    // 2월: p.n 직접 사용 (~400 합계)
     const data=bloomPl.map(p=>({
       r: Math.min(mapR(p.r), R_CAP_SPRING),
-      c: p.c,
+      c: mn<=2 ? boostSat(p.c, 0.50) : p.c,
       n: mn<=2
-        ? Math.min(Math.round(p.n*15), FEB_CAP)
+        ? Math.max(1, Math.round(p.n))
         : Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
     }));
 
@@ -4876,7 +4892,7 @@ document.addEventListener('keydown', function(e) {
         const sRand=rng(7*7919+31337); // 7월 seed 고정
         const sTotalW=sumPl.reduce((s,p)=>s+p.n,0)||1;
         const sData=sumPl.map(p=>({
-          r: 2.5,  // dormant 뿌리 덩어리
+          r: Math.min(mapR(p.r), R_MAX),  // 7-8월 식물 실제 크기 그대로
           n: Math.max(1, Math.round(CAP*(p.n/sTotalW)*0.35))  // 35%만 채움
         }));
         const sPool=[];
@@ -4900,16 +4916,27 @@ document.addEventListener('keydown', function(e) {
       }
     }
 
-    // 렌더 (alpha 0.85 고정)
-    // 2월: 점이 매우 작고 많음 → jitter 크게 해서 유기적 체인 패턴
-    const jitter = mn<=2 ? 2.5 : 0.65;
-    ctx.globalAlpha=0.85;
+    // 렌더
+    // 2월: jitter 1.2 (유기적 산포), alpha 0.55, 30% 확률 클러스터
+    const jitter = mn<=2 ? 1.2 : 0.65;
+    const alpha = mn<=2 ? 0.55 : 0.85;
+    ctx.globalAlpha=alpha;
     pool.forEach((p,i)=>{
       const cell=cells[i%cells.length];
-      const r=Math.min(p.r, Math.min(cw,ch)/2-0.5);
+      const r=p.r;
       const x=Math.max(r+1,Math.min(S-r-1, cell.cx+(rand()-.5)*cw*jitter));
       const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*jitter));
       ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=p.c; ctx.fill();
+      // 2월: 30% 확률로 인접 2~4개 클러스터 (chain 효과)
+      if(mn<=2 && rand()<0.30){
+        const clust=2+Math.floor(rand()*3);
+        for(let k=0;k<clust;k++){
+          const ox=(rand()-.5)*(r*4+4), oy=(rand()-.5)*(r*4+4);
+          const cx2=Math.max(r+1,Math.min(S-r-1,x+ox));
+          const cy2=Math.max(r+1,Math.min(S-r-1,y+oy));
+          ctx.beginPath(); ctx.arc(cx2,cy2,r,0,Math.PI*2); ctx.fill();
+        }
+      }
     });
     ctx.globalAlpha=1;
   }
