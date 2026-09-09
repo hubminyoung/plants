@@ -1548,7 +1548,7 @@ async function loadPlant(p) {
   const searchQ = cultivarMatch
     ? normQuotes((acceptedBase || p.name).split(' ')[0] + ' ' + cultivarMatch[1])
     : simplifyParenName(normQuotes(acceptedBase || p.name));
-  let mbgQueryLog = \`\"\${searchQ}\"\`;
+  let mbgQueryLog = `\"\${searchQ}\"`;
   let mbg = await wFetch('/api/mbg/search', { q: searchQ });
   // iNaturalist가 이름을 바꾼 경우 원래 이름으로 재시도
   if (!mbg?.taxonid && p.name && searchQ !== p.name.replace(/\s*[''\u2018\u2019\u0027][^''\u2018\u2019\u0027]+[''\u2018\u2019\u0027]\s*$/, '').trim()) {
@@ -1558,9 +1558,9 @@ async function loadPlant(p) {
   // 괄호형 이름 (Genus (desc)) — 속명만으로 재시도
   if (!mbg?.taxonid && /\(/.test(p.name)) {
     const genusOnly = p.name.split(/\s/)[0];
-    if (genusOnly) { mbg = await wFetch('/api/mbg/search', { q: genusOnly }); mbgQueryLog += \`→"\${genusOnly}"\`; }
+    if (genusOnly) { mbg = await wFetch('/api/mbg/search', { q: genusOnly }); mbgQueryLog += `→"\${genusOnly}"`; }
   }
-  console.log(\`[src:MBG] \${p.name} | q=\${mbgQueryLog} → \${mbg?.taxonid ? 'HIT id='+mbg.taxonid : 'MISS'}\`);
+  console.log(`[src:MBG] \${p.name} | q=\${mbgQueryLog} → \${mbg?.taxonid ? 'HIT id='+mbg.taxonid : 'MISS'}`);
   // MBG 검색: Cloudflare Worker(IP 차단) + SW(CORS 차단) 모두 불가 — 다른 소스로 대체
 
   if (mbg?.taxonid) {
@@ -5143,26 +5143,26 @@ function renderDotView() {
   // 따옴표 안 cultivar 추출 → { full, first }
   // full: 시리즈어 제거 후 전체 / first: 첫 토큰 (full과 다를 때만)
   function extractCultivar(s) {
-    const m = (s||’’).match(/[‘’’’‘’ʼ]([^’’’’‘’ʼ]+)[‘’’’‘’ʼ]/);
+    const m = (s||'').match(/[‘’’’‘’ʼ]([^’’’’‘’ʼ]+)[‘’’’‘’ʼ]/);
     if (!m) return { full: null, first: null };
-    const full = m[1].toLowerCase().replace(SERIES_STRIP,’’).replace(/\s+/g,’ ‘).trim();
+    const full = m[1].toLowerCase().replace(SERIES_STRIP,'').replace(/\s+/g,' ').trim();
     const first = full.split(/\s+/)[0];
     return { full, first: (first !== full) ? first : null };
   }
 
   // lat 정규화: 품종명·infraspecific 제거 (species 매칭용)
   function normLat(s) {
-    return (s||’’).toLowerCase()
-      .replace(/[‘’’’’ʼ]/g,"’")
-      .replace(/\s*’[^’]*’/g,’’)
-      .replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+/gi,’’)
+    return (s||'').toLowerCase()
+      .replace(/[‘’’’’ʼ]/g,"'")
+      .replace(/\s*’[^’]*’/g,'')
+      .replace(/\s+(var|subsp|f|ssp|cv)\.?\s+\S+/gi,'')
       .trim();
   }
 
   // SP 매칭: cultivar(full→first) → genus+species → genus
   // returns { sp, tier }
   function findSp(latName) {
-    const lat = (latName||’’).toLowerCase();
+    const lat = (latName||'').toLowerCase();
     const genus = lat.split(/\s+/)[0];
     const { full: cvFull, first: cvFirst } = extractCultivar(latName);
 
@@ -5173,7 +5173,7 @@ function renderDotView() {
         const { full: sf } = extractCultivar(sp.name);
         return sf === cvFull;
       });
-      if (m) return { sp: m, tier: ‘cv-full’ };
+      if (m) return { sp: m, tier: 'cv-full' };
     }
 
     // 0b: genus + cultivar first token (full 실패 시만)
@@ -5183,26 +5183,26 @@ function renderDotView() {
         const { full: sf, first: sfi } = extractCultivar(sp.name);
         return (sfi || sf) === cvFirst;
       });
-      if (m) return { sp: m, tier: ‘cv-first’ };
+      if (m) return { sp: m, tier: 'cv-first' };
     }
 
     // 1: 속+종 2단어 직접
-    const lat2 = lat.split(/\s+/).slice(0,2).join(‘ ‘);
-    let m = spPl.find(sp => sp.name.toLowerCase().split(/\s+/).slice(0,2).join(‘ ‘) === lat2);
-    if (m) return { sp: m, tier: ‘s2’ };
+    const lat2 = lat.split(/\s+/).slice(0,2).join(' ');
+    let m = spPl.find(sp => sp.name.toLowerCase().split(/\s+/).slice(0,2).join(' ') === lat2);
+    if (m) return { sp: m, tier: 's2' };
 
     // 2: 품종명 제거 후 속+종
-    const latNorm2 = normLat(latName).split(/\s+/).slice(0,2).join(‘ ‘);
-    m = spPl.find(sp => normLat(sp.name).split(/\s+/).slice(0,2).join(‘ ‘) === latNorm2);
-    if (m) return { sp: m, tier: ‘norm’ };
+    const latNorm2 = normLat(latName).split(/\s+/).slice(0,2).join(' ');
+    m = spPl.find(sp => normLat(sp.name).split(/\s+/).slice(0,2).join(' ') === latNorm2);
+    if (m) return { sp: m, tier: 'norm' };
 
     // 3: genus
     m = spPl.find(sp => sp.name.toLowerCase().split(/\s+/)[0] === genus);
-    return { sp: m||null, tier: m ? ‘genus’ : ‘none’ };
+    return { sp: m||null, tier: m ? 'genus' : 'none' };
   }
 
   const mapped = plants.map(p => {
-    const latName = p.latName || p.name || ‘’;
+    const latName = p.latName || p.name || '';
     const lat = latName.toLowerCase();
     const genus = lat.split(/\s+/)[0].replace(/^(.)/, c => c.toUpperCase());
     const { sp: spMatch, tier: matchTier } = findSp(latName);
