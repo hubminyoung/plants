@@ -4838,15 +4838,16 @@ document.addEventListener('keydown', function(e) {
     for(let row=0;row<ROWS;row++) for(let col=0;col<COLS;col++) cells.push({cx:(col+.5)*cw,cy:(row+.5)*ch});
     for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]; }
 
-    // 2-4월: 5-10월 개화 식물을 진회색 레이어로 먼저 깔기
+    // 2-4월: 5-10월 개화 식물을 진회색으로 바닥에 깔기 (피었을 때와 동일한 r·n)
     if(mn>=2 && mn<=4){
       const dormPl=activePl.filter(p=>!p.bloom.includes(mn)&&p.bloom.some(m=>m>=5&&m<=10));
       if(dormPl.length){
         const dRand=rng(mn*3571+99991);
         const dTotalW=dormPl.reduce((s,p)=>s+p.n,0)||1;
+        // 피크 intensity 1.0 기준 — 개화 시 그 식물이 차지할 점 수 그대로
         const dData=dormPl.map(p=>({
           r: mapR(p.r),
-          n: Math.max(1, Math.round(CAP*(p.n/dTotalW)*0.6)) // 0.6 = 일률 중간 intensity
+          n: Math.max(1, Math.round(CAP*(p.n/dTotalW)))
         }));
         const dPool=[];
         dData.forEach(d=>{ for(let i=0;i<d.n;i++) dPool.push(d.r); });
