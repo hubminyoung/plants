@@ -4508,10 +4508,10 @@ document.addEventListener('keydown', function(e) {
       const y=Math.max(r+1,Math.min(S-r-1, cell.cy+(rand()-.5)*ch*.65));
       return {x,y,r,c:p.c,blooming:p.blooming};
     });
-    // 비개화=연한 식물색, 개화=선명
+    // 비개화=단색 회색(배경 밀도 확보), 개화=뮤트 식물색
     circles.filter(c=>!c.blooming).forEach(c=>{
-      ctx.globalAlpha=0.15;
-      ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle=c.c; ctx.fill();
+      ctx.globalAlpha=0.42;
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fillStyle='#b2b2b2'; ctx.fill();
     });
     ctx.globalAlpha=1;
     circles.filter(c=>c.blooming).forEach(c=>{
