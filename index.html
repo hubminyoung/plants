@@ -4828,7 +4828,7 @@ document.addEventListener('keydown', function(e) {
       r: Math.min(mapR(p.r), R_CAP_SPRING),
       c: p.c,
       n: mn<=2
-        ? Math.min(Math.round(p.n*2), CAP)
+        ? Math.min(Math.round(p.n*3), CAP)
         : Math.max(1, Math.round(CAP*(p.n/totalW)*intensity(p.bloom,mn)))
     }));
 
@@ -4874,10 +4874,9 @@ document.addEventListener('keydown', function(e) {
       if(sumPl.length){
         const sRand=rng(7*7919+31337); // 7월 seed 고정
         const sTotalW=sumPl.reduce((s,p)=>s+p.n,0)||1;
-        const R_CAP_7=mapR(5); // 6-7월 cap
         const sData=sumPl.map(p=>({
-          r: Math.min(mapR(p.r), R_CAP_7),
-          n: Math.max(1, Math.round(CAP*(p.n/sTotalW)*1.0))
+          r: 3.5,  // dormant 뿌리 덩어리: 모든 식물 동일 3.5px
+          n: Math.max(1, Math.round(CAP*(p.n/sTotalW)*0.7))  // 70%만 채움
         }));
         const sPool=[];
         sData.forEach(d=>{ for(let i=0;i<d.n;i++) sPool.push(d.r); });
