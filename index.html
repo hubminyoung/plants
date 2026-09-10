@@ -944,7 +944,7 @@ const CFG = {
 };
 
 // ── MBG Taxon Map (브라우저 직접 로드 — CORS 없이 GitHub raw 사용) ────────────
-const MBG_MAP_URL = ‘https://raw.githubusercontent.com/hubminyoung/plants/main/data/mbg_taxonids.json’;
+const MBG_MAP_URL = "https://raw.githubusercontent.com/hubminyoung/plants/main/data/mbg_taxonids.json";
 function _mbgNormKey(s) {
   return (s || "").toLowerCase()
     .replace(/[‘’ʼ′]/g, "’")
@@ -961,9 +961,9 @@ const _mbgMapPromise = fetch(MBG_MAP_URL)
       const item = list[i];
       const key = _mbgNormKey(item.name);
       map.set(key, item.taxonid);
-      const noKw = key.replace(/\s+(subsp|var|f|ssp|cv)\.?(?=\s)/gi, ‘’).replace(/\s+/g, ‘ ‘).trim();
+      const noKw = key.replace(/\s+(subsp|var|f|ssp|cv)\.?(?=\s)/gi, "").replace(/\s+/g, " ").trim();
       if (noKw !== key) map.set(noKw, item.taxonid);
-      const simp = key.replace(/\s+(subsp|var|f|ssp|cv)\.?\s+\S+/i, ‘’).replace(/\s+/g, ‘ ‘).trim();
+      const simp = key.replace(/\s+(subsp|var|f|ssp|cv)\.?\s+\S+/i, "").replace(/\s+/g, " ").trim();
       if (simp !== key && simp !== noKw) map.set(simp, item.taxonid);
     }
     window._mbgMap = map;
