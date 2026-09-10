@@ -947,9 +947,12 @@ const CFG = {
 const MBG_MAP_URL = ‘https://raw.githubusercontent.com/hubminyoung/plants/main/data/mbg_taxonids.json’;
 function _mbgNormKey(s) {
   return (s || ‘’).toLowerCase()
-    .replace(/[‘’ʼ′`´]/g, "’")
+    .replace(/[‘’ʼ′]/g, "’")
     .replace(/\s+/g, ‘ ‘).trim();
 }
+/* OLD _mbgNormKey removed: [‘’ʼ′`´]/g, "’")
+    .replace(/\s+/g, ‘ ‘).trim();
+} */
 const _mbgMapPromise = fetch(MBG_MAP_URL)
   .then(function(r) { return r.json(); })
   .then(function(list) {
