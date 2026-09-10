@@ -944,28 +944,29 @@ const CFG = {
 };
 
 // ── MBG Taxon Map (브라우저 직접 로드 — CORS 없이 GitHub raw 사용) ────────────
-const MBG_MAP_URL = 'https://raw.githubusercontent.com/hubminyoung/plants/main/data/mbg_taxonids.json';
-const _mbgMapPromise = (async () => {
-  try {
-    const list = await fetch(MBG_MAP_URL).then(r => r.json());
-    const toKey = s => (s || '').toLowerCase()
-      .replace(/[‘’ʼʼ′']/g, "'")
-      .replace(/\s+/g, ' ').trim();
+const MBG_MAP_URL = ‘https://raw.githubusercontent.com/hubminyoung/plants/main/data/mbg_taxonids.json’;
+function _mbgNormKey(s) {
+  return (s || ‘’).toLowerCase()
+    .replace(/[‘’ʼ′`´]/g, "’")
+    .replace(/\s+/g, ‘ ‘).trim();
+}
+const _mbgMapPromise = fetch(MBG_MAP_URL)
+  .then(function(r) { return r.json(); })
+  .then(function(list) {
     const map = new Map();
-    for (const item of list) {
-      const key = toKey(item.name);
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      const key = _mbgNormKey(item.name);
       map.set(key, item.taxonid);
-      // subsp./var. 키워드만 제거
-      const noKw = key.replace(/\s+(subsp|var|f|ssp|cv)\.?(?=\s)/gi, '').replace(/\s+/g, ' ').trim();
+      const noKw = key.replace(/\s+(subsp|var|f|ssp|cv)\.?(?=\s)/gi, ‘’).replace(/\s+/g, ‘ ‘).trim();
       if (noKw !== key) map.set(noKw, item.taxonid);
-      // 변종명까지 제거
-      const simp = key.replace(/\s+(subsp|var|f|ssp|cv)\.?\s+\S+/i, '').replace(/\s+/g, ' ').trim();
+      const simp = key.replace(/\s+(subsp|var|f|ssp|cv)\.?\s+\S+/i, ‘’).replace(/\s+/g, ‘ ‘).trim();
       if (simp !== key && simp !== noKw) map.set(simp, item.taxonid);
     }
     window._mbgMap = map;
     return map;
-  } catch(e) { return new Map(); }
-})();
+  })
+  .catch(function() { return new Map(); });
 
 // ── 비밀번호 자동 확인 (CFG 정의 이후 실행) ──────────────────────────────────
 (function() {
@@ -1574,7 +1575,7 @@ async function loadPlant(p) {
     : simplifyParenName(normQuotes(acceptedBase || p.name));
   let mbgQueryLog = `"${searchQ}"`;
   // ① 브라우저 map 직접 조회 (CORS 없음, 빠름)
-  const _mbgKey = s => (s||'').toLowerCase().replace(/[''ʼʼ′']/g,"'").replace(/\s+/g,' ').trim();
+  const _mbgKey = function(s) { return _mbgNormKey(s); };
   const _mbgLookup = async (q) => {
     const m = window._mbgMap || await _mbgMapPromise;
     const tid = m.get(_mbgKey(q));
