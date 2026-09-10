@@ -1548,7 +1548,7 @@ async function loadPlant(p) {
   const searchQ = cultivarMatch
     ? normQuotes((acceptedBase || p.name).split(' ')[0] + ' ' + cultivarMatch[1])
     : simplifyParenName(normQuotes(acceptedBase || p.name));
-  let mbgQueryLog = `\"\${searchQ}\"`;
+  let mbgQueryLog = `"${searchQ}"`;
   let mbg = await wFetch('/api/mbg/search', { q: searchQ });
   // iNaturalist가 이름을 바꾼 경우 원래 이름으로 재시도
   if (!mbg?.taxonid && p.name && searchQ !== p.name.replace(/\s*[''\u2018\u2019\u0027][^''\u2018\u2019\u0027]+[''\u2018\u2019\u0027]\s*$/, '').trim()) {
@@ -1558,9 +1558,9 @@ async function loadPlant(p) {
   // 괄호형 이름 (Genus (desc)) — 속명만으로 재시도
   if (!mbg?.taxonid && /\(/.test(p.name)) {
     const genusOnly = p.name.split(/\s/)[0];
-    if (genusOnly) { mbg = await wFetch('/api/mbg/search', { q: genusOnly }); mbgQueryLog += `→"\${genusOnly}"`; }
+    if (genusOnly) { mbg = await wFetch('/api/mbg/search', { q: genusOnly }); mbgQueryLog += `→"${genusOnly}"`; }
   }
-  console.log(`[src:MBG] \${p.name} | q=\${mbgQueryLog} → \${mbg?.taxonid ? 'HIT id='+mbg.taxonid : 'MISS'}`);
+  console.log(`[src:MBG] ${p.name} | q=${mbgQueryLog} → ${mbg?.taxonid ? 'HIT id='+mbg.taxonid : 'MISS'}`);
   // MBG 검색: Cloudflare Worker(IP 차단) + SW(CORS 차단) 모두 불가 — 다른 소스로 대체
 
   if (mbg?.taxonid) {
