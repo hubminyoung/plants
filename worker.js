@@ -840,18 +840,20 @@ async function mbgSaveTaxon(req, env) {
 }
 
 async function mbgFetchRaw(mbgUrl) {
-  // 1차: 직접 fetch (Cloudflare IP → MBG, 차단될 가능성 높음)
+  // HTTP로 변환 (Cloudflare Worker → plantfinder.mobot.org TLS 526 우회)
+  const httpUrl = mbgUrl.replace(/^https:\/\//i, 'http://');
+  // 1차: HTTP 직접 fetch
   try {
     const r = await Promise.race([
-      fetch(mbgUrl, { headers: MBG_UA }),
-      new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), 6000)),
+      fetch(httpUrl, { headers: MBG_UA }),
+      new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), 8000)),
     ]);
     if (r.ok) {
       const html = await r.text();
       if (html.includes('taxonid') || html.includes('PlantFinder')) return html;
     }
   } catch(_) {}
-  // 2차: allorigins.win 프록시 경유 (다른 IP, 차단 우회 시도)
+  // 2차: HTTPS + allorigins.win 프록시 (SSL 검증을 프록시 서버가 담당)
   try {
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(mbgUrl)}`;
     const r = await Promise.race([
@@ -912,19 +914,22 @@ function cultivarWordOverlap(inputCultivar, candidateName) {
 
 async function mbgDebug(params) {
   const taxonid = params.get('taxonid') || '251190';
-  const url = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
+  const results = {};
+  // HTTPS 직접
   try {
-    const resp = await fetch(url, { headers: MBG_UA });
+    const url = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
+    const resp = await Promise.race([fetch(url, { headers: MBG_UA }), new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),6000))]);
     const html = await resp.text();
-    return {
-      status: resp.status,
-      hasCommonName: html.indexOf('Common Name:') >= 0,
-      first500: html.slice(0, 500),
-      bodyLen: html.length,
-    };
-  } catch(e) {
-    return { error: e.message };
-  }
+    results.https = { status: resp.status, hasCommonName: html.indexOf('Common Name:') >= 0, len: html.length };
+  } catch(e) { results.https = { error: e.message }; }
+  // HTTP 직접
+  try {
+    const url = `http://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
+    const resp = await Promise.race([fetch(url, { headers: MBG_UA }), new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),8000))]);
+    const html = await resp.text();
+    results.http = { status: resp.status, hasCommonName: html.indexOf('Common Name:') >= 0, len: html.length };
+  } catch(e) { results.http = { error: e.message }; }
+  return results;
 }
 
 async function mbgDetails(params, env) {
@@ -950,20 +955,21 @@ async function mbgDetails(params, env) {
     } catch(_) {}
   }
 
-  const MBG_DETAIL_URL = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
+  const MBG_DETAIL_URL_HTTP  = `http://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
+  const MBG_DETAIL_URL_HTTPS = `https://plantfinder.mobot.org/PlantFinderDetails.aspx?taxonid=${taxonid}&isprofile=0`;
 
   let html = '';
 
-  // 전략 1: 직접 fetch (Cloudflare IP가 차단되면 실패)
+  // 전략 1: HTTP 직접 fetch (TLS 526 우회)
   try {
-    const resp = await fetch(MBG_DETAIL_URL, { headers: MBG_UA });
+    const resp = await Promise.race([fetch(MBG_DETAIL_URL_HTTP, { headers: MBG_UA }), new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),8000))]);
     if (resp.ok) html = await resp.text();
   } catch(_) {}
 
-  // 전략 2: allorigins.win CORS 프록시
+  // 전략 2: allorigins.win CORS 프록시 (HTTP도 실패 시)
   if (html.indexOf('Common Name:') < 0) {
     try {
-      const resp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(MBG_DETAIL_URL)}`,
+      const resp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(MBG_DETAIL_URL_HTTPS)}`,
         { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
       if (resp.ok) html = await resp.text();
     } catch(_) {}
@@ -1266,7 +1272,13 @@ async function kvSet(req, env) {
 // ── Gaissmayer 식재 정보 ──────────────────────────────────────────────────────
 // Geselligkeit (군집도 I~V), Pflanzabstand (식재간격 cm + 개/m²)
 
-const GSM_UA = { 'User-Agent': 'Mozilla/5.0 (compatible; PlantBot/1.0; +https://hubminyoung.github.io/plants/)' };
+const GSM_UA = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+};
 
 async function gaissmayerDetails(params) {
   const q = (params.get('q') ?? '').trim();
