@@ -946,9 +946,9 @@ const CFG = {
 // ── MBG Taxon Map (브라우저 직접 로드 — CORS 없이 GitHub raw 사용) ────────────
 const MBG_MAP_URL = ‘https://raw.githubusercontent.com/hubminyoung/plants/main/data/mbg_taxonids.json’;
 function _mbgNormKey(s) {
-  return (s || ‘’).toLowerCase()
+  return (s || "").toLowerCase()
     .replace(/[‘’ʼ′]/g, "’")
-    .replace(/\s+/g, ‘ ‘).trim();
+    .replace(/\s+/g, " ").trim();
 }
 /* OLD _mbgNormKey removed: [‘’ʼ′`´]/g, "’")
     .replace(/\s+/g, ‘ ‘).trim();
