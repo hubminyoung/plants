@@ -190,8 +190,8 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
   cursor: pointer; }
 .eco-card-hd.eco-hd-active { background: #edf7e6; outline: 2px solid #74c476; outline-offset: -2px; }
 .eco-card-hd-left { display: flex; flex-direction: column; gap: 0.1rem; flex: 0 0 auto; max-width: 38%; }
-.eco-card-primary { font-size: 1rem; font-weight: 700; color: #2a5a2a; }
-.eco-card-latin   { font-size: 0.8rem; color: #666; font-style: italic; }
+.eco-card-primary { font-size: 1rem; font-weight: 700; color: #111; }
+.eco-card-latin   { font-size: 0.8rem; color: #444; font-style: italic; }
 .eco-card-hd-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; flex: 0 0 auto; }
 /* Plant image thumbnails */
 .eco-img-strip { display: flex; align-items: center; gap: 0.3rem; flex: 1 1 auto;
@@ -2482,8 +2482,8 @@ function renderChips() {
     return `<span class="chip" draggable="true" data-idx="${i}">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
       ${p.notFound ? '<span style="font-size:0.85rem">⚠️</span>' : ''}
-      <span onclick="chipEditName(${i},event)" title="클릭하여 학명 수정" style="cursor:pointer;text-decoration:underline dotted #aaa">${kor || lat}</span>
-      ${kor ? `<span class="chip-latin">${lat}</span>` : ''}
+      <span onclick="chipEditName(${i},event)" title="클릭하여 학명 수정" style="cursor:pointer;text-decoration:underline dotted #aaa;font-style:italic">${lat}</span>
+      ${kor ? `<span class="chip-latin" style="font-style:normal">${kor}</span>` : ''}
       ${com ? `<span class="chip-common">${com}</span>` : ''}
       <button class="chip-rm" data-idx="${i}">✕</button>
     </span>`;
@@ -2745,7 +2745,7 @@ function renderRoleGrouped(el) {
 
   // 칩 풀 (미할당 수종)
   const poolChips = unassigned.map(({p, pi}) => {
-    const label = p.korName || p.latName || p.name || "";
+    const label = p.latName || p.name || p.korName || "";
     return `<span class="role-chip" data-pi="${pi}" onclick="selectChip(${pi},this)">${label}</span>`;
   }).join("");
 
@@ -2771,7 +2771,7 @@ function renderRoleGrouped(el) {
     const safeRole = role.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
 
     const catChips = items.map(({p, pi}) => {
-      const label = p.korName || p.latName || p.name || "";
+      const label = p.latName || p.name || p.korName || "";
       return `<span class="role-chip-in-cat">${label}<span class="rc-x" onclick="assignRole(${pi},'')">✕</span></span>`;
     }).join("");
 
@@ -3364,9 +3364,9 @@ function renderEcology() {
       ${notFoundBanner}${nameEditRow}
       <div class="eco-card-hd${ecoActivePlant===pflanzIdx?' eco-hd-active':''}" onclick="ecoSetActive(${pflanzIdx})">
         <div class="eco-card-hd-left">
-          ${p.korName && /[가-힣]/.test(p.korName) ? `<div class="eco-card-primary">${p.korName}</div>` : ''}
+          ${(p.latName||p.name) ? `<div class="eco-card-primary" style="font-style:italic">${p.latName||p.name}</div>` : ''}
           <div style="display:flex;align-items:center;gap:5px">
-            ${(p.latName||p.name) ? `<div class="eco-card-latin">${p.latName||p.name}</div>` : ''}
+            ${p.korName && /[가-힣]/.test(p.korName) ? `<div class="eco-card-latin" style="font-style:normal">${p.korName}</div>` : ''}
             ${!p.korName && !p.latName ? `<div class="eco-card-primary">${p.name}</div>` : ''}
             <button onclick="event.stopPropagation();ecoEditName(${pflanzIdx},this)" title="학명 수정"
               style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:${p.notFound?'#f5c842':'#bbb'};padding:0 2px;line-height:1">${p.notFound?'⚠️✏️':'✏️'}</button>
@@ -3523,12 +3523,12 @@ tr:nth-child(even) td{background:#f6fbf4;}
   for (const p of plants) {
     const activeColor = p.selectedFlowerColor || (p.flowerColors||[])[0] || null;
     const bloomHex = activeColor ? c2css(activeColor) : '#4caf7d';
-    const korName = p.korName || p.name || '';
+    const korName = (p.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
     const latName = p.latName || p.name || '';
 
     html += '<tr>';
-    html += `<td class="name-col" style="font-weight:600">${korName}</td>`;
-    html += `<td class="lat-col">${latName}</td>`;
+    html += `<td class="name-col" style="font-weight:600;font-style:italic">${latName}</td>`;
+    html += `<td class="lat-col" style="font-style:normal">${korName}</td>`;
     html += `<td class="h-col">${p.height||'—'}</td>`;
 
     // SP_PLANTS wc 조회: latName으로 매칭
@@ -4665,7 +4665,7 @@ function bcAddFromList() {
   popup.className = 'bc-add-popup';
   popup.innerHTML = plants.map((p, i) => {
     const img = p.images?.[0];
-    const label = p.korName || p.latName || p.name || '?';
+    const label = p.latName || p.name || p.korName || '?';
     const imgHtml = img
       ? `<img src="${img}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
         + `<div class="bc-add-ph" style="display:none">🌿</div>`
@@ -4700,7 +4700,7 @@ function bcRenderPlantPanel() {
   if (!panel) return;
   panel.innerHTML = plants.map((p, i) => {
     const img = p.images?.[0];
-    const label = p.korName || p.latName || p.name || '?';
+    const label = p.latName || p.name || p.korName || '?';
     const imgHtml = img
       ? `<img src="${img}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
         + `<div class="bc-add-ph" style="display:none">🌿</div>`
@@ -4911,10 +4911,10 @@ function bcRenderNode(n) {
   let el = document.getElementById('bc-n-'+n.id);
   const p = plants[n.pi];
   const latN = p?.latName || p?.name || '';
-  const korN = p?.korName || '';
+  const korN = (p?.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
   const displayName = korN && latN
-    ? `<b>${korN}</b><span style="color:#8aaa7a;font-size:0.78em;font-weight:normal"> (${latN})</span>`
-    : `<b>${korN || latN || '?'}</b>`;
+    ? `<b style="font-style:italic">${latN}</b><span style="color:#8aaa7a;font-size:0.78em;font-weight:normal"> (${korN})</span>`
+    : `<b style="font-style:italic">${latN || korN || '?'}</b>`;
   const imgs = p?.images || [];
   const imgIdx = Math.min(n.imgIdx||0, Math.max(0, imgs.length-1));
   const src = imgs[imgIdx] || '';
