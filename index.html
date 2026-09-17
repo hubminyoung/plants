@@ -64,6 +64,10 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .chip-role-none { padding-top: 3px; border-top: 1px dashed #c8d8c0; }
 .chip-role-lbl { padding: 3px 10px; border-radius: 12px; background: #2d5a1b; color: white; font-size: 0.7rem; font-weight: 600; flex-shrink: 0; user-select: none; cursor: default; transition: background 0.12s, outline 0.12s; outline: 2px solid transparent; }
 .chip-role-lbl.drag-over { background: #52b788; outline: 2px dashed #52b788; outline-offset: 2px; }
+.chip.chip-selected { background:#2d5a1b; color:white; border-color:#2d5a1b; }
+.chip.chip-selected .chip-latin { color:rgba(255,255,255,0.7); }
+.chip.chip-selected .chip-rm { background:rgba(255,255,255,0.25); color:white; }
+.chip.chip-selected .chip-rm:hover { background:#e05050; }
 .chip {
   display: flex; align-items: center; gap: 0.35rem;
   background: #e6f4de; border: 1px solid #b0d4a0;
@@ -2463,7 +2467,7 @@ function renderChips() {
     const kor = p.korName && /[가-힣]/.test(p.korName) ? p.korName : '';
     const lat = p.latName || p.name;
     const com = p.commonName || '';
-    return `<span class="chip" draggable="true" data-idx="${i}" title="드래그로 순서변경 또는 역할 레이블에 드롭">
+    return `<span class="chip" draggable="true" data-idx="${i}">
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
       ${p.notFound ? '<span style="font-size:0.85rem">⚠️</span>' : ''}
       <span onclick="chipEditName(${i},event)" title="클릭하여 학명 수정" style="cursor:pointer;text-decoration:underline dotted #aaa">${kor || lat}</span>
@@ -2473,7 +2477,8 @@ function renderChips() {
     </span>`;
   }
 
-  if (!hasRoles) {
+  // 역할 목록이 있으면 항상 그룹 레이아웃 (할당 여부 무관)
+  if (!roles.length) {
     area.className = '';
     area.innerHTML = plants.map((p, i) => chipHtml(p, i)).join('');
   } else {
@@ -2485,21 +2490,23 @@ function renderChips() {
     roles.forEach(r => { grouped[r] = []; });
     plants.forEach((p, i) => {
       const role = map[_plantRoleKey(p)];
-      if (role) { if (!grouped[role]) grouped[role] = []; grouped[role].push({p, i}); }
+      if (role && grouped[role] !== undefined) grouped[role].push({p, i});
       else unassigned.push({p, i});
     });
 
+    // 미할당 먼저 (드래그 소스)
     let html = '';
-    for (const role of [...roles, ...Object.keys(grouped).filter(r => !roles.includes(r))]) {
+    if (unassigned.length || plants.length) {
+      html += `<div class="chip-role-group chip-role-none">
+        ${unassigned.map(({p, i}) => chipHtml(p, i)).join('')}
+      </div>`;
+    }
+    // 역할 그룹 (드롭 타깃)
+    for (const role of roles) {
       const items = grouped[role] || [];
       html += `<div class="chip-role-group">
         <span class="chip-role-lbl" data-role="${role}">${role}</span>
         ${items.map(({p, i}) => chipHtml(p, i)).join('')}
-      </div>`;
-    }
-    if (unassigned.length) {
-      html += `<div class="chip-role-group chip-role-none">
-        ${unassigned.map(({p, i}) => chipHtml(p, i)).join('')}
       </div>`;
     }
     area.innerHTML = html;
@@ -2507,45 +2514,72 @@ function renderChips() {
 
   // 공통: ✕ 버튼
   area.querySelectorAll('.chip-rm').forEach(btn => {
-    btn.addEventListener('click', () => {
-      plants.splice(parseInt(btn.dataset.idx), 1);
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      _chipSelection.delete(idx);
+      plants.splice(idx, 1);
       renderAll();
     });
   });
 
-  // 공통: 드래그
+  // 다중 선택: 칩 클릭으로 토글 (이름 수정·✕ 버튼 제외)
+  area.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', e => {
+      if (e.target.closest('.chip-rm') || e.target.closest('[onclick*="chipEditName"]')) return;
+      const idx = parseInt(chip.dataset.idx);
+      if (_chipSelection.has(idx)) { _chipSelection.delete(idx); chip.classList.remove('chip-selected'); }
+      else { _chipSelection.add(idx); chip.classList.add('chip-selected'); }
+    });
+  });
+
+  // 드래그 (단일 또는 다중 선택)
   let dragSrcIdx = null;
   area.querySelectorAll('.chip').forEach(chip => {
     chip.addEventListener('dragstart', e => {
       dragSrcIdx = parseInt(chip.dataset.idx);
-      chip.style.opacity = '0.4';
+      // 드래그한 칩이 선택 안 돼있으면 단독 선택으로 전환
+      if (!_chipSelection.has(dragSrcIdx)) {
+        _chipSelection.clear();
+        _chipSelection.add(dragSrcIdx);
+        area.querySelectorAll('.chip').forEach(c => c.classList.remove('chip-selected'));
+        chip.classList.add('chip-selected');
+      }
+      area.querySelectorAll('.chip.chip-selected').forEach(c => { c.style.opacity = '0.4'; });
       e.dataTransfer.effectAllowed = 'move';
     });
-    chip.addEventListener('dragend', () => { chip.style.opacity = ''; dragSrcIdx = null; });
+    chip.addEventListener('dragend', () => {
+      area.querySelectorAll('.chip').forEach(c => { c.style.opacity = ''; });
+      dragSrcIdx = null;
+    });
+    // 칩 간 드롭 = 순서 변경 (단일만)
     chip.addEventListener('dragover', e => { e.preventDefault(); chip.style.outline = '2px solid #52b788'; });
     chip.addEventListener('dragleave', () => { chip.style.outline = ''; });
     chip.addEventListener('drop', e => {
       e.preventDefault();
       chip.style.outline = '';
+      if (_chipSelection.size > 1) return; // 다중 선택 중엔 순서변경 안 함
       const dropIdx = parseInt(chip.dataset.idx);
       if (dragSrcIdx === null || dragSrcIdx === dropIdx) return;
       const [moved] = plants.splice(dragSrcIdx, 1);
       plants.splice(dropIdx, 0, moved);
+      _chipSelection.clear();
       dragSrcIdx = null;
       renderAll();
     });
   });
 
-  // 역할 레이블 드롭 타깃 (역할 없음으로 되돌리기: 역할 그룹 밖 빈 영역은 없으므로 ✕로 처리)
+  // 역할 레이블 드롭 → 선택된 칩 전부 역할 할당
   area.querySelectorAll('.chip-role-lbl').forEach(lbl => {
     lbl.addEventListener('dragover', e => { e.preventDefault(); lbl.classList.add('drag-over'); });
     lbl.addEventListener('dragleave', () => { lbl.classList.remove('drag-over'); });
     lbl.addEventListener('drop', e => {
       e.preventDefault();
       lbl.classList.remove('drag-over');
-      if (dragSrcIdx === null) return;
       const role = lbl.dataset.role;
-      setPlantRole(plants[dragSrcIdx], role);
+      const toAssign = _chipSelection.size ? [..._chipSelection] : (dragSrcIdx !== null ? [dragSrcIdx] : []);
+      toAssign.forEach(idx => { if (plants[idx]) setPlantRole(plants[idx], role); });
+      _chipSelection.clear();
       dragSrcIdx = null;
       renderChips();
       if (_roleGroupView) renderImages();
@@ -2673,6 +2707,7 @@ function renderImages() {
 }
 
 let _selectedChipPi = null;
+let _chipSelection = new Set(); // 다중 선택된 chip idx
 let _roleGridCols = parseInt(localStorage.getItem('roleGridCols')||'3');
 function setRoleGridCols(n) {
   _roleGridCols = n;
