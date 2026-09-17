@@ -482,7 +482,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .role-card { border:1px solid #daecd4;border-radius:8px;overflow:hidden;transition:box-shadow 0.15s;background:white; }
 .role-card:hover { box-shadow:0 3px 10px rgba(0,0,0,0.12); }
 .role-card-img { width:100%;overflow:hidden;background:#f5f8f3;position:relative; }
-.role-card-img img { width:100%;height:100%;object-fit:cover;cursor:pointer;transition:transform 0.2s;display:block; }
+.role-card-img img { width:100%;height:100%;object-fit:cover;object-position:top;cursor:pointer;transition:transform 0.2s;display:block; }
 .role-card-img img:hover { transform:scale(1.04); }
 .role-card-placeholder { display:flex;align-items:center;justify-content:center;height:100%;font-size:2.5rem;color:#cde8c8; }
 .role-card-body { padding:7px 9px 9px; }
@@ -2839,7 +2839,8 @@ function _roleCard(p, pi) {
   const img    = (p.images||[])[0] || p.imageUrl || "";
   const name   = p.korName || p.name || "";
   const lat    = p.latName || p.name || "";
-  const imgH   = Math.max(100, Math.round(180 / _roleGridCols * 1.1)) + "px";
+  const imgHMap = {2:260, 3:210, 4:180, 5:150};
+  const imgH = (imgHMap[_roleGridCols] || 180) + "px";
 
   // 수고
   const heightBadge = p.height ? `<span class="role-card-height">${p.height}</span>` : "";
