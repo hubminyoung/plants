@@ -5322,22 +5322,28 @@ document.addEventListener('keydown', function(e) {
 
   /* ── 속(Genus) → wc 조회 테이블 (renderDotView fallback) ── */
   window.WI_GENUS = {
-    // k 검정
+    // k 검정 (씨앗머리·열매)
     Agastache:'#1a1a1a', Achillea:'#1a1a1a', Rudbeckia:'#1a1a1a',
     Monarda:'#1a1a1a',   Echinacea:'#1a1a1a', Helenium:'#1a1a1a',
     Echinops:'#1a1a1a',  Hylotelephium:'#1a1a1a', Patrinia:'#1a1a1a',
     Veronicastrum:'#1a1a1a', Liatris:'#1a1a1a', Persicaria:'#1a1a1a',
     Actaea:'#1a1a1a',    Cimicifuga:'#1a1a1a', Sanguisorba:'#1a1a1a',
-    // m 밀짚
+    Baptisia:'#1a1a1a',  Penstemon:'#1a1a1a', Digitalis:'#1a1a1a',
+    Kniphofia:'#1a1a1a', Ligularia:'#1a1a1a', Filipendula:'#1a1a1a',
+    // m 밀짚 (그래스·건초색 씨앗)
     Ratibida:'#d4c878',  Solidago:'#d4c878',   Datisca:'#d4c878',  Phlomis:'#d4c878',
     Miscanthus:'#d4c878',Molinia:'#d4c878',    Calamagrostis:'#d4c878',
     Panicum:'#d4c878',   Sporobolus:'#d4c878', Stipa:'#d4c878',    Nassella:'#d4c878',
     Pennisetum:'#d4c878',Deschampsia:'#d4c878',Chasmanthium:'#d4c878',Cortaderia:'#d4c878',
-    // b 갈색
+    Sesleria:'#d4c878',  Celtica:'#d4c878',    Festuca:'#d4c878',  Melica:'#d4c878',
+    Briza:'#d4c878',     Bouteloua:'#d4c878',  Eragrostis:'#d4c878',
+    // b 갈색 (국화과 씨앗머리)
     Symphyotrichum:'#8b5a2b', Aster:'#8b5a2b', Eurybia:'#8b5a2b',
-    Doellingeria:'#8b5a2b',   Boltonia:'#8b5a2b',
-    // s 실버
+    Doellingeria:'#8b5a2b',   Boltonia:'#8b5a2b', Heliopsis:'#8b5a2b',
+    Inula:'#8b5a2b',          Verbascum:'#8b5a2b',
+    // s 실버 (건조·골격미)
     Perovskia:'#c0c0c0', Eryngium:'#c0c0c0',  Artemisia:'#c0c0c0',
+    Macleaya:'#c0c0c0',  Thalictrum:'#c0c0c0',
   };
 
   window.SP_PLANTS = pl;
@@ -5388,17 +5394,35 @@ function dvDownload() {
 
 // 속(genus) 평균 r — SP_PLANTS 매칭 실패 시 3단계 폴백
 const GENUS_R = {
+  // 구근
   Crocus:5,Narcissus:3.5,Scilla:2,Ornithogalum:2.5,Allium:8,
   Tulipa:4,Galanthus:2,Hyacinthus:3,Muscari:2,Fritillaria:3.5,
-  Armeria:2.5,Iberis:3,Petrorhagia:2.5,Calamintha:3,Salvia:4,
-  Nepeta:4,Agastache:5.5,Perovskia:5,Lavendula:3.5,Lavandula:3.5,
-  Coreopsis:3,Rudbeckia:5,Helenium:5,Echinacea:6,Ratibida:3,
-  Achillea:5,Hemerocallis:7,Knautia:5,Scabiosa:4.5,Centaurea:5,
-  Monarda:7,Phlox:5,Geranium:4.5,Lychnis:4,Dianthus:3.5,
+  Camassia:3,Chionodoxa:2,Puschkinia:2,Leucojum:2.5,
+  // 소형 초화
+  Armeria:2.5,Iberis:3,Petrorhagia:2.5,Calamintha:3,Sisyrinchium:2,
+  Dianthus:3.5,Lychnis:4,Campanula:4,Astrantia:3,Primula:3,
+  Viola:2.5,Veronica:3,Penstemon:3,Verbena:3,Lysimachia:3,
+  // 중형 초화
+  Salvia:4,Nepeta:4,Agastache:5.5,Perovskia:5,Lavandula:3.5,Lavendula:3.5,
+  Geranium:4.5,Phlox:5,Thalictrum:4,Knautia:5,Scabiosa:4.5,Centaurea:5,
+  Coreopsis:3,Oenothera:5,Gaillardia:5,Iris:5,Achillea:5,
+  Persicaria:4,Phlomis:4,Eryngium:4,Echinops:5,Verbascum:5,
+  Lythrum:4,Filipendula:5,Astilbe:4,Trollius:4,Anemone:4,
+  Digitalis:4,Actaea:4,Veronicastrum:4,Sanguisorba:5,Baptisia:6,
+  Eupatorium:5,Thalictrum:4,Ligularia:5,Rodgersia:5,
+  // 대형 초화
+  Rudbeckia:5,Helenium:5,Echinacea:6,Ratibida:3,Hemerocallis:7,
+  Monarda:7,Eremurus:8,Kniphofia:5,Delphinium:4,Macleaya:6,
   Symphyotrichum:6,Aster:6,Doellingeria:5,Boltonia:5,
-  Eremurus:8,Digitalis:4,Actaea:4,Veronicastrum:4,
-  Sanguisorba:5,Eupatorium:5,Thalictrum:4,Baptisia:6,
-  Sisyrinchium:2,Oenothera:5,
+  // 그래스 (소형)
+  Sesleria:2,Festuca:2,Carex:2.5,Luzula:2,Briza:2.5,
+  Melica:3,Koeleria:2,Deschampsia:3,Alopecurus:3,
+  // 그래스 (중형)
+  Pennisetum:4,Nassella:4,Stipa:4,Bouteloua:3,Eragrostis:3.5,
+  Sporobolus:3.5,Chasmanthium:4,Juncus:2.5,
+  // 그래스 (대형)
+  Miscanthus:8,Molinia:5,Calamagrostis:4,Panicum:5,
+  Celtica:7,Cortaderia:10,Arundo:10,
 };
 
 function renderDotView() {
