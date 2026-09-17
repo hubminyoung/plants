@@ -526,6 +526,18 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .role-chip-in-cat .rc-x { cursor:pointer;opacity:0.7;font-size:10px;margin-left:2px; }
 .role-chip-in-cat .rc-x:hover { opacity:1; }
 
+@media print {
+  header, #plant-list-section, #tabNav, .role-group-bar,
+  .role-section-del, .role-section-note, .role-section-chips,
+  .role-chip-in-cat { display: none !important; }
+  body, html { background: white !important; }
+  .role-section { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: 12px; }
+  .role-section-header { background: #2d5a1b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .role-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ddd !important; box-shadow: none !important; }
+  .role-card-grid { gap: 6px !important; padding: 8px !important; }
+  .role-card-bloom-seg, .role-card-color-dot { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 /* ── 식재 구상판 ─────────────────────────────────────────────────────────────── */
 .board-toolbar { display:flex;align-items:center;gap:0.5rem;padding:0.8rem 1rem;border-bottom:1px solid #e8f0e4; }
 .board-zones   { display:flex;flex-direction:column;gap:1.5rem;padding:1rem; }
@@ -2747,6 +2759,7 @@ function renderRoleGrouped(el) {
     <span style="flex:1"></span>
     <div style="display:flex;gap:3px;align-items:center">${colBtns}</div>
     <button class="btn btn-sm" onclick="addRoleDialog()" style="border:1px dashed #52b788;color:#52b788">+ 역할 추가</button>
+    <button class="btn btn-sm" onclick="window.print()" style="background:#f0f0f0">🖨️ 인쇄</button>
     <button class="btn btn-sm" onclick="toggleRoleGroupView()">← 이미지 보기</button>
   </div>`;
 
