@@ -445,6 +445,46 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .extern-links a { font-size: 0.7rem; padding: 0.18rem 0.5rem; border-radius: 10px;
   border: 1px solid; transition: 0.12s; }
 
+/* ── 역할 그룹핑 ─────────────────────────────────────────────────────────────── */
+.role-tag { display:inline-flex;align-items:center;gap:3px;background:#2d5a1b;color:white;font-size:0.68rem;padding:1px 7px;border-radius:10px;cursor:pointer;white-space:nowrap;user-select:none; }
+.role-tag:hover { background:#3d7a2b; }
+.role-add-tag { display:inline-flex;align-items:center;gap:2px;background:#f0f8ec;color:#52b788;font-size:0.68rem;padding:1px 6px;border-radius:10px;cursor:pointer;border:1px dashed #52b788;white-space:nowrap; }
+.role-add-tag:hover { background:#e4f5e0; }
+.role-popup { position:fixed;z-index:10000;background:white;border:1px solid #cde8c8;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.18);min-width:210px;padding:6px; }
+.role-popup-item { padding:6px 10px;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:space-between;font-size:0.85rem; }
+.role-popup-item:hover { background:#f0f8ec; }
+.role-popup-item.active { background:#e4f5e0;font-weight:600;color:#2d5a1b; }
+.role-popup-item .role-del { background:none;border:none;color:#aaa;cursor:pointer;font-size:11px;padding:0 2px;line-height:1; }
+.role-popup-item .role-del:hover { color:#e74c3c; }
+.role-popup-add { display:flex;gap:4px;padding:6px 4px 2px;border-top:1px solid #eef4ea;margin-top:4px; }
+.role-popup-add input { flex:1;padding:4px 8px;border:1px solid #cde8c8;border-radius:6px;font-size:0.82rem;outline:none; }
+.role-popup-add input:focus { border-color:#52b788; }
+.role-popup-add button { background:#2d5a1b;color:white;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.8rem; }
+/* 역할별 카드 그리드 뷰 */
+.role-section { margin-bottom:18px;border:1px solid #cde8c8;border-radius:10px;overflow:hidden;background:white;box-shadow:0 1px 4px rgba(0,0,0,0.07); }
+.role-section-header { display:flex;align-items:center;gap:8px;padding:10px 16px;background:#2d5a1b;color:white; }
+.role-section-title { font-weight:700;font-size:0.95rem;flex:1; }
+.role-section-count { font-size:0.78rem;opacity:0.75;background:rgba(255,255,255,0.2);padding:1px 8px;border-radius:8px; }
+.role-section-del { background:rgba(255,255,255,0.15);border:none;color:white;cursor:pointer;border-radius:6px;padding:2px 8px;font-size:0.75rem; }
+.role-section-del:hover { background:rgba(255,255,255,0.3); }
+.role-section-note { width:100%;padding:8px 14px;border:none;border-bottom:1px solid #eaf5e6;font-size:0.83rem;color:#555;resize:none;min-height:34px;max-height:100px;box-sizing:border-box;background:#f9fdf7;font-family:inherit; }
+.role-section-note:focus { outline:none;background:#f0fbf0; }
+.role-card-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;padding:12px; }
+.role-card { border:1px solid #daecd4;border-radius:8px;overflow:hidden;transition:box-shadow 0.15s; }
+.role-card:hover { box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+.role-card-img { width:100%;height:115px;overflow:hidden;background:#f5f8f3;position:relative; }
+.role-card-img img { width:100%;height:100%;object-fit:cover;cursor:pointer;transition:transform 0.2s; }
+.role-card-img img:hover { transform:scale(1.05); }
+.role-card-placeholder { display:flex;align-items:center;justify-content:center;height:100%;font-size:2rem;color:#cde8c8; }
+.role-card-body { padding:6px 8px 8px; }
+.role-card-name { font-weight:700;font-size:0.82rem;color:#1a2218;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.role-card-lat { font-style:italic;font-size:0.69rem;color:#7a9a70;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.role-card-select { width:100%;font-size:0.72rem;padding:2px 4px;border:1px solid #cde8c8;border-radius:5px;color:#2d5a1b;background:#f9fdf7;cursor:pointer; }
+.role-card-select:focus { outline:none;border-color:#52b788; }
+.role-empty { color:#aaa;font-size:0.82rem;padding:10px;text-align:center; }
+.role-section-unassigned .role-section-header { background:#8a9e84; }
+.role-group-bar { display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:white;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.07);flex-wrap:wrap; }
+
 /* ── 식재 구상판 ─────────────────────────────────────────────────────────────── */
 .board-toolbar { display:flex;align-items:center;gap:0.5rem;padding:0.8rem 1rem;border-bottom:1px solid #e8f0e4; }
 .board-zones   { display:flex;flex-direction:column;gap:1.5rem;padding:1rem; }
@@ -2448,15 +2488,191 @@ function renderActiveTab() {
 }
 
 // ── Tab 1: Images ─────────────────────────────────────────────────────────────
+// ── 역할 관리 (localStorage) ─────────────────────────────────────────────────
+function _getRoleMap()   { try { return JSON.parse(localStorage.getItem("plantRoleMap")||"{}"); } catch { return {}; } }
+function _getRoleList()  { try { const s=localStorage.getItem("roleList"); return s?JSON.parse(s):["매트릭스 수종","구조 수종","악센트 수종","경계 수종"]; } catch { return ["매트릭스 수종","구조 수종","악센트 수종","경계 수종"]; } }
+function _getRoleNotes() { try { return JSON.parse(localStorage.getItem("roleNotes")||"{}"); } catch { return {}; } }
+function _plantRoleKey(p) { return (p.latName||p.name||"").toLowerCase().replace(/[^a-z0-9]/g,"_"); }
+function getPlantRole(p)  { return _getRoleMap()[_plantRoleKey(p)]||""; }
+function setPlantRole(p, role) {
+  const map=_getRoleMap(), key=_plantRoleKey(p);
+  if (role) map[key]=role; else delete map[key];
+  localStorage.setItem("plantRoleMap", JSON.stringify(map));
+}
+function saveRoleNote(role, note) {
+  const notes=_getRoleNotes();
+  if (note.trim()) notes[role]=note; else delete notes[role];
+  localStorage.setItem("roleNotes", JSON.stringify(notes));
+}
+function addNewRole(name) {
+  if (!name.trim()) return;
+  const list=_getRoleList();
+  if (!list.includes(name)) { list.push(name); localStorage.setItem("roleList", JSON.stringify(list)); }
+}
+function deleteRoleEntry(name) {
+  const list=_getRoleList().filter(r=>r!==name);
+  localStorage.setItem("roleList", JSON.stringify(list));
+  const map=_getRoleMap();
+  Object.keys(map).forEach(k=>{ if(map[k]===name) delete map[k]; });
+  localStorage.setItem("plantRoleMap", JSON.stringify(map));
+  document.querySelectorAll(".role-popup").forEach(el=>el.remove());
+  renderImages();
+}
+function assignRole(pi, role) {
+  setPlantRole(plants[pi], role);
+  document.querySelectorAll(".role-popup").forEach(el=>el.remove());
+  if (_roleGroupView) { renderImages(); } else {
+    // 해당 카드의 역할 배지만 업데이트
+    const header = document.querySelector(`.img-plant-row[data-pi="${pi}"] .img-plant-header`);
+    if (header) {
+      const oldBadge = header.querySelector(".role-badge-wrap");
+      if (oldBadge) oldBadge.remove();
+      header.insertAdjacentHTML("beforeend", _roleBadgeHtml(plants[pi], pi));
+    }
+  }
+}
+function _roleBadgeHtml(p, pi) {
+  const role = getPlantRole(p);
+  return `<span class="role-badge-wrap" style="margin-left:auto">
+    ${role
+      ? `<span class="role-tag" onclick="event.stopPropagation();openRolePopup(event,${pi})">${role}</span>`
+      : `<span class="role-add-tag" onclick="event.stopPropagation();openRolePopup(event,${pi})">+ 역할</span>`
+    }
+  </span>`;
+}
+function openRolePopup(event, pi) {
+  document.querySelectorAll(".role-popup").forEach(el=>el.remove());
+  const p=plants[pi], currentRole=getPlantRole(p), roles=_getRoleList();
+  const popup=document.createElement("div");
+  popup.className="role-popup";
+  popup.innerHTML=`
+    <div class="role-popup-item ${!currentRole?"active":""}" onclick="assignRole(${pi},'')">— 역할 없음</div>
+    ${roles.map(r=>`<div class="role-popup-item ${r===currentRole?"active":""}" onclick="assignRole(${pi},'${r.replace(/'/g,"\\'")}')">
+      <span>${r}</span><button class="role-del" onclick="event.stopPropagation();deleteRoleEntry('${r.replace(/'/g,"\\'")}')">✕</button>
+    </div>`).join("")}
+    <div class="role-popup-add">
+      <input type="text" placeholder="새 역할..." id="role-new-inp" onkeydown="if(event.key==='Enter'){addRoleFromInput(${pi})}">
+      <button onclick="addRoleFromInput(${pi})">추가</button>
+    </div>`;
+  const rect=event.currentTarget.getBoundingClientRect();
+  popup.style.top=(rect.bottom+4)+"px";
+  popup.style.left=Math.min(rect.left, window.innerWidth-220)+"px";
+  document.body.appendChild(popup);
+  popup.querySelector("#role-new-inp").focus();
+  setTimeout(()=>{
+    function closeIt(e){ if(!popup.contains(e.target)){popup.remove();document.removeEventListener("click",closeIt);} }
+    document.addEventListener("click", closeIt);
+  },100);
+}
+function addRoleFromInput(pi) {
+  const inp=document.getElementById("role-new-inp");
+  if (!inp||!inp.value.trim()) return;
+  addNewRole(inp.value.trim());
+  assignRole(pi, inp.value.trim());
+}
+let _roleGroupView = false;
+function toggleRoleGroupView() {
+  _roleGroupView = !_roleGroupView;
+  renderImages();
+}
+
 function renderImages() {
-  const el = document.getElementById('img-content');
+  const el = document.getElementById("img-content");
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📷</div><p>식물을 입력하면 이미지를 불러옵니다.</p></div>'; return; }
+
+  if (_roleGroupView) { renderRoleGrouped(el); return; }
+
   el.innerHTML = `
     <div class="img-section-bar">
       <span>Commons · iNaturalist · GBIF — ${plants.length}종</span>
       <button class="btn btn-primary btn-sm" onclick="openGoogleAll()">🔍 Google 이미지 전체 검색</button>
+      <button class="btn btn-sm" onclick="toggleRoleGroupView()" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #cde8c8" title="역할별 카드 그룹핑 보기">📋 역할별 보기</button>
       <span style="font-size:0.72rem;color:#aaa">식물 클릭 후 Ctrl+V로 붙여넣기</span>
-    </div>` + plants.map((p,i) => imgRow(p,i)).join('');
+    </div>` + plants.map((p,i) => imgRow(p,i)).join("");
+}
+
+function renderRoleGrouped(el) {
+  const roles = _getRoleList();
+  const map   = _getRoleMap();
+  const notes = _getRoleNotes();
+
+  // 역할별 분류
+  const grouped = {};
+  const unassigned = [];
+  roles.forEach(r => { grouped[r] = []; });
+  plants.forEach((p, pi) => {
+    const role = map[_plantRoleKey(p)];
+    if (role && grouped[role]) grouped[role].push({p, pi});
+    else if (role) { grouped[role] = [{p, pi}]; } // 새 역할
+    else unassigned.push({p, pi});
+  });
+
+  let html = `<div class="role-group-bar">
+    <strong style="color:#2d5a1b">📋 역할별 카드</strong>
+    <span style="font-size:0.78rem;color:#888">${plants.length}종 · ${roles.length}개 역할</span>
+    <span style="flex:1"></span>
+    <button class="btn btn-sm" onclick="addRoleDialog()" style="border:1px dashed #52b788;color:#52b788">+ 역할 추가</button>
+    <button class="btn btn-sm" onclick="toggleRoleGroupView()">← 이미지 보기</button>
+  </div>`;
+
+  // 각 역할 섹션
+  for (const role of [...roles, ...Object.keys(grouped).filter(r=>!roles.includes(r))]) {
+    const items = grouped[role] || [];
+    const note  = notes[role] || "";
+    html += `<div class="role-section">
+      <div class="role-section-header">
+        <span class="role-section-title">${role}</span>
+        <span class="role-section-count">${items.length}종</span>
+        <button class="role-section-del" onclick="deleteRoleEntry('${role.replace(/'/g,"\\'")}')">삭제</button>
+      </div>
+      <textarea class="role-section-note" placeholder="역할 설명, 메모, 연출 방향..." rows="1"
+        onblur="saveRoleNote('${role.replace(/'/g,"\\'")}', this.value)"
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+      >${note}</textarea>
+      <div class="role-card-grid">
+        ${items.length ? items.map(({p,pi})=>_roleCard(p,pi)).join("") : '<div class="role-empty">수종을 지정하려면 ← 이미지 보기에서 "+ 역할" 클릭</div>'}
+      </div>
+    </div>`;
+  }
+
+  // 미분류
+  if (unassigned.length) {
+    html += `<div class="role-section role-section-unassigned">
+      <div class="role-section-header">
+        <span class="role-section-title">미분류</span>
+        <span class="role-section-count">${unassigned.length}종</span>
+      </div>
+      <div class="role-card-grid">${unassigned.map(({p,pi})=>_roleCard(p,pi)).join("")}</div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function _roleCard(p, pi) {
+  const img  = (p.images||[])[0] || p.imageUrl || "";
+  const name = p.korName || p.name || "";
+  const lat  = p.latName || p.name || "";
+  const role = getPlantRole(p);
+  const roles = _getRoleList();
+  return `<div class="role-card">
+    <div class="role-card-img">
+      ${img ? `<img src="${img}" loading="lazy" onclick="ecoOpenLightbox(${pi},0)" onerror="this.closest('.role-card-img').innerHTML='<div class=role-card-placeholder>🌿</div>'">` : '<div class="role-card-placeholder">🌿</div>'}
+    </div>
+    <div class="role-card-body">
+      <div class="role-card-name" title="${name}">${name}</div>
+      <div class="role-card-lat" title="${lat}">${lat}</div>
+      <select class="role-card-select" onchange="assignRole(${pi},this.value)">
+        <option value="">— 역할 없음</option>
+        ${roles.map(r=>`<option value="${r}" ${r===role?"selected":""}>${r}</option>`).join("")}
+      </select>
+    </div>
+  </div>`;
+}
+
+function addRoleDialog() {
+  const name = prompt("새 역할 이름을 입력하세요 (예: 악센트 수종, 피복 수종):");
+  if (name && name.trim()) { addNewRole(name.trim()); renderImages(); }
 }
 
 function pNames(p) {
@@ -2500,11 +2716,12 @@ function imgRow(p, pi) {
       <span class="img-plant-name">${primary}</span>
       <a href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="구글 이미지 검색" style="font-size:0.82rem;color:#52b788;text-decoration:none;flex-shrink:0">🔍</a>
       ${secondary ? `<span class="img-plant-lat">| <em>${secondary}</em></span>` : ''}
-      ${badges ? `<span style="margin-left:auto;display:flex;gap:0.3rem;align-items:center">${badges}</span>` : ''}
-      <label class="btn btn-sm" style="cursor:pointer;padding:2px 8px;font-size:0.72rem;margin-left:0.4rem" title="파일 또는 구글 이미지에서 복사 후 Ctrl+V" onclick="event.stopPropagation();imgSetActive(${pi})">
+      ${badges ? `<span style="display:flex;gap:0.3rem;align-items:center">${badges}</span>` : ''}
+      <label class="btn btn-sm" style="cursor:pointer;padding:2px 8px;font-size:0.72rem;margin-left:0.2rem" title="파일 또는 구글 이미지에서 복사 후 Ctrl+V" onclick="event.stopPropagation();imgSetActive(${pi})">
         + 추가
         <input type="file" accept="image/*" style="display:none" onchange="ecoAddImgFile(event,${pi})">
       </label>
+      ${_roleBadgeHtml(p, pi)}
     </div>
     <div class="img-gallery" id="img-gallery-${pi}">${gallery}</div>
   </div>`;
