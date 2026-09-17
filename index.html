@@ -86,7 +86,7 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
   background: white; border-bottom: 2px solid #52b788;
   padding: 0 1.2rem; display: flex; gap: 0; overflow-x: auto;
   scrollbar-width: none;
-  position: sticky; top: 0; z-index: 100;
+  position: sticky; top: var(--header-h, 48px); z-index: 100;
 }
 #tabNav::-webkit-scrollbar { display: none; }
 .tab-btn {
@@ -5294,6 +5294,14 @@ function renderDotView() {
 
 // 페이지 로드: 식물목록 복원 안 함 (매번 새로 검색).
 // 이미지는 식물 추가 시 restoreImgForPlant()로 복원됨.
+
+// ── tabNav sticky: header 높이를 CSS 변수로 동기화 ─────────────────────────────
+(function() {
+  const hdr = document.querySelector("header");
+  const setH = () => document.documentElement.style.setProperty("--header-h", hdr.offsetHeight + "px");
+  setH();
+  new ResizeObserver(setH).observe(hdr);
+})();
 </script>
 </body>
 </html>
