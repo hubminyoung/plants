@@ -484,6 +484,22 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .role-empty { color:#aaa;font-size:0.82rem;padding:10px;text-align:center; }
 .role-section-unassigned .role-section-header { background:#8a9e84; }
 .role-group-bar { display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:white;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.07);flex-wrap:wrap; }
+/* 칩 풀 */
+.role-pool { background:white;border:1px solid #cde8c8;border-radius:10px;padding:10px 12px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.role-pool-title { font-size:0.75rem;color:#8a9e84;font-weight:600;margin-bottom:7px; }
+.role-pool-chips { display:flex;flex-wrap:wrap;gap:5px; }
+.role-chip { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:0.78rem;cursor:pointer;border:1px solid #cde8c8;background:#f5fbf2;color:#2d5a1b;user-select:none;transition:all 0.12s; }
+.role-chip:hover { background:#e4f5e0;border-color:#52b788; }
+.role-chip.selected { background:#2d5a1b;color:white;border-color:#2d5a1b; }
+.role-chip.assigned { background:#eaf0e6;color:#7a9a70;border-color:#d0e4c8; }
+/* 카테고리 드롭존 */
+.role-section-chips { display:flex;flex-wrap:wrap;gap:5px;padding:8px 12px;border-bottom:1px solid #eaf5e6;min-height:36px;background:#fafdf8; }
+.role-section-chips.drop-target { background:#e8f7e4;outline:2px dashed #52b788;outline-offset:-2px; }
+.role-section-title[contenteditable] { outline:none;border-bottom:1px dashed rgba(255,255,255,0.4);min-width:60px;cursor:text; }
+.role-section-title[contenteditable]:focus { border-bottom:1px solid white; }
+.role-chip-in-cat { display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;font-size:0.76rem;background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.35);cursor:default; }
+.role-chip-in-cat .rc-x { cursor:pointer;opacity:0.7;font-size:10px;margin-left:2px; }
+.role-chip-in-cat .rc-x:hover { opacity:1; }
 
 /* ── 식재 구상판 ─────────────────────────────────────────────────────────────── */
 .board-toolbar { display:flex;align-items:center;gap:0.5rem;padding:0.8rem 1rem;border-bottom:1px solid #e8f0e4; }
@@ -2519,15 +2535,7 @@ function deleteRoleEntry(name) {
 function assignRole(pi, role) {
   setPlantRole(plants[pi], role);
   document.querySelectorAll(".role-popup").forEach(el=>el.remove());
-  if (_roleGroupView) { renderImages(); } else {
-    // 해당 카드의 역할 배지만 업데이트
-    const header = document.querySelector(`.img-plant-row[data-pi="${pi}"] .img-plant-header`);
-    if (header) {
-      const oldBadge = header.querySelector(".role-badge-wrap");
-      if (oldBadge) oldBadge.remove();
-      header.insertAdjacentHTML("beforeend", _roleBadgeHtml(plants[pi], pi));
-    }
-  }
+  if (_roleGroupView) renderImages();
 }
 function _roleBadgeHtml(p, pi) {
   const role = getPlantRole(p);
@@ -2589,10 +2597,12 @@ function renderImages() {
     </div>` + plants.map((p,i) => imgRow(p,i)).join("");
 }
 
+let _selectedChipPi = null; // 현재 선택된 칩의 pi
+
 function renderRoleGrouped(el) {
-  const roles = _getRoleList();
-  const map   = _getRoleMap();
-  const notes = _getRoleNotes();
+  const roles  = _getRoleList();
+  const map    = _getRoleMap();
+  const notes  = _getRoleNotes();
 
   // 역할별 분류
   const grouped = {};
@@ -2600,10 +2610,16 @@ function renderRoleGrouped(el) {
   roles.forEach(r => { grouped[r] = []; });
   plants.forEach((p, pi) => {
     const role = map[_plantRoleKey(p)];
-    if (role && grouped[role]) grouped[role].push({p, pi});
-    else if (role) { grouped[role] = [{p, pi}]; } // 새 역할
+    if (role && grouped[role] !== undefined) grouped[role].push({p, pi});
+    else if (role) { grouped[role] = [{p, pi}]; }
     else unassigned.push({p, pi});
   });
+
+  // 칩 풀 (미할당 수종)
+  const poolChips = unassigned.map(({p, pi}) => {
+    const label = p.korName || p.latName || p.name || "";
+    return `<span class="role-chip" data-pi="${pi}" onclick="selectChip(${pi},this)">${label}</span>`;
+  }).join("");
 
   let html = `<div class="role-group-bar">
     <strong style="color:#2d5a1b">📋 역할별 카드</strong>
@@ -2611,48 +2627,88 @@ function renderRoleGrouped(el) {
     <span style="flex:1"></span>
     <button class="btn btn-sm" onclick="addRoleDialog()" style="border:1px dashed #52b788;color:#52b788">+ 역할 추가</button>
     <button class="btn btn-sm" onclick="toggleRoleGroupView()">← 이미지 보기</button>
+  </div>
+  <div class="role-pool">
+    <div class="role-pool-title">미할당 수종 ${unassigned.length ? `(${unassigned.length}종) — 클릭 후 아래 카테고리 선택` : "— 모두 할당됨 ✓"}</div>
+    <div class="role-pool-chips">${poolChips || '<span style="font-size:0.78rem;color:#aaa">없음</span>'}</div>
   </div>`;
 
-  // 각 역할 섹션
-  for (const role of [...roles, ...Object.keys(grouped).filter(r=>!roles.includes(r))]) {
+  // 역할 섹션
+  const allRoles = [...roles, ...Object.keys(grouped).filter(r => !roles.includes(r))];
+  for (const role of allRoles) {
     const items = grouped[role] || [];
     const note  = notes[role] || "";
+    const safeRole = role.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+
+    const catChips = items.map(({p, pi}) => {
+      const label = p.korName || p.latName || p.name || "";
+      return `<span class="role-chip-in-cat">${label}<span class="rc-x" onclick="assignRole(${pi},'')">✕</span></span>`;
+    }).join("");
+
     html += `<div class="role-section">
-      <div class="role-section-header">
-        <span class="role-section-title">${role}</span>
+      <div class="role-section-header" onclick="dropChipToRole('${safeRole}')" title="선택한 수종을 이 역할에 추가">
+        <span class="role-section-title" contenteditable="true"
+          onblur="renameRole('${safeRole}', this.textContent.trim())"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+          onclick="event.stopPropagation()"
+        >${role}</span>
         <span class="role-section-count">${items.length}종</span>
-        <button class="role-section-del" onclick="deleteRoleEntry('${role.replace(/'/g,"\\'")}')">삭제</button>
+        <span style="font-size:0.72rem;opacity:0.6;margin-left:4px">← 클릭하여 추가</span>
+        <button class="role-section-del" onclick="event.stopPropagation();deleteRoleEntry('${safeRole}')">삭제</button>
       </div>
-      <textarea class="role-section-note" placeholder="역할 설명, 메모, 연출 방향..." rows="1"
-        onblur="saveRoleNote('${role.replace(/'/g,"\\'")}', this.value)"
+      <div class="role-section-chips">${catChips}</div>
+      <textarea class="role-section-note" placeholder="메모, 연출 방향..." rows="1"
+        onblur="saveRoleNote('${safeRole}', this.value)"
         oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
       >${note}</textarea>
       <div class="role-card-grid">
-        ${items.length ? items.map(({p,pi})=>_roleCard(p,pi)).join("") : '<div class="role-empty">수종을 지정하려면 ← 이미지 보기에서 "+ 역할" 클릭</div>'}
+        ${items.length ? items.map(({p,pi}) => _roleCard(p,pi)).join("") : '<div class="role-empty">위 미할당 수종에서 선택 후 이 영역 클릭</div>'}
       </div>
-    </div>`;
-  }
-
-  // 미분류
-  if (unassigned.length) {
-    html += `<div class="role-section role-section-unassigned">
-      <div class="role-section-header">
-        <span class="role-section-title">미분류</span>
-        <span class="role-section-count">${unassigned.length}종</span>
-      </div>
-      <div class="role-card-grid">${unassigned.map(({p,pi})=>_roleCard(p,pi)).join("")}</div>
     </div>`;
   }
 
   el.innerHTML = html;
+  _selectedChipPi = null;
+}
+
+function selectChip(pi, el) {
+  // 이미 선택된 칩 클릭 → 선택 해제
+  if (_selectedChipPi === pi) {
+    _selectedChipPi = null;
+    document.querySelectorAll(".role-chip.selected").forEach(c => c.classList.remove("selected"));
+    return;
+  }
+  _selectedChipPi = pi;
+  document.querySelectorAll(".role-chip.selected").forEach(c => c.classList.remove("selected"));
+  el.classList.add("selected");
+}
+
+function dropChipToRole(role) {
+  if (_selectedChipPi === null) return;
+  assignRole(_selectedChipPi, role);
+  _selectedChipPi = null;
+}
+
+function renameRole(oldName, newName) {
+  if (!newName || newName === oldName) return;
+  const list = _getRoleList();
+  const idx = list.indexOf(oldName);
+  if (idx !== -1) list[idx] = newName;
+  localStorage.setItem("roleList", JSON.stringify(list));
+  // map key 업데이트
+  const map = _getRoleMap();
+  Object.keys(map).forEach(k => { if (map[k] === oldName) map[k] = newName; });
+  localStorage.setItem("plantRoleMap", JSON.stringify(map));
+  // notes 업데이트
+  const notes = _getRoleNotes();
+  if (notes[oldName] !== undefined) { notes[newName] = notes[oldName]; delete notes[oldName]; }
+  localStorage.setItem("roleNotes", JSON.stringify(notes));
 }
 
 function _roleCard(p, pi) {
   const img  = (p.images||[])[0] || p.imageUrl || "";
   const name = p.korName || p.name || "";
   const lat  = p.latName || p.name || "";
-  const role = getPlantRole(p);
-  const roles = _getRoleList();
   return `<div class="role-card">
     <div class="role-card-img">
       ${img ? `<img src="${img}" loading="lazy" onclick="ecoOpenLightbox(${pi},0)" onerror="this.closest('.role-card-img').innerHTML='<div class=role-card-placeholder>🌿</div>'">` : '<div class="role-card-placeholder">🌿</div>'}
@@ -2660,16 +2716,12 @@ function _roleCard(p, pi) {
     <div class="role-card-body">
       <div class="role-card-name" title="${name}">${name}</div>
       <div class="role-card-lat" title="${lat}">${lat}</div>
-      <select class="role-card-select" onchange="assignRole(${pi},this.value)">
-        <option value="">— 역할 없음</option>
-        ${roles.map(r=>`<option value="${r}" ${r===role?"selected":""}>${r}</option>`).join("")}
-      </select>
     </div>
   </div>`;
 }
 
 function addRoleDialog() {
-  const name = prompt("새 역할 이름을 입력하세요 (예: 악센트 수종, 피복 수종):");
+  const name = prompt("새 역할 이름 (예: 악센트 수종, 피복 수종):");
   if (name && name.trim()) { addNewRole(name.trim()); renderImages(); }
 }
 
@@ -2719,7 +2771,6 @@ function imgRow(p, pi) {
         + 추가
         <input type="file" accept="image/*" style="display:none" onchange="ecoAddImgFile(event,${pi})">
       </label>
-      ${_roleBadgeHtml(p, pi)}
     </div>
     <div class="img-gallery" id="img-gallery-${pi}">${gallery}</div>
   </div>`;
