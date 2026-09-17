@@ -552,6 +552,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header>
   <h1>🌿 식재 분석 툴</h1>
+  <button class="btn btn-ghost btn-sm" onclick="exportAllTabsXlsx()" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4)">📊 엑셀</button>
   <button class="btn btn-warn btn-sm" onclick="exportPDF()">📄 PDF</button>
 </header>
 
@@ -5290,6 +5291,91 @@ function renderDotView() {
   }).filter(p => p.name);
 
   window.dvRebuild(mapped.length ? mapped : spPl);
+}
+
+// ── 전체 탭 엑셀 내보내기 (생태/형태 + 유지관리 + 이미지URL) ────────────────
+function exportAllTabsXlsx() {
+  if (!plants.length) { showToast("식물이 없습니다"); return; }
+  const MO = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: 생태/형태 ─────────────────────────────────────
+  const ecoH = ["식물명","학명","유형","과명","속명","일조","수분요구","수고","폭","개화기","꽃색","내한성",
+    "서식처유형(NDB)","바닥(NDB)","영양소(NDB)","pH(NDB)","컨테이너(NDB)","뿌리계(NDB)","독성(NDB)","야생벌(NDB)",
+    "사교성(GSM)","식재간격cm(GSM)","M²당주수(GSM)","생활영역(GSM)","벌친화(GSM)","독성(GSM)","달팽이방지(NDB)"];
+  const ecoD = plants.map(p => [
+    p.korName || p.name,
+    p.latName || p.name,
+    p.plantType || "",
+    p.family || "",
+    p.specificEpithet || "",
+    (p.sunlight || []).join(", "),
+    p.watering || "",
+    p.height || "",
+    p.spreadStr || "",
+    (p.bloomMonths || []).map(m => MO[m-1]).join(", "),
+    (p.flowerColors || []).join(", "),
+    p.hardiness || "",
+    p.ndbStandort || "",
+    p.ndbBoden || "",
+    p.ndbNaehrstoffe || "",
+    p.ndbPH || "",
+    p.ndbKuebel || "",
+    p.ndbWurzel || "",
+    p.ndbGiftig || "",
+    p.ndbWildbienen || "",
+    p.geselligkeit || "",
+    p.pflanzAbstand || "",
+    p.pflanzCount || "",
+    p.gsmLebensbereich || "",
+    p.gsmBienenfreundlich || "",
+    p.gsmGiftklasse || "",
+    p.ndbSchnecken || "",
+  ]);
+  const ecoWs = XLSX.utils.aoa_to_sheet([ecoH, ...ecoD]);
+  ecoWs["!cols"] = ecoH.map((_, i) => ({ wch: i < 2 ? 18 : 14 }));
+  XLSX.utils.book_append_sheet(wb, ecoWs, "생태형태");
+
+  // ── Sheet 2: 유지관리 ──────────────────────────────────────
+  const careH = ["식물명","학명","MBG 재배방법","MBG 주목사항","MBG 용도","MBG 문제점","MBG 내성",
+    "RHS 재배","RHS 번식","RHS 전정","RHS 해충","RHS 질병",
+    "NDB 관리(전정)","NDB 번식","NDB 병충해","NDB 흥미사항"];
+  const careD = plants.map(p => [
+    p.korName || p.name,
+    p.latName || p.name,
+    p.culture || "",
+    p.noteworthy || "",
+    p.uses || "",
+    p.problems || "",
+    p.tolerate || "",
+    p.rhsCultivation || "",
+    p.rhsPropagation || "",
+    p.rhsPruning || "",
+    p.rhsPests || "",
+    p.rhsDiseases || "",
+    p.ndbSchnitt || "",
+    p.ndbVermehrung || "",
+    p.ndbSchaedlinge || "",
+    p.ndbInteressantes || "",
+  ]);
+  const careWs = XLSX.utils.aoa_to_sheet([careH, ...careD]);
+  careWs["!cols"] = careH.map((_, i) => ({ wch: i < 2 ? 18 : 30 }));
+  XLSX.utils.book_append_sheet(wb, careWs, "유지관리");
+
+  // ── Sheet 3: 이미지 URL ────────────────────────────────────
+  const maxImg = 6;
+  const imgH = ["식물명","학명", ...Array.from({length: maxImg}, (_, i) => "이미지"+(i+1))];
+  const imgD = plants.map(p => {
+    const imgs = (p.images || []).filter(u => u && !u.startsWith("data:")).slice(0, maxImg);
+    return [p.korName || p.name, p.latName || p.name, ...imgs, ...Array(maxImg - imgs.length).fill("")];
+  });
+  const imgWs = XLSX.utils.aoa_to_sheet([imgH, ...imgD]);
+  imgWs["!cols"] = imgH.map((_, i) => ({ wch: i < 2 ? 18 : 60 }));
+  XLSX.utils.book_append_sheet(wb, imgWs, "이미지URL");
+
+  const today = new Date().toLocaleDateString("ko-KR").replace(/\.\s*/g, "-").replace(/-$/, "");
+  XLSX.writeFile(wb, "식재분석_" + today + ".xlsx");
+  showToast("엑셀 저장 완료 (생태/형태 + 유지관리 + 이미지URL)");
 }
 
 // 페이지 로드: 식물목록 복원 안 함 (매번 새로 검색).
