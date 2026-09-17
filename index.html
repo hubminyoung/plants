@@ -552,7 +552,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header>
   <h1>🌿 식재 분석 툴</h1>
-  <button class="btn btn-ghost btn-sm" onclick="exportAllTabsXlsx()" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4)">📊 엑셀</button>
+  <button class="btn btn-ghost btn-sm" onclick="exportAllTabsXlsx()" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4)" title="생태/형태·유지관리·이미지URL·계절도표 xlsx">📊 엑셀</button>
+  <button class="btn btn-ghost btn-sm" onclick="exportImgXls()" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4)" title="이미지 실제 표시 (Excel에서 열면 렌더링)">📸 이미지xls</button>
   <button class="btn btn-warn btn-sm" onclick="exportPDF()">📄 PDF</button>
 </header>
 
@@ -5373,9 +5374,75 @@ function exportAllTabsXlsx() {
   imgWs["!cols"] = imgH.map((_, i) => ({ wch: i < 2 ? 18 : 60 }));
   XLSX.utils.book_append_sheet(wb, imgWs, "이미지URL");
 
+  // Sheet 4: 계절 도표
+  const seaH = ["식물명", "학명", "수고", "1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+  const WIN_M = window.SP_WIN || new Set([10,11,12,1,2]);
+  const seaD = plants.map(p => {
+    const spMatch = (window.SP_PLANTS||[]).find(sp => {
+      const a = (sp.name||"").toLowerCase().replace(/['"]/g,"").split(" ").slice(0,2).join(" ");
+      const b = (p.latName||p.name||"").toLowerCase().replace(/['"]/g,"").split(" ").slice(0,2).join(" ");
+      return a && b && a === b;
+    });
+    const hasWc = spMatch && spMatch.wc;
+    const months = Array.from({length:12}, (_,i) => {
+      const m = i + 1;
+      const isBloom = (p.bloomMonths||[]).includes(m);
+      const isWinter = hasWc && WIN_M.has(m) && !isBloom;
+      return isBloom ? "●개화" : isWinter ? "▲동절기" : "";
+    });
+    return [p.korName||p.name, p.latName||p.name, p.height||"", ...months];
+  });
+  const seaWs = XLSX.utils.aoa_to_sheet([seaH, ...seaD]);
+  seaWs["!cols"] = [18, 22, 8, ...Array(12).fill(7)].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, seaWs, "계절도표");
+
   const today = new Date().toLocaleDateString("ko-KR").replace(/\.\s*/g, "-").replace(/-$/, "");
   XLSX.writeFile(wb, "식재분석_" + today + ".xlsx");
-  showToast("엑셀 저장 완료 (생태/형태 + 유지관리 + 이미지URL)");
+  showToast("엑셀 저장 완료 (생태/형태 + 유지관리 + 이미지URL + 계절도표)");
+}
+
+// ── 이미지 엑셀 내보내기 (HTML-XLS: 실제 이미지 표시) ───────────────────────
+function exportImgXls() {
+  if (!plants.length) { showToast("식물이 없습니다"); return; }
+  let html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head><meta charset="UTF-8">
+<style>
+body{font-family:"Malgun Gothic",sans-serif;font-size:9pt;}
+table{border-collapse:collapse;}
+td,th{border:1px solid #c8d8b8;padding:4px 6px;vertical-align:middle;}
+th{background:#2d5a1b;color:white;font-weight:700;text-align:center;}
+.name{font-weight:600;min-width:100px;}
+.lat{font-style:italic;color:#4a6a3a;font-size:8pt;min-width:140px;}
+img{max-width:120px;max-height:100px;border-radius:4px;}
+</style></head><body><table>
+<tr><th>식물명</th><th>학명</th><th>이미지1</th><th>이미지2</th><th>이미지3</th><th>이미지4</th><th>이미지5</th><th>이미지6</th></tr>`;
+
+  for (const p of plants) {
+    const imgs = (p.images || [p.imageUrl]).filter(Boolean).slice(0, 6);
+    html += "<tr>";
+    html += `<td class="name">${p.korName || p.name}</td>`;
+    html += `<td class="lat">${p.latName || p.name}</td>`;
+    for (let i = 0; i < 6; i++) {
+      if (imgs[i] && !imgs[i].startsWith("data:")) {
+        html += `<td><img src="${imgs[i]}" onerror="this.style.display='none'"></td>`;
+      } else if (imgs[i]) {
+        html += `<td><img src="${imgs[i]}"></td>`;
+      } else {
+        html += "<td></td>";
+      }
+    }
+    html += "</tr>";
+  }
+  html += "</table></body></html>";
+
+  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const today = new Date().toLocaleDateString("ko-KR").replace(/\.\s*/g, "-").replace(/-$/, "");
+  a.download = "식재이미지_" + today + ".xls";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast("이미지 엑셀 저장 완료 (Excel에서 열면 실제 이미지 표시)");
 }
 
 // 페이지 로드: 식물목록 복원 안 함 (매번 새로 검색).
