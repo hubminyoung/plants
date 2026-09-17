@@ -486,8 +486,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .role-card-img img:hover { transform:scale(1.04); }
 .role-card-placeholder { display:flex;align-items:center;justify-content:center;height:100%;font-size:2.5rem;color:#cde8c8; }
 .role-card-body { padding:7px 9px 9px; }
-.role-card-name { font-weight:700;font-size:0.85rem;color:#1a2218;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.role-card-lat { font-style:italic;font-size:0.69rem;color:#7a9a70;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.role-card-name { font-weight:700;font-size:0.85rem;font-style:italic;color:#1a2218;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.role-card-lat { font-size:0.69rem;color:#7a9a70;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .role-card-meta { display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px; }
 .role-card-height { font-size:0.7rem;background:#eaf5e6;color:#2d5a1b;padding:1px 6px;border-radius:8px;font-weight:600; }
 .role-card-colors { display:flex;gap:2px;align-items:center; }
@@ -2837,8 +2837,8 @@ function renameRole(oldName, newName) {
 
 function _roleCard(p, pi) {
   const img    = (p.images||[])[0] || p.imageUrl || "";
-  const name   = p.korName || p.name || "";
-  const lat    = p.latName || p.name || "";
+  const name   = p.latName || p.name || "";
+  const lat    = (p.korName && /[가-힣]/.test(p.korName)) ? p.korName : "";
   const imgHMap = {2:260, 3:210, 4:180, 5:150};
   const imgH = (imgHMap[_roleGridCols] || 180) + "px";
 
@@ -2886,10 +2886,10 @@ function addRoleDialog() {
 }
 
 function pNames(p) {
-  // 한글 국명이 있을 때만 국명+학명 2줄, 없으면 학명 1줄
+  // 학명 우선, 한글 국명은 보조
   const hasKor = p.korName && /[가-힣]/.test(p.korName);
-  const primary   = hasKor ? p.korName : (p.latName || p.name || '');
-  const secondary = hasKor ? (p.latName || p.name || '') : '';
+  const primary   = p.latName || p.name || '';
+  const secondary = hasKor ? p.korName : '';
   return { primary, secondary };
 }
 
