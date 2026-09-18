@@ -3457,7 +3457,12 @@ function renderEcology() {
             const bullets = p.ndbBlickBullets || [];
             if (!tags.length && !bullets.length) return '';
             const tagHtml = tags.map(t => `<span style="display:inline-block;background:#eaf4ee;border:1px solid #b2d8be;border-radius:10px;padding:1px 7px;font-size:0.67rem;color:#2d5a1b;margin:1px 2px">${t}</span>`).join('');
-            const bulletHtml = bullets.map(b => `<li style="font-size:0.69rem;color:#444;margin-bottom:2px;line-height:1.4">${b}</li>`).join('');
+            const bulletHtml = bullets.map(b => {
+              if (b.startsWith('⚠️ ')) {
+                return `<li style="font-size:0.69rem;color:#7a2020;background:#fff5f5;border-left:3px solid #e53e3e;padding:3px 6px;margin-bottom:4px;line-height:1.4;list-style:none;margin-left:-1rem">${b}</li>`;
+              }
+              return `<li style="font-size:0.69rem;color:#444;margin-bottom:2px;line-height:1.4">${b}</li>`;
+            }).join('');
             return `<div class="ndb-quick" style="margin-bottom:0.9rem">
               <div class="ndb-quick-title">Das Wichtigste auf einen Blick</div>
               ${tagHtml ? `<div style="margin-bottom:5px">${tagHtml}</div>` : ''}

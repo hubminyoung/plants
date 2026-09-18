@@ -2460,6 +2460,16 @@ async function naturadbDetails(params, env) {
       const t = tm[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
       if (t && t.length < 60 && !blickTags.includes(t)) blickTags.push(t);
     }
+    // Achtung / 경고 박스 텍스트 (alert, warning, danger 등 class)
+    const alertRe = /<div[^>]+class="[^"]*(?:alert|warning|danger|achtung|invasiv)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+    let am;
+    while ((am = alertRe.exec(blickSlice)) !== null) {
+      const t = am[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (t && t.length > 10 && t.length < 600) {
+        blickBullets.unshift('⚠️ ' + t);  // 경고는 맨 앞에
+        break;
+      }
+    }
     // 불렛 포인트 (<li> 내 텍스트)
     const liRe = /<li[^>]*>([\s\S]*?)<\/li>/gi;
     let lm;
