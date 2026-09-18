@@ -3449,28 +3449,6 @@ function renderEcology() {
               ${bulletHtml ? `<ul style="margin:0;padding-left:1rem">${bulletHtml}</ul>` : ''}
             </div>`;
           })()}
-          ${(() => {
-            const nq = [
-              ['식물 종류', p.ndbPflanzenart],
-              ['성장형태',  p.ndbWuchs],
-              ['뿌리',      p.ndbWurzel],
-              ['꽃 모양',   p.ndbBlutenform],
-              ['잎 색',     p.ndbBlattfarbe],
-              ['잎 형태',   p.ndbBlattform],
-              ['잎 시기',   p.ndbBlattphase],
-              ['토양',      p.ndbBoden],
-              ['영양',      p.ndbNaehrstoffe],
-              ['pH',        p.ndbPH],
-              ['달팽이',    p.ndbSchnecken],
-              ['독성',      p.ndbGiftig],
-              ['야생벌',    p.ndbWildbienen],
-              ['화분가능',  p.ndbKuebel],
-              ['뿌리압박',  p.ndbWurzeldruck],
-            ].filter(([,v]) => v);
-            if (!nq.length) return '';
-            const rows = nq.map(([k,v]) => `<div class="ndb-quick-row"><span class="ndb-quick-k">${k}</span><span class="ndb-quick-v">${v}</span></div>`).join('');
-            return `<div class="ndb-quick"><div class="ndb-quick-title">NDB 핵심정보</div>${rows}</div>`;
-          })()}
           ${standortTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">위치</div><div class="eco-right-body">${standortTxt}</div></div>` : ''}
           ${verwendungTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">용도</div><div class="eco-right-body">${verwendungTxt}</div></div>` : ''}
           ${oekologieTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">생태</div><div class="eco-right-body">${oekologieTxt}</div></div>` : ''}
