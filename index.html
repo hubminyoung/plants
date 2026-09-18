@@ -2063,7 +2063,22 @@ async function loadNaturadbDetail(p) {
   if (s['Interessantes'] || s['Wissenswertes'])
     p.ndbInteressantes = s['Interessantes'] || s['Wissenswertes'];
   if (det.blickTags?.length)   p.ndbBlickTags   = det.blickTags;
-  if (det.blickBullets?.length) p.ndbBlickBullets = det.blickBullets;
+  if (det.blickBullets?.length) {
+    p.ndbBlickBullets = det.blickBullets;
+    // 독일어가 남아있으면 클라이언트에서 번역
+    if (!det.fromStatic) {
+      const needsTr = det.blickBullets.some(b => /[äöüÄÖÜß]/.test(b) || /\b(und|die|der|das|ist|sind|mit|von|für)\b/.test(b));
+      if (needsTr) {
+        const joined = det.blickBullets.join(' | ');
+        myMemoryDirect(joined, 'de|ko').then(tr => {
+          if (tr) {
+            p.ndbBlickBullets = tr.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean);
+            renderActiveTab();
+          }
+        });
+      }
+    }
+  }
 
   // NaturaDB 수고/폭 (Höhe: "40 - 60 cm", Breite: "40 - 50 cm") → p.height / p.spreadStr
   if (t['Höhe'] && !p.height) {
@@ -3456,24 +3471,6 @@ function renderEcology() {
         </div>
       </div>
 
-      <div class="eco-kv-edit">
-        <div class="eco-kv-row"><label>사교성</label>
-          <input type="text" class="eco-kv-input" placeholder="예: 1-2 → I–II"
-            value="${p.geselligkeit||''}"
-            onchange="onGesChange(${pflanzIdx},this.value,this)">
-        </div>
-        <div class="eco-kv-row"><label>식재간격</label>
-          <input type="text" class="eco-kv-input" placeholder="30"
-            value="${p.pflanzAbstand||''}"
-            onchange="onPflanzChange(${pflanzIdx},this.value,this)">
-          <span style="font-size:11px;color:#888;margin-left:4px;">cm</span>
-        </div>
-        <div class="eco-kv-row"><label>m²당 주수</label>
-          <input type="text" class="eco-kv-input" placeholder="예: 11"
-            value="${p.pflanzCount||''}"
-            onchange="onPflanzCountChange(${pflanzIdx},this.value,this)">
-        </div>
-      </div>
 
 
     </div>`;
