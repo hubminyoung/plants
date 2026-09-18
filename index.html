@@ -263,6 +263,11 @@ header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; white-space: nowrap; }
 .eco-right-sec { margin-bottom: 0.7rem; }
 .eco-right-body { font-size: 0.78rem; color: #444; line-height: 1.55; margin-top: 0.2rem; }
 .eco-right-lbl { font-size: 0.66rem; font-weight: 700; color: #52b788; letter-spacing: 0.05em; text-transform: uppercase; padding-bottom: 0.2rem; border-bottom: 1px solid #eaf0e6; margin-bottom: 0.3rem; }
+.ndb-quick { margin-bottom: 0.8rem; }
+.ndb-quick-title { font-size: 0.64rem; font-weight: 700; color: #52b788; letter-spacing: 0.05em; text-transform: uppercase; padding-bottom: 0.2rem; border-bottom: 1px solid #eaf0e6; margin-bottom: 0.35rem; }
+.ndb-quick-row { display: flex; gap: 4px; font-size: 0.68rem; padding: 1px 0; border-bottom: 1px dotted #f0f4ee; }
+.ndb-quick-k { color: #8aaa7a; flex: 0 0 5rem; white-space: nowrap; overflow: hidden; }
+.ndb-quick-v { color: #333; flex: 1; min-width: 0; }
 .eco-sec-title { font-size: 0.66rem; font-weight: 700; color: #52b788;
   letter-spacing: 0.05em; text-transform: uppercase; padding: 0.5rem 1rem 0.1rem;
   border-top: 1px solid #eaf0e6; margin-top: 0.1rem; }
@@ -1487,8 +1492,10 @@ function parsePlants() {
   const normName = s => s.replace(/\s+/g, ' ').trim();
   const names = [...new Set([...latins, ...koreans].map(normName))].filter(n => n.length >= 2);
   names.forEach(n => {
-    if (!plants.find(p => normName(p.name) === normName(n))) {
-      const np = mkPlant(n);
+    const corrected = _applyNameCorrection(n);
+    const key = normName(corrected);
+    if (!plants.find(p => normName(p.name) === key)) {
+      const np = mkPlant(corrected);
       plants.push(np);
       restoreImgForPlant(np);  // 이미지 최초 1회 복원
     }
@@ -1808,9 +1815,25 @@ function chipEditName(idx, e) {
   input.addEventListener('blur', confirm);
 }
 
+function _saveNameCorrection(origName, correctedName) {
+  try {
+    const c = JSON.parse(localStorage.getItem('식재리스트_nameCorr') || '{}');
+    c[origName.trim().toLowerCase()] = correctedName.trim();
+    localStorage.setItem('식재리스트_nameCorr', JSON.stringify(c));
+  } catch {}
+}
+function _applyNameCorrection(name) {
+  try {
+    const c = JSON.parse(localStorage.getItem('식재리스트_nameCorr') || '{}');
+    return c[name.trim().toLowerCase()] || name;
+  } catch { return name; }
+}
+
 function retryWithName(idx, newName) {
   const p = plants[idx];
   if (!p || !newName) return;
+  // 이름 교정 저장 — 다음에 같은 이름 입력 시 자동 적용
+  if (newName !== p.name) _saveNameCorrection(p.name, newName);
   // 이미지만 보존하고 나머지 전부 초기화
   const savedImgs = p.images || [];
   const savedHidden = p.hiddenImages || [];
@@ -1826,6 +1849,13 @@ function retryWithName(idx, newName) {
   p.fetching = false;
   loadPlant(p);
   renderAll();
+}
+
+function googleImgSearch(pi) {
+  const p = plants[pi];
+  if (!p) return;
+  const q = encodeURIComponent(p.latName || p.name || '');
+  window.open('https://www.google.com/search?q=' + q + '&tbm=isch', '_blank', 'noopener');
 }
 
 function notFoundRetry(origName, inputId, toastEl) {
@@ -2895,7 +2925,6 @@ function pNames(p) {
 
 function imgRow(p, pi) {
   const { primary, secondary } = pNames(p);
-  const searchQ = encodeURIComponent(secondary || primary);
 
   let badges = '';
   if (p.native) {
@@ -2924,7 +2953,7 @@ function imgRow(p, pi) {
   return `<div class="img-plant-row" data-pi="${pi}" onclick="imgSetActive(${pi})">
     <div class="img-plant-header">
       <span class="img-plant-name">${primary}</span>
-      <a href="https://www.google.com/search?q=${searchQ}&tbm=isch" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="구글 이미지 검색" style="font-size:0.82rem;color:#52b788;text-decoration:none;flex-shrink:0">🔍</a>
+      <a href="#" onclick="event.preventDefault();event.stopPropagation();googleImgSearch(${pi})" title="구글 이미지 검색" style="font-size:0.82rem;color:#52b788;text-decoration:none;flex-shrink:0">🔍</a>
       ${secondary ? `<span class="img-plant-lat">| <em>${secondary}</em></span>` : ''}
       ${badges ? `<span style="display:flex;gap:0.3rem;align-items:center">${badges}</span>` : ''}
       <label class="btn btn-sm" style="cursor:pointer;padding:2px 8px;font-size:0.72rem;margin-left:0.2rem" title="파일 또는 구글 이미지에서 복사 후 Ctrl+V" onclick="event.stopPropagation();imgSetActive(${pi})">
@@ -3405,10 +3434,32 @@ function renderEcology() {
           </div>
         </div>
         <div class="eco-right">
+          ${(() => {
+            const nq = [
+              ['식물 종류', p.ndbPflanzenart],
+              ['성장형태',  p.ndbWuchs],
+              ['뿌리',      p.ndbWurzel],
+              ['꽃 모양',   p.ndbBlutenform],
+              ['잎 색',     p.ndbBlattfarbe],
+              ['잎 형태',   p.ndbBlattform],
+              ['잎 시기',   p.ndbBlattphase],
+              ['토양',      p.ndbBoden],
+              ['영양',      p.ndbNaehrstoffe],
+              ['pH',        p.ndbPH],
+              ['달팽이',    p.ndbSchnecken],
+              ['독성',      p.ndbGiftig],
+              ['야생벌',    p.ndbWildbienen],
+              ['화분가능',  p.ndbKuebel],
+              ['뿌리압박',  p.ndbWurzeldruck],
+            ].filter(([,v]) => v);
+            if (!nq.length) return '';
+            const rows = nq.map(([k,v]) => `<div class="ndb-quick-row"><span class="ndb-quick-k">${k}</span><span class="ndb-quick-v">${v}</span></div>`).join('');
+            return `<div class="ndb-quick"><div class="ndb-quick-title">NDB 핵심정보</div>${rows}</div>`;
+          })()}
           ${standortTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">위치</div><div class="eco-right-body">${standortTxt}</div></div>` : ''}
           ${verwendungTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">용도</div><div class="eco-right-body">${verwendungTxt}</div></div>` : ''}
           ${oekologieTxt ? `<div class="eco-right-sec"><div class="eco-right-lbl">생태</div><div class="eco-right-body">${oekologieTxt}</div></div>` : ''}
-          ${!standortTxt && !oekologieTxt && !verwendungTxt ? `<div style="padding:0.5rem 0;font-size:0.75rem;color:#bbb">${p.knaUrl ? '정원백과 데이터' : 'NaturaDB 텍스트 없음'}</div>` : ''}
+          ${!standortTxt && !oekologieTxt && !verwendungTxt && !(p.ndbPflanzenart||p.ndbWuchs||p.ndbBoden) ? `<div style="padding:0.5rem 0;font-size:0.75rem;color:#bbb">${p.knaUrl ? '정원백과 데이터' : 'NaturaDB 텍스트 없음'}</div>` : ''}
         </div>
       </div>
 
