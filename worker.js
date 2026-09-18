@@ -1089,7 +1089,7 @@ async function myMemoryTranslate(text, langpair = 'en|ko') {
   if (!text) return null;
   try {
     const encoded = encodeURIComponent(text.slice(0, 500));
-    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encoded}&langpair=${langpair}`);
+    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encoded}&langpair=${langpair}&de=younrake@gmail.com`);
     if (!resp.ok) return null;
     const data = await resp.json();
     const result = data.responseData?.translatedText;
