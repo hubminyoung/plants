@@ -2449,6 +2449,37 @@ async function naturadbDetails(params, env) {
     if (!isCSS2 && !badKey && !table[key2]) table[key2] = val2;
   }
 
+  // ── Blick 섹션: 태그 칩 + 불렛 포인트 ──────────────────────────────────────
+  const blickTags = [];
+  const blickBullets = [];
+  if (blickStart >= 0) {
+    // 태그칩 (pill, tag, badge 형태 span/a)
+    const tagRe = /<(?:span|a)[^>]+class="[^"]*(?:pill|tag|badge|label)[^"]*"[^>]*>([\s\S]*?)<\/(?:span|a)>/gi;
+    let tm;
+    while ((tm = tagRe.exec(blickSlice)) !== null) {
+      const t = tm[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      if (t && t.length < 60 && !blickTags.includes(t)) blickTags.push(t);
+    }
+    // 불렛 포인트 (<li> 내 텍스트)
+    const liRe = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let lm;
+    while ((lm = liRe.exec(blickSlice)) !== null) {
+      const t = lm[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      if (t && t.length > 5 && t.length < 300) blickBullets.push(t);
+    }
+  }
+  // 불렛 텍스트 번역
+  if (blickBullets.length) {
+    const joined = blickBullets.join(' | ');
+    const tr = await myMemoryTranslate(joined, 'de|ko');
+    if (tr) {
+      const parts = tr.split(/\s*\|\s*/);
+      for (let i = 0; i < blickBullets.length; i++) {
+        if (parts[i]) blickBullets[i] = parts[i].trim();
+      }
+    }
+  }
+
   // ── 개화기: month-indicator[data-active] 위치 (1~12) ─────────────────────
   const bloomMonths = [];
   const indRe = /<div class="month-indicator"([^>]*)>/gi;
@@ -2493,7 +2524,7 @@ async function naturadbDetails(params, env) {
     })
   ]);
 
-  return { table, sections, bloomMonths, url: successUrl || url, fetchSource };
+  return { table, sections, bloomMonths, blickTags, blickBullets, url: successUrl || url, fetchSource };
 }
 
 // ── MBG 큐 관리 ────────────────────────────────────────────────────────────────

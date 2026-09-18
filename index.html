@@ -1520,6 +1520,7 @@ function mkPlant(name) {
     ndbBlutenform: '', ndbBlattfarbe: '', ndbBlattphase: '', ndbBlattform: '',
     ndbSchnecken: '', ndbOekologie: '', ndbVerwendung: '',
     ndbSchnitt: '', ndbVermehrung: '', ndbSchaedlinge: '', ndbInteressantes: '',
+    ndbBlickTags: [], ndbBlickBullets: [],
     ndbWurzeldruck: '', ndbGiftig: '', ndbWildbienen: '',
     rhsCultivation: '', rhsPropagation: '', rhsPruning: '', rhsPests: '', rhsDiseases: '', rhsLocations: '',
     rhsMaxHeight: '', rhsMaxSpread: '', rhsHardiness: '', rhsMoisture: '', rhsAspect: '', rhsFamily: '', rhsHabit: '', rhsRange: '', rhsFoliage: '', rhsSoilTypes: '',
@@ -2061,6 +2062,8 @@ async function loadNaturadbDetail(p) {
   if (s['Schädlinge'])  p.ndbSchaedlinge = s['Schädlinge'];
   if (s['Interessantes'] || s['Wissenswertes'])
     p.ndbInteressantes = s['Interessantes'] || s['Wissenswertes'];
+  if (det.blickTags?.length)   p.ndbBlickTags   = det.blickTags;
+  if (det.blickBullets?.length) p.ndbBlickBullets = det.blickBullets;
 
   // NaturaDB 수고/폭 (Höhe: "40 - 60 cm", Breite: "40 - 50 cm") → p.height / p.spreadStr
   if (t['Höhe'] && !p.height) {
@@ -3434,6 +3437,18 @@ function renderEcology() {
           </div>
         </div>
         <div class="eco-right">
+          ${(() => {
+            const tags = p.ndbBlickTags || [];
+            const bullets = p.ndbBlickBullets || [];
+            if (!tags.length && !bullets.length) return '';
+            const tagHtml = tags.map(t => `<span style="display:inline-block;background:#eaf4ee;border:1px solid #b2d8be;border-radius:10px;padding:1px 7px;font-size:0.67rem;color:#2d5a1b;margin:1px 2px">${t}</span>`).join('');
+            const bulletHtml = bullets.map(b => `<li style="font-size:0.69rem;color:#444;margin-bottom:2px;line-height:1.4">${b}</li>`).join('');
+            return `<div class="ndb-quick" style="margin-bottom:0.9rem">
+              <div class="ndb-quick-title">Das Wichtigste auf einen Blick</div>
+              ${tagHtml ? `<div style="margin-bottom:5px">${tagHtml}</div>` : ''}
+              ${bulletHtml ? `<ul style="margin:0;padding-left:1rem">${bulletHtml}</ul>` : ''}
+            </div>`;
+          })()}
           ${(() => {
             const nq = [
               ['식물 종류', p.ndbPflanzenart],
