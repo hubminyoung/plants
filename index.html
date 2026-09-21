@@ -2559,6 +2559,8 @@ function _flushCache() {
 }
 
 function _cacheSavePlant(p) {
+  // NDB·MBG 데이터 없으면 캐시 저장 안 함 — 다음 검색 시 재시도
+  if (!p.naturadbUrl && !p.mbgTaxonId && !p.rhsUrl) return;
   try {
     const cache = _getCache();
     const keys = [...new Set([
@@ -2568,7 +2570,7 @@ function _cacheSavePlant(p) {
     if (!keys.length) return;
     const entry = { _ts: Date.now() };
     _CACHE_FIELDS.forEach(f => { if (p[f] !== undefined && p[f] !== null && p[f] !== '') entry[f] = p[f]; });
-    const apiImgs = (p.images || []).filter(u => !u.startsWith('data:')).slice(0, 5); // 최대 5개
+    const apiImgs = (p.images || []).filter(u => !u.startsWith('data:')).slice(0, 5);
     if (apiImgs.length) entry.images = apiImgs;
     keys.forEach(k => { cache[k] = entry; });
     _plantCacheDirty = true;
@@ -2662,6 +2664,24 @@ function _drainLoadQueue() {
   }
   if (cacheHits > 0) { renderChips(); renderActiveTab(); }
   _updateLoadProgress();
+
+  // 모든 로딩 완료 후 NDB 누락 식물 재시도 (속도제한 회피 위해 지연)
+  if (_loadActive === 0 && _loadQueue.length === 0) {
+    const missing = plants.filter(p => p.done && !p.fetching && !p.naturadbUrl && !p.notFound);
+    if (missing.length) {
+      console.log(`[NDB 재시도] ${missing.length}종 NDB 누락 — 3초 후 재시도`);
+      setTimeout(() => {
+        missing.forEach((p, i) => {
+          setTimeout(() => {
+            if (p.naturadbUrl) return; // 이미 채워졌으면 스킵
+            loadNaturadbDetail(p).then(() => {
+              if (p.naturadbUrl) { _cacheSavePlant(p); renderActiveTabDebounced(); }
+            });
+          }, i * 800); // 식물마다 0.8초 간격
+        });
+      }, 3000);
+    }
+  }
 }
 
 function renderAll() {
