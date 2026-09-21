@@ -3459,8 +3459,6 @@ function renderEcology() {
       f('일반명',      p.commonName      || ld(p,'')),
       f('유형',        p.plantType       || nld(p, p.ndbPflanzenart)),
       f('과명',        p.family          || ld(p,'')),
-      f('속명',        p.genusName       || ''),
-      f('종소명',      p.specificEpithet || ''),
       f('자생/원산지', origin),
     ].join('');
 
@@ -3471,7 +3469,7 @@ function renderEcology() {
       f('바닥',         nld(p, p.ndbBoden)),
       f('영양소',       nld(p, p.ndbNaehrstoffe)),
       f('pH 값',        nld(p, p.ndbPH)),
-      f('컨테이너',     nld(p, p.ndbKuebel)),
+      f('인공지반/화분', nld(p, p.ndbKuebel)),
       f('뿌리압박내성', nld(p, p.ndbWurzeldruck)),
       f('서식처유형',   p.gsmLebensbereich || ''),
     ].join('');
