@@ -1251,23 +1251,29 @@ function plantsFromLS(restorePlants) {
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-async function wFetch(path, params = {}) {
+async function wFetch(path, params = {}, timeoutMs = 12000) {
   if (!CFG.worker) { console.warn('Worker URL 미설정'); return null; }
   const u = new URL(CFG.worker + path);
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   const pw = localStorage.getItem('appPassword') || '';
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const r = await fetch(u, { headers: pw ? { 'x-app-password': pw } : {} });
+    const r = await fetch(u, { headers: pw ? { 'x-app-password': pw } : {}, signal: ctrl.signal });
+    clearTimeout(tid);
     if (r.status === 401) { showPasswordPrompt(); return null; }
     return r.json();
-  } catch { return null; }
+  } catch { clearTimeout(tid); return null; }
 }
 
 async function inatFetch(q) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 10000);
   try {
-    const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=species&per_page=3&locale=ko`);
+    const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=species&per_page=3&locale=ko`, { signal: ctrl.signal });
+    clearTimeout(tid);
     return r.json();
-  } catch { return null; }
+  } catch { clearTimeout(tid); return null; }
 }
 
 // ── 이미지 폭포식 소스 ────────────────────────────────────────────────────────
@@ -1736,7 +1742,9 @@ async function loadPlant(p) {
     p.done = true;
     // loadPlant 완료 후 R2 data: URL 복원 보장
     try {
-      const r2 = await fetch(CFG.worker + '/api/img/load?plant=' + encodeURIComponent(p.name));
+      const _r2ctrl = new AbortController();
+      setTimeout(() => _r2ctrl.abort(), 8000);
+      const r2 = await fetch(CFG.worker + '/api/img/load?plant=' + encodeURIComponent(p.name), { signal: _r2ctrl.signal });
       if (r2.ok) {
         const d = await r2.json();
         const dataUrls = (d.images||[]).filter(u => u.startsWith('data:'));
@@ -2657,10 +2665,18 @@ function _drainLoadQueue() {
     if (_loadActive >= LOAD_CONCURRENCY) break;
     _loadQueue.shift();
     _loadActive++;
-    loadPlant(p).finally(() => {
-      _loadActive--;
-      _drainLoadQueue();
-    });
+    // 45초 타임아웃 — fetch 무응답 시 슬롯이 영원히 잠기는 것 방지
+    const _timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 45000));
+    Promise.race([loadPlant(p), _timeout])
+      .catch(err => {
+        console.warn('[loadPlant 타임아웃/오류]', p.name, err.message);
+        p.fetching = false;
+        p.done = true;
+      })
+      .finally(() => {
+        _loadActive--;
+        _drainLoadQueue();
+      });
   }
   if (cacheHits > 0) { renderChips(); renderActiveTab(); }
   _updateLoadProgress();
