@@ -2542,10 +2542,25 @@ const _CACHE_FIELDS = [
   'watering','maintenance','nativeRange','imageUrl','notFound'
 ];
 
+// localStorage를 매번 파싱하지 않도록 메모리에 유지
+let _plantCacheObj = null;
+let _plantCacheDirty = false;
+function _getCache() {
+  if (!_plantCacheObj) {
+    try { _plantCacheObj = JSON.parse(localStorage.getItem(_PLANT_CACHE_KEY) || '{}'); }
+    catch(e) { _plantCacheObj = {}; }
+  }
+  return _plantCacheObj;
+}
+function _flushCache() {
+  if (!_plantCacheDirty || !_plantCacheObj) return;
+  try { localStorage.setItem(_PLANT_CACHE_KEY, JSON.stringify(_plantCacheObj)); _plantCacheDirty = false; }
+  catch(e) { console.warn('[cache] 저장 실패', e); }
+}
+
 function _cacheSavePlant(p) {
   try {
-    const cache = JSON.parse(localStorage.getItem(_PLANT_CACHE_KEY) || '{}');
-    // 원래 입력명(p.name)과 학명(p.latName) 모두 키로 저장
+    const cache = _getCache();
     const keys = [...new Set([
       p.name?.toLowerCase().trim(),
       p.latName?.toLowerCase().trim()
@@ -2553,26 +2568,24 @@ function _cacheSavePlant(p) {
     if (!keys.length) return;
     const entry = { _ts: Date.now() };
     _CACHE_FIELDS.forEach(f => { if (p[f] !== undefined && p[f] !== null && p[f] !== '') entry[f] = p[f]; });
-    // API 이미지만 저장 (data: URL 제외 — 너무 큼)
-    const apiImgs = (p.images || []).filter(u => !u.startsWith('data:'));
+    const apiImgs = (p.images || []).filter(u => !u.startsWith('data:')).slice(0, 5); // 최대 5개
     if (apiImgs.length) entry.images = apiImgs;
     keys.forEach(k => { cache[k] = entry; });
-    localStorage.setItem(_PLANT_CACHE_KEY, JSON.stringify(cache));
+    _plantCacheDirty = true;
+    _flushCache();
   } catch(e) { console.warn('[cache] 저장 실패', e); }
 }
 
 function _cacheLoadPlant(p) {
   try {
-    const cache = JSON.parse(localStorage.getItem(_PLANT_CACHE_KEY) || '{}');
-    // 원래 입력명으로 먼저 찾고, 없으면 학명으로 찾음
+    const cache = _getCache();
     const keys = [p.name?.toLowerCase().trim(), p.latName?.toLowerCase().trim()].filter(Boolean);
     let entry = null;
     let hitKey = null;
     for (const k of keys) { if (cache[k]) { entry = cache[k]; hitKey = k; break; } }
     if (!entry) return false;
     if (Date.now() - entry._ts > _PLANT_CACHE_TTL) {
-      delete cache[hitKey];
-      localStorage.setItem(_PLANT_CACHE_KEY, JSON.stringify(cache));
+      delete cache[hitKey]; _plantCacheDirty = true; _flushCache();
       return false;
     }
     _CACHE_FIELDS.forEach(f => { if (entry[f] !== undefined) p[f] = entry[f]; });
@@ -2585,6 +2598,7 @@ function _cacheLoadPlant(p) {
 }
 
 function clearPlantCache() {
+  _plantCacheObj = null; _plantCacheDirty = false;
   localStorage.removeItem(_PLANT_CACHE_KEY);
   alert('식물 데이터 캐시가 초기화되었습니다. 페이지를 새로고침하면 다시 검색합니다.');
 }
@@ -2621,19 +2635,23 @@ function loadPlantsQueued(list) {
 }
 
 function _drainLoadQueue() {
+  // 캐시 히트는 한 번에 최대 5개씩만 처리 후 yield (OOM 방지)
+  let cacheHits = 0;
   while (_loadQueue.length) {
     const p = _loadQueue[0];
-    // 이미 처리된 항목 건너뜀
     if (p.fetching || p.done) { _loadQueue.shift(); continue; }
-    // 캐시 히트: 즉시 복원, 슬롯 소비 없이 계속
     if (_cacheLoadPlant(p)) {
       _loadQueue.shift();
       p.done = true;
-      renderChips();
-      renderActiveTab();
+      cacheHits++;
+      if (cacheHits >= 5) {
+        // 브라우저에 숨 쉴 틈 주고 나머지 처리
+        setTimeout(() => { renderChips(); renderActiveTab(); _drainLoadQueue(); }, 0);
+        _updateLoadProgress();
+        return;
+      }
       continue;
     }
-    // 실제 네트워크 요청 — 동시 한도 확인
     if (_loadActive >= LOAD_CONCURRENCY) break;
     _loadQueue.shift();
     _loadActive++;
@@ -2642,6 +2660,7 @@ function _drainLoadQueue() {
       _drainLoadQueue();
     });
   }
+  if (cacheHits > 0) { renderChips(); renderActiveTab(); }
   _updateLoadProgress();
 }
 
