@@ -663,6 +663,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
       <button class="btn btn-primary" onclick="parsePlants()" style="padding:0.5rem 1.2rem;font-size:0.85rem;">🔍 검색</button>
       <button class="btn btn-ghost" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #c0d8b8;" onclick="document.getElementById('xlsxInput').click()" title="엑셀 파일에서 식물명 가져오기">📂 엑셀</button>
       <button class="btn btn-ghost" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #c0d8b8;" onclick="clearAll()">초기화</button>
+      <button class="btn btn-ghost" style="background:#fff8f0;color:#a05000;border:1px solid #e0c8a0;font-size:0.75rem;" onclick="clearPlantCache()" title="저장된 식물 데이터 캐시 삭제 (재검색 필요)">🗑️ 캐시초기화</button>
     </div>
     <input id="xlsxInput" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXlsx(this)">
   </div>
@@ -673,6 +674,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
   <div class="list-header">
     <h3>인식된 식물</h3>
     <span class="badge" id="plantCount">0</span>
+    <span id="loadProgress" style="font-size:0.75rem;color:#888;margin-left:6px;display:none;"></span>
     <span class="hint">✕ 클릭하여 제거</span>
   </div>
   <div id="chipArea"></div>
@@ -1501,7 +1503,7 @@ function parsePlants() {
     }
   });
   renderAll();
-  plants.filter(p => !p.fetching && !p.done).forEach(loadPlant);
+  loadPlantsQueued(plants.filter(p => !p.fetching && !p.done));
 }
 
 function mkPlant(name) {
@@ -1555,7 +1557,7 @@ async function addPlant() {
   renderAll();
   await restoreImgFromR2(p);  // R2 복원 먼저 (hiddenImages + data URL 확보 후 loadPlant 실행)
   renderActiveTab();
-  loadPlant(p);
+  loadPlantsQueued([p]);
 }
 
 function removePlant(name) {
@@ -1760,7 +1762,9 @@ async function loadPlant(p) {
       if (s?.selectedFlowerColor && !p.selectedFlowerColor) p.selectedFlowerColor = s.selectedFlowerColor;
     } catch(e) {}
     plantsToLS();
+    _cacheSavePlant(p);   // 캐시 저장 (다음 세션에서 즉시 복원)
     renderAll();
+    _updateLoadProgress();
     // 모든 소스 실패 시 경고
     const hasAnyData = p.mbgTaxonId || p.naturadbUrl || p.rhsUrl || p.culture || p.ndbStandort || p.height
       || p.pflanzAbstand || p.geselligkeit || p.pflanzCount
@@ -1848,7 +1852,7 @@ function retryWithName(idx, newName) {
   p.notFound = false;
   p.done = false;
   p.fetching = false;
-  loadPlant(p);
+  loadPlantsQueued([p]);
   renderAll();
 }
 
@@ -1873,7 +1877,7 @@ function notFoundRetry(origName, inputId, toastEl) {
   // 기존 데이터 초기화
   ['mbgTaxonId','culture','noteworthy','problems','uses','ndbStandort','rhsUrl','height'].forEach(k => delete p[k]);
   toastEl?.remove();
-  loadPlant(p);
+  loadPlantsQueued([p]);
   renderAll();
 }
 
@@ -2515,6 +2519,129 @@ function setBloomFromSource(p, src, interval) {
 }
 
 // ── Render Helpers ────────────────────────────────────────────────────────────
+// 동시 로딩 수 제한 (메모리 초과 방지)
+const LOAD_CONCURRENCY = 5;
+let _loadActive = 0;
+let _loadQueue = [];
+
+// ── Plant Data Cache (30일) ───────────────────────────────────────────────────
+const _PLANT_CACHE_KEY = '식재리스트_plantCache';
+const _PLANT_CACHE_TTL = 30 * 24 * 3600 * 1000;
+const _CACHE_FIELDS = [
+  'latName','korName','commonName','family','native',
+  'height','spreadStr','spreadM','hardiness','ndbHardiness',
+  'bloomMonths','bloomColorRaw','bloomRaw',
+  'sunlight','flowerColors','flowerR','flowerDiamCm',
+  'plantType','ndbWuchs','ndbPflanzenart','ndbStandort','ndbGiftig','ndbWildbienen',
+  'ndbBlickTags','ndbBlickBullets',
+  'mbgTaxonId','mbgStaticSlug','naturadbUrl','rhsUrl','inatId','inatUrl','wikiUrl',
+  'culture','noteworthy','uses','problems','tolerate','suggestedUse','flower','leaf','attracts',
+  'watering','maintenance','nativeRange','imageUrl','notFound'
+];
+
+function _cacheSavePlant(p) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(_PLANT_CACHE_KEY) || '{}');
+    // 원래 입력명(p.name)과 학명(p.latName) 모두 키로 저장
+    const keys = [...new Set([
+      p.name?.toLowerCase().trim(),
+      p.latName?.toLowerCase().trim()
+    ].filter(Boolean))];
+    if (!keys.length) return;
+    const entry = { _ts: Date.now() };
+    _CACHE_FIELDS.forEach(f => { if (p[f] !== undefined && p[f] !== null && p[f] !== '') entry[f] = p[f]; });
+    // API 이미지만 저장 (data: URL 제외 — 너무 큼)
+    const apiImgs = (p.images || []).filter(u => !u.startsWith('data:'));
+    if (apiImgs.length) entry.images = apiImgs;
+    keys.forEach(k => { cache[k] = entry; });
+    localStorage.setItem(_PLANT_CACHE_KEY, JSON.stringify(cache));
+  } catch(e) { console.warn('[cache] 저장 실패', e); }
+}
+
+function _cacheLoadPlant(p) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(_PLANT_CACHE_KEY) || '{}');
+    // 원래 입력명으로 먼저 찾고, 없으면 학명으로 찾음
+    const keys = [p.name?.toLowerCase().trim(), p.latName?.toLowerCase().trim()].filter(Boolean);
+    let entry = null;
+    let hitKey = null;
+    for (const k of keys) { if (cache[k]) { entry = cache[k]; hitKey = k; break; } }
+    if (!entry) return false;
+    if (Date.now() - entry._ts > _PLANT_CACHE_TTL) {
+      delete cache[hitKey];
+      localStorage.setItem(_PLANT_CACHE_KEY, JSON.stringify(cache));
+      return false;
+    }
+    _CACHE_FIELDS.forEach(f => { if (entry[f] !== undefined) p[f] = entry[f]; });
+    if (entry.images?.length) {
+      const userImgs = (p.images || []).filter(u => u.startsWith('data:'));
+      p.images = [...userImgs, ...entry.images.filter(u => !u.startsWith('data:'))];
+    }
+    return true;
+  } catch(e) { return false; }
+}
+
+function clearPlantCache() {
+  localStorage.removeItem(_PLANT_CACHE_KEY);
+  alert('식물 데이터 캐시가 초기화되었습니다. 페이지를 새로고침하면 다시 검색합니다.');
+}
+
+// ── Loading progress ─────────────────────────────────────────────────────────
+let _loadTotal = 0;
+let _loadDone  = 0;
+
+function _updateLoadProgress() {
+  const el = document.getElementById('loadProgress');
+  if (!el) return;
+  const pending = plants.filter(p => !p.done && !p.fetching).length;
+  const fetching = plants.filter(p => p.fetching).length;
+  const done = plants.filter(p => p.done).length;
+  if (done === plants.length && plants.length > 0) {
+    el.textContent = `✓ ${done}종 완료`;
+    el.style.color = '#52b788';
+    el.style.display = '';
+    setTimeout(() => { if (el) el.style.display = 'none'; }, 3000);
+  } else if (fetching > 0 || pending > 0) {
+    el.textContent = `${done}/${plants.length} 로드중…`;
+    el.style.color = '#888';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function loadPlantsQueued(list) {
+  for (const p of list) {
+    if (!_loadQueue.includes(p) && !p.fetching && !p.done) _loadQueue.push(p);
+  }
+  _drainLoadQueue();
+}
+
+function _drainLoadQueue() {
+  while (_loadQueue.length) {
+    const p = _loadQueue[0];
+    // 이미 처리된 항목 건너뜀
+    if (p.fetching || p.done) { _loadQueue.shift(); continue; }
+    // 캐시 히트: 즉시 복원, 슬롯 소비 없이 계속
+    if (_cacheLoadPlant(p)) {
+      _loadQueue.shift();
+      p.done = true;
+      renderChips();
+      renderActiveTab();
+      continue;
+    }
+    // 실제 네트워크 요청 — 동시 한도 확인
+    if (_loadActive >= LOAD_CONCURRENCY) break;
+    _loadQueue.shift();
+    _loadActive++;
+    loadPlant(p).finally(() => {
+      _loadActive--;
+      _drainLoadQueue();
+    });
+  }
+  _updateLoadProgress();
+}
+
 function renderAll() {
   renderChips();
   renderActiveTab();
@@ -2542,6 +2669,7 @@ function renderChips() {
   const sec  = document.getElementById('plant-list-section');
   const area = document.getElementById('chipArea');
   document.getElementById('plantCount').textContent = plants.length;
+  _updateLoadProgress();
   if (!plants.length) { sec.style.display = 'none'; return; }
   sec.style.display = 'block';
 
