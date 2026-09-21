@@ -595,7 +595,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
 #bc-plant-panel .bc-add-item { flex-shrink:0; }
 .bc-node { position:absolute;background:#fff;border:1.5px solid #c0d8b0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15);min-width:100px;width:130px;cursor:move;user-select:none;z-index:10;display:flex;flex-direction:column;overflow:hidden; }
 .bc-node.bc-selected { border-color:#52b788;box-shadow:0 0 0 2px #aeeac8; }
-.bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:5px 7px;background:#f0f8ec;border-radius:8px 8px 0 0;font-size:0.78rem;font-weight:700;color:#1a3012;cursor:move; }
+.bc-node-hd { display:flex;align-items:center;justify-content:space-between;padding:5px 7px;background:#f5f5f5;border-radius:8px 8px 0 0;font-size:0.85rem;font-weight:700;color:#111;cursor:move; }
 .bc-node-dup { background:none;border:none;cursor:pointer;color:#8aaa7a;font-size:0.9rem;padding:0 2px;line-height:1; }
 .bc-node-del { background:none;border:none;color:#c44;cursor:pointer;font-size:1rem;line-height:1;padding:0 2px; }
 .bc-node-img { width:100%;height:100px;flex:1;min-height:60px;object-fit:cover;display:block;transform-origin:center center; }
@@ -603,10 +603,9 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .bc-node-nav { display:flex;align-items:center;justify-content:center;gap:2px;padding:2px;background:#fafdf8;border-top:1px solid #e8f0e4; }
 .bc-nav-btn { background:#e8f0e4;border:none;border-radius:4px;width:22px;height:18px;font-size:0.75rem;cursor:pointer;color:#4a6a3a; }
 .bc-nav-btn:hover { background:#c8e8c0; }
-.bc-node-info { padding:5px 7px;border-top:1px solid #d8edd0;background:#f6fdf4;line-height:1.5; }
-.bc-info-h { display:block;font-size:0.88rem;font-weight:800;color:#1a3012; }
-.bc-info-b { display:block;font-size:0.88rem;font-weight:800;color:#2a5a1a; }
-.bc-info-fc { display:block;font-size:0.62rem;color:#8aaa6a;margin-top:1px; }
+.bc-node-info { padding:5px 7px;border-top:1px solid #ddd;background:#fff;line-height:1.6; }
+.bc-info-h { display:block;font-size:0.9rem;font-weight:800;color:#111; }
+.bc-info-b { display:block;font-size:0.9rem;font-weight:800;color:#111; }
 .bc-resize { position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 40%, #52b788 40%); border-radius:0 0 8px 0; }
 .bc-arrow-pt { position:absolute;width:12px;height:12px;background:#f59e0b;border:2px solid #fff;border-radius:50%;cursor:crosshair;z-index:12;transform:translate(-50%,-50%); }
 #bc-arrow-btn.active { background:#52b788;color:#fff; }
@@ -5137,10 +5136,11 @@ function bcRenderNode(n) {
   let el = document.getElementById('bc-n-'+n.id);
   const p = plants[n.pi];
   const latN = p?.latName || p?.name || '';
-  const korN = (p?.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
-  const displayName = korN && latN
-    ? `<b style="font-style:italic">${latN}</b><span style="color:#8aaa7a;font-size:0.78em;font-weight:normal"> (${korN})</span>`
-    : `<b style="font-style:italic">${latN || korN || '?'}</b>`;
+  // 속명 + 품종명만 (종소명 제거): Pennisetum alopecuroides 'Viridescens' → Pennisetum 'Viridescens'
+  const _cultivarM = latN.match(/([''‘’][^''‘’]+[''‘’])/);
+  const _genus = latN.trim().split(/\s+/)[0] || '';
+  const shortName = _cultivarM ? `${_genus} ${_cultivarM[1]}` : latN;
+  const displayName = `<b style="font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${shortName || '?'}</b>`;
   const imgs = p?.images || [];
   const imgIdx = Math.min(n.imgIdx||0, Math.max(0, imgs.length-1));
   const src = imgs[imgIdx] || '';
@@ -5152,7 +5152,7 @@ function bcRenderNode(n) {
   const navHtml = imgs.length > 1
     ? `<div class="bc-node-nav">
         <button class="bc-nav-btn" onclick="bcCycleImg(${n.id},-1)">‹</button>
-        <span style="font-size:0.62rem;color:#8aaa7a">${imgIdx+1}/${imgs.length}</span>
+        <span style="font-size:0.62rem;color:#666">${imgIdx+1}/${imgs.length}</span>
         <button class="bc-nav-btn" onclick="bcCycleImg(${n.id},1)">›</button>
        </div>` : '';
   const imgHtml = src
@@ -5160,7 +5160,7 @@ function bcRenderNode(n) {
     : `<div class="bc-node-img-ph">🌿</div>`;
 
   const html = `<div class="bc-node-hd">
-      <span style="overflow:hidden;max-width:78%;line-height:1.35;font-size:0.85rem">${displayName}</span>
+      <span style="overflow:hidden;max-width:78%;line-height:1.35;font-size:0.85rem;min-width:0">${displayName}</span>
       <span style="display:flex;gap:2px">
         <button class="bc-node-dup" onclick="bcDupNode(${n.id})" title="복사">⧉</button>
         <button class="bc-node-del" onclick="bcDelNode(${n.id})" title="삭제">✕</button>
