@@ -1601,7 +1601,7 @@ async function loadPlant(p) {
   const latForSearch = p.latName || ((/^[A-Z]/.test(p.name)) ? p.name : '');
   if (!p.korName && latForSearch) p.korName = latinReadKr(latForSearch);
 
-  renderChips(); renderActiveTab();
+  renderChips(); renderActiveTabDebounced();
 
   // 2. 이미지 폭포식: Wikimedia Commons → iNaturalist → GBIF
   const sp = latForSearch.replace(/\s*[''][^'']+['']\s*$/, '').trim() || p.name;
@@ -1641,7 +1641,7 @@ async function loadPlant(p) {
   p.images = [...userImgs, ...apiImgs];
   if (!p.images.length && p.imageUrl && !hidden.has(p.imageUrl)) p.images = [p.imageUrl];
 
-  renderChips(); renderActiveTab();
+  renderChips(); renderActiveTabDebounced();
 
   // 2. 자생종 조회 (로컬 JSON DB — 공식 추천국명 우선)
   await loadNativePlantDB();
@@ -1653,7 +1653,7 @@ async function loadPlant(p) {
     p.native    = nativeInfo.native || '';
     p.plantType = p.plantType || [nativeInfo.type, nativeInfo.shape].filter(Boolean).join(' · ') || '';
   }
-  renderChips(); renderActiveTab();
+  renderChips(); renderActiveTabDebounced();
 
   // 3b. KV에서 식재 추가 데이터 조회
   const kvKey = (p.latName || p.name || '').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
@@ -1664,7 +1664,7 @@ async function loadPlant(p) {
       if (d.geselligkeit)  p.geselligkeit  = d.geselligkeit;
       if (d.pflanzAbstand) p.pflanzAbstand = d.pflanzAbstand;
       if (d.pflanzCount)   p.pflanzCount   = d.pflanzCount;
-      renderActiveTab();
+      renderActiveTabDebounced();
     }).catch(() => {});
 
   // 3. MBG Plant Finder (via Worker)
@@ -1954,7 +1954,7 @@ async function loadGardeniaDetail(p) {
   if (det.nativeRange && !p.nativeRange) p.nativeRange = det.nativeRange;
   if (det.attracts && !p.attracts)   p.attracts     = det.attracts;
   p.gardeniaUrl = det.url || '';
-  renderChips(); renderActiveTab();
+  renderChips(); renderActiveTabDebounced();
 }
 
 async function loadKnagardenDetail(p, korName) {
@@ -2012,7 +2012,7 @@ async function loadKnagardenDetail(p, korName) {
   }
   if (det.성상 && !p.plantType) p.plantType = det.성상;
   p.knaUrl = det.url || '';
-  renderChips(); renderActiveTab();
+  renderChips(); renderActiveTabDebounced();
 }
 
 async function loadNaturadbDetail(p) {
@@ -2080,7 +2080,7 @@ async function loadNaturadbDetail(p) {
         myMemoryDirect(joined, 'de|ko').then(tr => {
           if (tr) {
             p.ndbBlickBullets = tr.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean);
-            renderActiveTab();
+            renderActiveTabDebounced();
           }
         });
       }
@@ -2114,7 +2114,7 @@ async function loadNaturadbDetail(p) {
   if (!det.fromStatic) {
     Promise.all(ndbFields.filter(k => p[k]).map(async k => {
       const translated = await myMemoryDirect(p[k], 'de|ko');
-      if (translated && translated !== p[k]) { p[k] = translated; renderActiveTab(); }
+      if (translated && translated !== p[k]) { p[k] = translated; renderActiveTabDebounced(); }
     }));
   }
 
@@ -2152,7 +2152,7 @@ async function loadNaturadbDetail(p) {
   }
 
   p.naturadbUrl = det.url || '';
-  renderChips(); renderActiveTab();
+  renderChips(); renderActiveTabDebounced();
   } // end if (det && !det.error)
 
   // 정원백과 fallback: ndb 텍스트 섹션이 없고 한국어 국명이 있으면
@@ -2187,7 +2187,7 @@ async function loadGaissmayerDetail(p) {
   if (det.pflanzZeitpunkt  && !p.gsmPflanzZeitpunkt)  p.gsmPflanzZeitpunkt  = det.pflanzZeitpunkt;
   if (det.gaissmayerUrl && !p.gaissmayerUrl) p.gaissmayerUrl = det.gaissmayerUrl;
   p.gaissmayerFetched = true;
-  if (det.geselligkeit || det.pflanzAbstand || det.giftklasse || det.lebensbereich) renderActiveTab();
+  if (det.geselligkeit || det.pflanzAbstand || det.giftklasse || det.lebensbereich) renderActiveTabDebounced();
 }
 
 async function loadRhsUrl(p) {
@@ -2216,7 +2216,7 @@ async function loadRhsUrl(p) {
     console.log(`[src:RHS] ${p.name} | q=${JSON.stringify(name)} → ${data?.rhsUrl ? 'HIT url='+data.rhsUrl : 'MISS'}`);
     if (data && data.rhsUrl && !p.rhsUrl) {
       p.rhsUrl = data.rhsUrl;
-      renderActiveTab();
+      renderActiveTabDebounced();
       // RHS URL 획득 후 재배 상세 정보 로드
       loadRhsDetail(p);
     } else if (p.rhsUrl && !p.rhsCultivation) {
@@ -2303,7 +2303,7 @@ async function loadRhsDetail(p) {
     if (!p.family && d.rhsFamily)       p.family     = d.rhsFamily;
     if (!p.plantType && d.rhsHabit)     p.plantType  = d.rhsHabit;
     if (!p.nativeRange && d.rhsRange)   p.nativeRange = d.rhsRange;
-    renderActiveTab();
+    renderActiveTabDebounced();
   } catch(e) {}
 }
 
@@ -2431,10 +2431,10 @@ function applyMbgDet(p, det) {
   if (det.genusName)       p.genusName       = det.genusName;
   if (det.specificEpithet) p.specificEpithet = det.specificEpithet;
   if (det.commonName && !p.commonName) p.commonName = det.commonName;
-  renderChips(); renderActiveTab();
+  renderChips(); renderActiveTabDebounced();
   const toTranslate = [];
-  if (p.culture)  toTranslate.push(translateText(p.culture).then(t  => { if (t !== p.culture)  { p.culture  = t; renderActiveTab(); } }));
-  if (p.problems) toTranslate.push(translateText(p.problems).then(t => { if (t !== p.problems) { p.problems = t; renderActiveTab(); } }));
+  if (p.culture)  toTranslate.push(translateText(p.culture).then(t  => { if (t !== p.culture)  { p.culture  = t; renderActiveTabDebounced(); } }));
+  if (p.problems) toTranslate.push(translateText(p.problems).then(t => { if (t !== p.problems) { p.problems = t; renderActiveTabDebounced(); } }));
 }
 
 function parseFeetRange(str) {
@@ -2833,7 +2833,14 @@ function switchTab(tab) {
   catch(err) { showToast('탭 렌더 오류: ' + err.message); console.error('switchTab error:', err); }
 }
 
+let _renderActiveTabTimer = null;
+function renderActiveTabDebounced() {
+  clearTimeout(_renderActiveTabTimer);
+  _renderActiveTabTimer = setTimeout(renderActiveTab, 120);
+}
+
 function renderActiveTab() {
+  clearTimeout(_renderActiveTabTimer); // 실제 실행 시 타이머 취소
   switch (activeTab) {
     case 'images':   renderImages();   break;
     case 'ecology':  renderEcology();  break;
