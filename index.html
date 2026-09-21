@@ -1279,20 +1279,26 @@ async function inatFetch(q) {
 // ── 이미지 폭포식 소스 ────────────────────────────────────────────────────────
 const _wikiCache = {}, _gbifCache = {}, _inatImgCache = {};
 
+function _fetchT(url, ms = 8000) {
+  const c = new AbortController();
+  setTimeout(() => c.abort(), ms);
+  return fetch(url, { signal: c.signal }).then(r => r.json());
+}
+
 async function fetchWiki(query) {
   if (_wikiCache[query] !== undefined) return _wikiCache[query];
   try {
-    const s = await fetch(
+    const s = await _fetchT(
       `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=6&srlimit=40&format=json&origin=*`
-    ).then(r => r.json());
+    );
     const files = (s.query?.search || [])
       .map(r => r.title)
       .filter(t => /\.(jpe?g|png)$/i.test(t) && !/map|distribution|range|icon|logo|diagram|coat|flag|stamp/i.test(t))
       .slice(0, 20);
     if (!files.length) { _wikiCache[query] = []; return []; }
-    const info = await fetch(
+    const info = await _fetchT(
       `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(files.join('|'))}&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json&origin=*`
-    ).then(r => r.json());
+    );
     const photos = Object.values(info.query?.pages || {})
       .map(p => p.imageinfo?.[0]?.thumburl).filter(Boolean)
       .map(url => ({ url, src: 'wiki' }));
@@ -1307,11 +1313,11 @@ async function fetchInatImgs(taxonId, query) {
   try {
     let tid = taxonId;
     if (!tid) {
-      const d = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(query)}&per_page=1`).then(r => r.json());
+      const d = await _fetchT(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(query)}&per_page=1`);
       tid = d.results?.[0]?.id;
     }
     if (!tid) { _inatImgCache[key] = []; return []; }
-    const d = await fetch(`https://api.inaturalist.org/v1/observations?taxon_id=${tid}&quality_grade=research&photos=true&per_page=20&order_by=votes`).then(r => r.json());
+    const d = await _fetchT(`https://api.inaturalist.org/v1/observations?taxon_id=${tid}&quality_grade=research&photos=true&per_page=20&order_by=votes`);
     const photos = [];
     for (const obs of d.results || [])
       for (const ph of obs.photos || []) {
@@ -1326,9 +1332,9 @@ async function fetchInatImgs(taxonId, query) {
 async function fetchGbif(latin) {
   if (_gbifCache[latin] !== undefined) return _gbifCache[latin];
   try {
-    const d = await fetch(
+    const d = await _fetchT(
       `https://api.gbif.org/v1/occurrence/search?mediaType=StillImage&scientificName=${encodeURIComponent(latin)}&limit=20&hasCoordinate=false`
-    ).then(r => r.json());
+    );
     const photos = [];
     for (const occ of d.results || [])
       for (const m of occ.media || [])
