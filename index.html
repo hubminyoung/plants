@@ -2543,10 +2543,12 @@ function setBloomFromSource(p, src, interval) {
 }
 
 // ── Render Helpers ────────────────────────────────────────────────────────────
-// 동시 로딩 수 제한 (메모리 초과 방지)
-const LOAD_CONCURRENCY = 5;
+// 동시 로딩 수 제한 — 너무 많으면 API rate limit에 걸림
+const LOAD_CONCURRENCY = 2;
 let _loadActive = 0;
 let _loadQueue = [];
+let _lastPlantStartTime = 0;
+const LOAD_START_INTERVAL = 1500; // 새 식물 로딩 시작 간격 (ms) — rate limit 회피
 
 // ── Plant Data Cache (30일) ───────────────────────────────────────────────────
 const _PLANT_CACHE_KEY = '식재리스트_plantCache';
@@ -2580,8 +2582,11 @@ function _flushCache() {
 }
 
 function _cacheSavePlant(p) {
-  // NDB·MBG 데이터 없으면 캐시 저장 안 함 — 다음 검색 시 재시도
-  if (!p.naturadbUrl && !p.mbgTaxonId && !p.rhsUrl) return;
+  // 유용한 데이터가 하나라도 있으면 캐시 (bloom/height만 있어도 저장 — 다음 세션에서 재시도 불필요)
+  const hasUseful = p.naturadbUrl || p.mbgTaxonId || p.rhsUrl ||
+                    p.bloomMonths?.length || p.height || p.sunlight?.length ||
+                    p.culture || p.plantType || p.inatId;
+  if (!hasUseful) return;
   try {
     const cache = _getCache();
     const keys = [...new Set([
@@ -2706,8 +2711,16 @@ function _drainLoadQueue() {
       continue;
     }
     if (_loadActive >= LOAD_CONCURRENCY) break;
+    // 연속 시작 간격 제한 — 너무 빠르게 시작하면 API rate limit
+    const now = Date.now();
+    const sinceLastStart = now - _lastPlantStartTime;
+    if (_lastPlantStartTime > 0 && sinceLastStart < LOAD_START_INTERVAL) {
+      setTimeout(_drainLoadQueue, LOAD_START_INTERVAL - sinceLastStart);
+      break;
+    }
     _loadQueue.shift();
     _loadActive++;
+    _lastPlantStartTime = Date.now();
     // 45초 타임아웃 — fetch 무응답 시 슬롯이 영원히 잠기는 것 방지
     const _timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 45000));
     Promise.race([loadPlant(p), _timeout])
