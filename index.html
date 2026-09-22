@@ -747,6 +747,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
       <button class="eco-chip eco-month-chip" data-filter="month" data-val="12" onclick="ecoChipToggle(this)">12</button>
     </div>
     <span id="eco-search-count" class="eco-search-count"></span>
+    <button onclick="openPrintDialog()" style="margin-left:auto;padding:4px 12px;background:#fff;border:1px solid #ccc;border-radius:6px;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;gap:4px">🖨️ 인쇄</button>
   </div>
   <div id="eco-content"><div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div></div>
 </div>
@@ -840,7 +841,12 @@ table.dtbl tr:last-child td { border-bottom: none; }
     <div class="ai-output" id="ai-output"><p style="color:#8aaa7a;font-size:0.8rem;">생성된 이미지가 여기에 표시됩니다.</p></div>
   </div>
 </div>
-<div id="pane-care" class="tab-pane"><div id="care-content"><div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div></div></div>
+<div id="pane-care" class="tab-pane">
+  <div style="display:flex;justify-content:flex-end;padding:0.5rem 1rem 0">
+    <button onclick="openPrintDialog()" style="padding:4px 12px;background:#fff;border:1px solid #ccc;border-radius:6px;font-size:0.8rem;cursor:pointer">🖨️ 인쇄</button>
+  </div>
+  <div id="care-content"><div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div></div>
+</div>
 
 <div id="pane-site" class="tab-pane">
   <div style="max-width:680px;margin:2rem auto;padding:0 1rem;">
@@ -1781,7 +1787,7 @@ async function loadPlant(p) {
     } catch(e) {}
     plantsToLS();
     _cacheSavePlant(p);   // 캐시 저장 (다음 세션에서 즉시 복원)
-    renderAll();
+    renderActiveTabDebounced();  // 로딩 중 과도한 재빌드 방지 (120ms 디바운스)
     _updateLoadProgress();
     // 모든 소스 실패 시 경고
     const hasAnyData = p.mbgTaxonId || p.naturadbUrl || p.rhsUrl || p.culture || p.ndbStandort || p.height
@@ -2659,6 +2665,8 @@ function _updateLoadProgress() {
     el.style.color = '#52b788';
     el.style.display = '';
     setTimeout(() => { if (el) el.style.display = 'none'; }, 3000);
+    // 로딩 완료 시 최종 전체 렌더 (디바운스로 놓친 게 없도록)
+    renderAll();
     // NDB 누락 있으면 재시도 버튼 표시
     const missingCount = plants.filter(p => p.done && !p.naturadbUrl && !p.notFound).length;
     const retryBtn = document.getElementById('ndbRetryBtn');
@@ -3459,6 +3467,7 @@ function escH(s) {
 function renderEcology() {
   const el = document.getElementById('eco-content');
   if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div>'; return; }
+  const _sy = window.scrollY;
 
   const ld  = (p, v) => p.fetching ? '<span class="loading-val">…</span>' : (v || '—');
   const nld = (p, v) => p.ndbFetching ? '<span class="loading-val">…</span>' : (v || '—');
@@ -3717,6 +3726,8 @@ function renderEcology() {
 
   el.innerHTML = `<div class="eco-cards">${cards}</div>
     <p class="src-note" style="padding:0 1rem 0.5rem">* 자생여부: 산림청 | 생태·형태: MBG + NaturaDB(🌿) | Ellenberg: EIVE</p>`;
+  // 재빌드 시 스크롤 위치 보존 (로딩 중 레이아웃 시프트 방지)
+  if (window.scrollY !== _sy) window.scrollTo(0, _sy);
 }
 // hex → 자연스러운 뮤트톤 변환 (개화 분포도용)
 function muteHex(hex) {
@@ -6233,6 +6244,151 @@ img{max-width:120px;max-height:100px;border-radius:4px;}
   setH();
   new ResizeObserver(setH).observe(hdr);
 })();
+
+// ── 인쇄 기능 ─────────────────────────────────────────────────────────────────
+function openPrintDialog() {
+  document.getElementById('print-modal').style.display = 'flex';
+}
+function closePrintDialog() {
+  document.getElementById('print-modal').style.display = 'none';
+}
+
+function doPrint() {
+  const sections = {
+    image:    document.getElementById('prn-image').checked,
+    basic:    document.getElementById('prn-basic').checked,
+    habitat:  document.getElementById('prn-habitat').checked,
+    growth:   document.getElementById('prn-growth').checked,
+    flower:   document.getElementById('prn-flower').checked,
+    eco:      document.getElementById('prn-eco').checked,
+    ndb:      document.getElementById('prn-ndb').checked,
+    care:     document.getElementById('prn-care').checked,
+  };
+  const cols = parseInt(document.querySelector('input[name="prn-cols"]:checked').value);
+
+  const sunLabel = { 'full sun':'화창한', 'part sun':'부분 맑음', 'part shade':'부분 그늘', 'shade':'그늘' };
+  const waterLabel = { 'dry':'건조', 'medium':'보통', 'wet':'습윤', 'average':'보통', 'moist':'촉촉' };
+
+  function row(label, val) {
+    if (!val) return '';
+    return `<tr><td class="lbl">${label}</td><td>${val}</td></tr>`;
+  }
+  function sunIcon(arr) {
+    if (!arr?.length) return '';
+    return arr.map(s => sunLabel[s] || s).join(', ');
+  }
+
+  const cards = plants.map(p => {
+    const lat = p.latName || p.name || '';
+    const kor = (p.korName && /[가-힣]/.test(p.korName)) ? p.korName : '';
+    const imgSrc = sections.image ? ((p.images||[]).find(u => !u.startsWith('data:')) || '') : '';
+    const bloom = p.bloomMonths?.length
+      ? p.bloomMonths[0] + (p.bloomMonths.length > 1 ? '~' + p.bloomMonths[p.bloomMonths.length-1] : '') + '월'
+      : '';
+    const flcHex = (p.flowerColors||[]).slice(0,3);
+    const flcHtml = flcHex.map(c => `<span style="display:inline-block;width:12px;height:12px;background:${c};border:1px solid #999;border-radius:2px;vertical-align:middle"></span>`).join(' ');
+
+    let tbl = '';
+    if (sections.basic) {
+      tbl += row('일반명', p.commonName || '');
+      tbl += row('유형', p.plantType || p.ndbPflanzenart || '');
+      tbl += row('과', p.family || '');
+      tbl += row('원산지', p.native || p.nativeRange || '');
+    }
+    if (sections.habitat) {
+      tbl += row('일조', sunIcon(p.sunlight));
+      tbl += row('수분', (p.watering ? waterLabel[p.watering.toLowerCase()] || p.watering : ''));
+      tbl += row('바닥', p.ndbBoden || '');
+      tbl += row('pH', p.ndbPH || '');
+      tbl += row('화분', p.ndbKuebel || '');
+    }
+    if (sections.growth) {
+      tbl += row('수고', p.height || '');
+      tbl += row('폭', p.spreadStr || '');
+      tbl += row('내한성', p.hardiness || p.ndbHardiness || '');
+      tbl += row('생장', p.ndbWuchs || '');
+    }
+    if (sections.flower) {
+      tbl += row('개화기', bloom);
+      if (flcHtml) tbl += `<tr><td class="lbl">꽃색</td><td>${flcHtml}</td></tr>`;
+      tbl += row('꽃특징', p.flower || '');
+    }
+    if (sections.eco) {
+      tbl += row('유인생물', p.attracts || '');
+      tbl += row('내성', p.tolerate || '');
+      tbl += row('관리', p.maintenance || '');
+    }
+    if (sections.ndb && p.ndbBlickBullets?.length) {
+      const bullets = p.ndbBlickBullets.map(b => `<li>${b}</li>`).join('');
+      tbl += `<tr><td class="lbl" style="vertical-align:top">NDB</td><td><ul style="margin:0;padding-left:14px;font-size:0.75rem">${bullets}</ul></td></tr>`;
+    }
+    if (sections.care) {
+      tbl += row('전정', p.pruning || p.ndbSchnitt || '');
+      tbl += row('시비', p.fertilizing || '');
+    }
+
+    return `<div class="pcard">
+      ${imgSrc ? `<img src="${imgSrc}" class="pcard-img" onerror="this.style.display='none'">` : ''}
+      <div class="pcard-name">
+        <i>${lat}</i>${kor ? `<span class="pkor">${kor}</span>` : ''}
+      </div>
+      ${tbl ? `<table class="pcard-tbl">${tbl}</table>` : ''}
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>식물 카드 인쇄</title>
+<style>
+  @page { margin: 12mm; }
+  body { font-family: 'Malgun Gothic', sans-serif; font-size: 11px; margin: 0; }
+  .grid { display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 8px; }
+  .pcard { border: 1px solid #bbb; border-radius: 6px; overflow: hidden; page-break-inside: avoid; break-inside: avoid; }
+  .pcard-img { width: 100%; height: 110px; object-fit: cover; display: block; }
+  .pcard-name { padding: 5px 7px 3px; font-size: 12px; font-weight: 700; border-bottom: 1px solid #eee; }
+  .pkor { font-size: 10px; font-weight: normal; color: #555; margin-left: 5px; }
+  .pcard-tbl { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .pcard-tbl td { padding: 2px 5px; vertical-align: top; }
+  .pcard-tbl tr:nth-child(even) td { background: #f8f8f8; }
+  .lbl { color: #666; white-space: nowrap; width: 38px; font-size: 9.5px; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>
+<div class="grid">${cards}</div>
+<script>window.onload=()=>{window.print();}<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  closePrintDialog();
+}
 </script>
+
+<!-- 인쇄 설정 모달 -->
+<div id="print-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:24px 28px;width:360px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 16px;font-size:1rem">🖨️ 인쇄 설정</h3>
+    <p style="margin:0 0 10px;font-size:0.82rem;color:#555">표시할 정보</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;font-size:0.83rem">
+      <label><input type="checkbox" id="prn-image" checked> 이미지</label>
+      <label><input type="checkbox" id="prn-basic" checked> 기본정보</label>
+      <label><input type="checkbox" id="prn-habitat"> 서식처</label>
+      <label><input type="checkbox" id="prn-growth" checked> 성장형태</label>
+      <label><input type="checkbox" id="prn-flower" checked> 꽃/잎</label>
+      <label><input type="checkbox" id="prn-eco"> 생태/관리</label>
+      <label><input type="checkbox" id="prn-ndb"> NDB 핵심</label>
+      <label><input type="checkbox" id="prn-care"> 유지관리</label>
+    </div>
+    <p style="margin:0 0 8px;font-size:0.82rem;color:#555">페이지당 열 수</p>
+    <div style="display:flex;gap:8px;margin-bottom:20px;font-size:0.83rem">
+      <label><input type="radio" name="prn-cols" value="2"> 2열</label>
+      <label><input type="radio" name="prn-cols" value="3" checked> 3열</label>
+      <label><input type="radio" name="prn-cols" value="4"> 4열</label>
+      <label><input type="radio" name="prn-cols" value="1"> 1열</label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closePrintDialog()" style="padding:7px 16px;border:1px solid #ccc;border-radius:7px;background:#fff;cursor:pointer;font-size:0.85rem">취소</button>
+      <button onclick="doPrint()" style="padding:7px 18px;border:none;border-radius:7px;background:#2d5a1b;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:700">🖨️ 인쇄</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
