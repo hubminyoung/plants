@@ -664,6 +664,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .kb.warn.on{background:#b3261e;color:#fff}
 .kb.hard{background:#b3261e;color:#fff}
 .kb.syn{background:#fff;color:#444;border:1px solid #ccc;font-weight:500}
+.kb.ly{background:#f1f1ef;color:#555;border:1px dashed #bbb}
+.ly-hint{font-size:0.62rem;color:#777;margin-left:4px;font-style:normal}
 .km{font-style:normal;margin-right:3px}.km.hard,.km.warn{color:#c62828}
 .k-strike{text-decoration:line-through;text-decoration-color:#c62828;text-decoration-thickness:2px}
 .k-wrap{position:relative}
@@ -758,10 +760,9 @@ tr.k-out td{background:#fdeaea!important}
   <button class="tab-btn active" data-tab="images"   onclick="switchTab('images')">📸 이미지</button>
   <button class="tab-btn"        data-tab="ecology"  onclick="switchTab('ecology')">🌱 생태/형태</button>
   <button class="tab-btn"        data-tab="care"     onclick="switchTab('care')">🔧 유지관리</button>
-  <button class="tab-btn"        data-tab="seasonal" onclick="switchTab('seasonal')">📅 계절 도표</button>
-  <button class="tab-btn"        data-tab="dotview"  onclick="switchTab('dotview')">🌸 개화 분포도</button>
+  <button class="tab-btn"        data-tab="seasonal" onclick="switchTab('seasonal')">📅 개화 도표</button>
+  <button class="tab-btn"        data-tab="dotview"  onclick="switchTab('dotview')">🌿 구조 분포</button>
   <button class="tab-btn"        data-tab="density"  onclick="switchTab('density')">📐 식재 밀도</button>
-  <button class="tab-btn"        data-tab="ai"       onclick="switchTab('ai')">🎨 AI 이미지</button>
   <button class="tab-btn"        data-tab="site"     onclick="switchTab('site')">📍 입지분석</button>
   <button class="tab-btn"        data-tab="board"    onclick="switchTab('board')">🖼️ 구상판</button>
 </nav>
@@ -816,7 +817,7 @@ tr.k-out td{background:#fdeaea!important}
   </div>
   <div id="eco-content"><div class="empty"><div class="emo">🌱</div><p>식물을 입력하면 생태/형태 정보를 불러옵니다.</p></div></div>
 </div>
-<div id="pane-seasonal" class="tab-pane"><div id="sea-content"><div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div></div></div>
+<div id="pane-seasonal" class="tab-pane"><div id="sea-content"><div class="empty"><div class="emo">📅</div><p>식물을 입력하면 개화 도표를 표시합니다.</p></div></div></div>
 <div id="pane-dotview" class="tab-pane">
   <style>
     #pane-dotview { overflow-x: auto; padding-left:0; padding-right:0; }
@@ -876,34 +877,6 @@ tr.k-out td{background:#fdeaea!important}
       </div>
     </div>
     <div id="density-out"><div class="empty"><div class="emo">📐</div><p>식물을 추가하면 본수를 계산합니다.</p></div></div>
-  </div>
-</div>
-<div id="pane-ai" class="tab-pane">
-  <div class="ai-card">
-    <h3 style="font-size:0.88rem;font-weight:700;color:#2d5a1b;margin-bottom:0.4rem;">🎨 AI 식재 시뮬레이션 <span style="font-size:0.7rem;font-weight:400;color:#8aaa7a;">(FLUX.1-schnell)</span></h3>
-    <p class="ai-desc">식물을 선택 후 계절을 골라 FLUX.1로 식재 이미지를 생성합니다. (<a href="https://huggingface.co/settings/tokens" target="_blank">HF API 키</a> 필요)</p>
-    <div id="plantSelector" class="plant-select-area">
-      <div class="empty" style="padding:0.8rem;"><p>식물을 추가하면 여기에 표시됩니다.</p></div>
-    </div>
-    <div class="ai-controls">
-      <div class="fg"><label>계절</label>
-        <select id="seasonSel">
-          <option value="spring">봄 Spring</option>
-          <option value="summer" selected>여름 Summer</option>
-          <option value="autumn">가을 Autumn</option>
-          <option value="winter">겨울 Winter</option>
-        </select>
-      </div>
-      <div class="fg"><label>이미지 스타일</label>
-        <select id="styleSel">
-          <option value="photo">정원 사진 (사실적)</option>
-          <option value="illus">식물 일러스트</option>
-          <option value="plan">식재 단면도</option>
-        </select>
-      </div>
-      <button class="btn btn-primary" onclick="generateAI()">✨ 이미지 생성</button>
-    </div>
-    <div class="ai-output" id="ai-output"><p style="color:#8aaa7a;font-size:0.8rem;">생성된 이미지가 여기에 표시됩니다.</p></div>
   </div>
 </div>
 <div id="pane-care" class="tab-pane">
@@ -2783,6 +2756,7 @@ function renderChips() {
       <span onclick="chipEditName(${i},event)" title="클릭하여 학명 수정" style="cursor:pointer;text-decoration:underline dotted #aaa;font-style:italic">${lat}</span>
       ${kor ? `<span class="chip-latin" style="font-style:normal">${kor}</span>` : ''}
       ${com ? `<span class="chip-common">${com}</span>` : ''}
+      ${roles.length ? layerHint(p) : ''}
       <button class="chip-rm" data-idx="${i}">✕</button>
     </span>`;
   }
@@ -2921,7 +2895,6 @@ function renderActiveTab() {
     case 'seasonal': renderSeasonal(); break;
     case 'dotview':  renderDotView();  break;
     case 'density':  calcDensity();    break;
-    case 'ai':       renderAISel();    break;
     case 'care':     renderCare();     break;
     case 'site':     renderSite();     break;
     case 'board':    bcInitPan(); bcRender(); break;
@@ -2933,6 +2906,20 @@ function renderActiveTab() {
 function _getRoleMap()   { try { return JSON.parse(localStorage.getItem("plantRoleMap")||"{}"); } catch { return {}; } }
 function _getRoleList()  { try { const s=localStorage.getItem("roleList"); return s?JSON.parse(s):["매트릭스 수종","구조 수종","악센트 수종","경계 수종"]; } catch { return ["매트릭스 수종","구조 수종","악센트 수종","경계 수종"]; } }
 function _getRoleNotes() { try { return JSON.parse(localStorage.getItem("roleNotes")||"{}"); } catch { return {}; } }
+// Rainer & West 층위를 역할로 넣기 (이미 있는 건 건너뜀)
+const LAYER_ROLES = ['구조층', '계절 테마층', '지피층', '동적 채움층'];
+function addLayerRoles() {
+  const list = _getRoleList();
+  LAYER_ROLES.forEach(r => { if (!list.includes(r)) list.push(r); });
+  localStorage.setItem('roleList', JSON.stringify(list));
+  renderChips(); renderActiveTab();
+}
+// 수종리스트에서 추정한 층 (참고)
+function layerHint(p) {
+  if (typeof _oud === 'undefined' || !_oud) return '';
+  const o = _oudIdx[oudNm(p.latName || p.name)];
+  return o && o.ly ? `<span class="ly-hint" title="수종리스트 정보로 추정한 층 (참고)">${escH(o.ly.join('·'))}?</span>` : '';
+}
 function _plantRoleKey(p) { return (p.latName||p.name||"").toLowerCase().replace(/[^a-z0-9]/g,"_"); }
 function getPlantRole(p)  { return _getRoleMap()[_plantRoleKey(p)]||""; }
 function setPlantRole(p, role) {
@@ -3022,6 +3009,7 @@ function renderImages() {
       <button class="btn btn-sm" onclick="toggleRoleGroupView()" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #cde8c8" title="역할별 카드 그룹핑 보기">📋 역할별 보기</button>
       <span style="font-size:0.72rem;color:#aaa">식물 클릭 후 Ctrl+V로 붙여넣기</span>
       <button class="btn btn-sm" onclick="pietSyncNow()" title="앞 사진 2장을 Piet 수종리스트에 보내기">📤 Piet로 사진 보내기</button>
+      <button class="btn btn-sm" onclick="pietFillEmpty()" title="Piet 수종리스트에서 사진이 없는 종을 자동으로 채우기 (오래 걸림)">🖼 Piet 빈 사진 채우기</button>
       <span id="pietStat" style="font-size:0.72rem;color:#555">${escH(_pietStatus)}</span>
     </div>` + plants.map((p,i) => imgRow(p,i)).join("");
 }
@@ -3054,7 +3042,7 @@ function renderRoleGrouped(el) {
   // 칩 풀 (미할당 수종)
   const poolChips = unassigned.map(({p, pi}) => {
     const label = p.latName || p.name || p.korName || "";
-    return `<span class="role-chip" data-pi="${pi}" onclick="selectChip(${pi},this)">${kMark(p)}<span class="${kStrike(p)}">${label}</span></span>`;
+    return `<span class="role-chip" data-pi="${pi}" onclick="selectChip(${pi},this)">${kMark(p)}<span class="${kStrike(p)}">${label}</span>${layerHint(p)}</span>`;
   }).join("");
 
   const colBtns = [2,3,4,5].map(n =>
@@ -3067,6 +3055,7 @@ function renderRoleGrouped(el) {
     <span style="flex:1"></span>
     <div style="display:flex;gap:3px;align-items:center">${colBtns}</div>
     <button class="btn btn-sm" onclick="addRoleDialog()" style="border:1px dashed #52b788;color:#52b788">+ 역할 추가</button>
+    <button class="btn btn-sm" onclick="addLayerRoles()" title="Rainer & West 층위: 구조층 · 계절 테마층 · 지피층 · 동적 채움층">+ 층위 4개</button>
     <button class="btn btn-sm" onclick="window.print()" style="background:#f0f0f0">🖨️ 인쇄</button>
     <button class="btn btn-sm" onclick="toggleRoleGroupView()">← 이미지 보기</button>
   </div>`;
@@ -3080,7 +3069,7 @@ function renderRoleGrouped(el) {
 
     const catChips = items.map(({p, pi}) => {
       const label = p.latName || p.name || p.korName || "";
-      return `<span class="role-chip-in-cat">${kMark(p)}<span class="${kStrike(p)}">${label}</span><span class="rc-x" onclick="assignRole(${pi},'')">✕</span></span>`;
+      return `<span class="role-chip-in-cat">${kMark(p)}<span class="${kStrike(p)}">${label}</span>${layerHint(p)}<span class="rc-x" onclick="assignRole(${pi},'')">✕</span></span>`;
     }).join("");
 
     html += `<div class="role-section">
@@ -3977,7 +3966,7 @@ function seaImgClick(e) {
 
 function renderSeasonal() {
   const el = document.getElementById('sea-content');
-  if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📅</div><p>식물을 입력하면 계절 도표를 표시합니다.</p></div>'; return; }
+  if (!plants.length) { el.innerHTML = '<div class="empty"><div class="emo">📅</div><p>식물을 입력하면 개화 도표를 표시합니다.</p></div>'; return; }
 
   // 수고 파싱: "0.3~0.8m", "1.5m", "30~80cm" → { min?, max } in meters
   function parseHeightM(str) {
@@ -4585,7 +4574,7 @@ const oudTags = a => (a || []).map(([t, c]) => `<span class="oud-t ${c || ''}">$
 const oudSrc = a => (a || []).map(s => `<span class="oud-src${/vandalorum/i.test(s) ? ' proj' : ''}">${escH(s)}</span>`).join('');
 // 아우돌프 행의 한국 자생구분·위험/보호 표시 (oudolf.json 의 k)
 function oudK(o) {
-  const k = o.k; if (!k) return '';
+  const k = o.k || {}; if (!o.k && !(o.ly || []).length) return '';
   const cls = /자생종 품종/.test(k.nat) ? 'natcv' : /자생/.test(k.nat) ? 'nat' : /재배/.test(k.nat) ? 'cult' : 'alien';
   let h = k.nat ? `<span class="kb ${cls}">${escH(k.nat)}</span>` : '';
   (k.x || []).forEach(f => {
@@ -4594,6 +4583,7 @@ function oudK(o) {
     else h += `<span class="kb info">${escH(f)}</span>`;
   });
   if (k.acc) h += `<span class="kb syn">이명 → ${escH(k.acc)}</span>`;
+  (o.ly || []).forEach(l => { h += `<span class="kb ly" title="Rainer & West 층위 — 수종리스트 정보로 추정한 참고값">층 추정 · ${escH(l)}</span>`; });
   return h ? h + '<br>' : '';
 }
 const oudHard = o => (o.k && (o.k.x || []).filter(f => K_HARD.test(f))) || [];
@@ -4674,7 +4664,8 @@ function korHtml(p, pi) {
   else { const oz = _oudIdx[oudNm(p.latName || p.name)]; zone = oz && oz.z ? `Zone ${escH(oz.z)}~ (아우돌프)` + (site ? (site >= +oz.z ? ' <span class="kor-ok">✓</span>' : ' <span class="kor-ng">✗</span>') : '') : '<span class="oud-dim">Zone 자료 없음</span>'; }
   if (!site) zone += ' <span class="oud-dim" style="font-size:0.68rem">(위 Zone 칸에 현장 Zone을 넣으면 비교)</span>';
   const tol = Array.isArray(p.tolerate) ? p.tolerate.join(',') : String(p.tolerate || '');
-  const heat = /heat/i.test(tol) ? '<span class="kor-ok">고온 내성 (MBG)</span>' : '고온 <span class="oud-dim">자료 없음</span>';
+  const heat = /heat/i.test(tol) ? '<span class="kor-ok">고온 내성 (MBG)</span>' : (p.fetching ? '고온 <span class="loading-val">불러오는 중…</span>' : '고온 <span class="oud-dim">자료 없음</span>');
+  if (!m && !m1 && (p.fetching || p.ndbFetching) && !/Zone \d/.test(zone)) zone = 'Zone <span class="loading-val">불러오는 중…</span>';
   let rec;
   if (_fieldErr) rec = `<div class="oud-dim">현장조사 기록을 불러오지 못했어요 (${escH(_fieldErr)})</div>`;
   else if (!_field) rec = `<div class="oud-dim">현장조사 기록 불러오는 중…</div>`;
@@ -4813,6 +4804,53 @@ const RECO_OK = { '양지': ['양지', '반양지'], '반양지': ['양지', '�
 let _pietSyncT = null, _pietPwAsked = false, _pietStatus = '';
 function pietStat(t) { _pietStatus = t; const el = document.getElementById('pietStat'); if (el) el.textContent = t; }
 function pietSyncNow() { clearTimeout(_pietSyncT); pietSync(true); }
+// ── Piet 빈 사진 채우기: 사진이 없는 종마다 자동으로 찾아 앞 2장 링크를 저장 (한 번 돌리면 됨, 다시 누르면 멈춤) ──
+let _fillRun = false;
+function _fillBase(n) {
+  return n.replace(/\(.*?\)/g, '').replace(/'[^']*'/g, '').replace(/×/g, ' ')
+    .replace(/\b(spp\.|cvs\.|and|hybrids|cultivars|varieties|Group|similar|species|related|types)\b.*$/, '')
+    .replace(/,.*$/, '').replace(/\s+/g, ' ').trim();
+}
+async function _fillFind(n) {
+  const b = _fillBase(n), out = [], seen = new Set();
+  const add = (u, a) => { if (u && !seen.has(u) && out.length < 2) { seen.add(u); out.push({ u, s: '자동', a: a || '' }); } };
+  try {
+    let t = (await _fetchT('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(b) + '&per_page=1')).results?.[0];
+    if (!t && b.split(' ').length > 2) t = (await _fetchT('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(b.split(' ').slice(0, 2).join(' ')) + '&per_page=1')).results?.[0];
+    if (t) { const d = await _fetchT('https://api.inaturalist.org/v1/taxa/' + t.id); (d.results?.[0]?.taxon_photos || []).forEach(x => add(x.photo.medium_url || x.photo.url, x.photo.attribution)); }
+  } catch (e) {}
+  if (out.length < 2) (await fetchWiki(b)).forEach(x => add(x.url, 'Wikimedia Commons'));
+  if (out.length < 2 && b.includes(' ')) (await fetchGbif(b)).forEach(x => add(x.url, 'GBIF'));
+  return out;
+}
+async function pietFillEmpty() {
+  if (_fillRun) { _fillRun = false; pietStat('빈 사진 채우기를 멈췄어요. 다시 누르면 이어서 해요.'); return; }
+  if (!_oud) { pietStat('수종리스트 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return; }
+  let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
+  if (!pw) { pw = (prompt('Piet 사진을 저장하려면 현장조사툴 비밀번호를 넣어 주세요.') || '').trim(); if (!pw) return; try { localStorage.setItem('fn_pw', pw); } catch (e) {} }
+  const post = async body => { const r = await fetch(FIELD_EP, { method: 'POST', body: JSON.stringify(Object.assign({ password: pw }, body)) }); const j = await r.json(); if (!j.ok) throw new Error(j.error || '저장 실패'); return j; };
+  let picks = {};
+  try { const j = await (await fetch(FIELD_EP + '?action=piet')).json(); picks = j.picks || {}; } catch (e) { pietStat('Piet 사진 목록을 못 불러왔어요.'); return; }
+  const todo = _oud.rows.map(o => o.n).filter(n => !(picks[n] || []).some(Boolean));
+  if (!todo.length) { pietStat('빈 사진이 없어요.'); return; }
+  _fillRun = true;
+  let done = 0, saved = 0, none = 0, batch = {};
+  const flush = async () => { const k = Object.keys(batch); if (!k.length) return; await post({ action: 'pietSave', items: batch }); saved += k.length; batch = {}; };
+  try {
+    for (const n of todo) {
+      if (!_fillRun) break;
+      const ph = await _fillFind(n);
+      done++;
+      if (ph.length) { while (ph.length < 2) ph.push(null); batch[n] = ph; } else none++;
+      if (Object.keys(batch).length >= 20) await flush();
+      pietStat(`Piet 빈 사진 채우는 중 ${done}/${todo.length} · 저장 ${saved}종 · 못 찾음 ${none}종 (다시 누르면 멈춤)`);
+      await new Promise(r => setTimeout(r, 600));
+    }
+    await flush();
+    if (_fillRun) pietStat(`Piet 빈 사진 채우기 끝 · 저장 ${saved}종 · 못 찾음 ${none}종`);
+  } catch (e) { pietStat('저장 실패: ' + e.message + ' (다시 누르면 이어서 해요)'); }
+  _fillRun = false;
+}
 function pietSyncSoon() { clearTimeout(_pietSyncT); _pietSyncT = setTimeout(pietSync, 4000); }
 function _pietName(p) {
   if (!_oud) return null;
@@ -4833,7 +4871,7 @@ async function pietSync(force) {
     if (!two.length) return;
     const sig = two.map(u => u.startsWith('data:') ? _hashStr(u) : u).join('|');
     matched++;
-    if (force || done[n] !== sig) todo.push({ n, two, sig });
+    if (force || done[n] !== sig) todo.push({ n, two, sig, pname: p.name });
   });
   if (!todo.length) { if (force) pietStat(matched ? `이미 최신이에요 (Piet 리스트와 같은 종 ${matched}종)` : 'Piet 수종리스트와 이름이 같은 식물이 없어요 (사진이 아직 안 뜬 식물도 빠져요).'); return; }
   let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
@@ -4852,9 +4890,8 @@ async function pietSync(force) {
       const slots = [];
       for (const u of t.two) {
         if (u.startsWith('data:')) {
-          const h = _hashStr(u);
-          if (!up[h]) { const j = await post({ action: 'pietUpload', name: t.n, data: u }); up[h] = j.u; }
-          slots.push({ u: up[h], s: '식재툴', a: '' });
+          // 직접 붙여넣은 사진: Cloudflare R2에 있는 원본을 이미지 링크로 (저장은 식재툴이 이미 함)
+          slots.push({ u: CFG.worker + '/api/img/file?plant=' + encodeURIComponent(t.pname) + '&h=' + encodeURIComponent(_hashStr(u)), s: '식재툴', a: '' });
         } else slots.push({ u, s: '식재툴', a: '' });
       }
       while (slots.length < 2) slots.push(null);
@@ -6749,7 +6786,7 @@ function exportAllTabsXlsx() {
   });
   const seaWs = XLSX.utils.aoa_to_sheet([seaH, ...seaD]);
   seaWs["!cols"] = [18, 22, 8, ...Array(12).fill(7)].map(w => ({ wch: w }));
-  XLSX.utils.book_append_sheet(wb, seaWs, "계절도표");
+  XLSX.utils.book_append_sheet(wb, seaWs, "개화도표");
 
   const today = new Date().toLocaleDateString("ko-KR").replace(/\.\s*/g, "-").replace(/-$/, "");
   XLSX.writeFile(wb, "식재분석_" + today + ".xlsx");

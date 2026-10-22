@@ -56,6 +56,7 @@ export default {
       else if (pathname === '/api/board/load')  data = await boardLoad(req, env);
       else if (pathname === '/api/img/save')    data = await imgSave(req, env);
       else if (pathname === '/api/img/load')    data = await imgLoad(searchParams, env);
+      else if (pathname === '/api/img/file')    return imgFile(searchParams, env);
       else if (pathname === '/api/ai/plant')            data = await aiPlantData(searchParams, env);
       else return new Response('Not found', { status: 404, headers: CORS });
 
@@ -2743,6 +2744,24 @@ async function imgSave(req, env) {
     httpMetadata: { contentType: 'application/json' }
   });
   return { ok: true };
+}
+// 직접 붙여넣은 사진 한 장을 이미지 파일로 내보냄 (Piet 수종리스트 등에서 링크로 쓰기)
+// h = 사진 내용의 짧은 지문 (식재툴 _hashStr 과 같은 방식) → 순서가 바뀌어도 같은 사진을 가리킴
+function imgHash(t) { let h = 0; for (let i = 0; i < t.length; i += Math.max(1, (t.length / 4000) | 0)) h = (h * 31 + t.charCodeAt(i)) | 0; return h + ':' + t.length; }
+async function imgFile(params, env) {
+  const nf = () => new Response('Not found', { status: 404, headers: CORS });
+  if (!env?.PLANT_IMGS) return nf();
+  const plant = (params.get('plant') ?? '').trim(), h = params.get('h') ?? '';
+  if (!plant || !h) return nf();
+  const obj = await env.PLANT_IMGS.get(imgR2Key(plant));
+  if (!obj) return nf();
+  const d = await obj.json();
+  const u = (d.images || []).find(x => typeof x === 'string' && imgHash(x) === h);
+  const m = u && u.match(/^data:([^;,]+);base64,(.+)$/);
+  if (!m) return nf();
+  const bin = atob(m[2]), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Response(bytes, { headers: { ...CORS, 'Content-Type': m[1], 'Cache-Control': 'public, max-age=604800' } });
 }
 async function imgLoad(params, env) {
   if (!env?.PLANT_IMGS) return { images: [], hiddenImages: [] };
