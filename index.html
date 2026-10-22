@@ -632,6 +632,24 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .kor-rec{background:#fff;border-left:3px solid #1d5f7a;padding:4px 8px;margin:4px 0;white-space:pre-line}
 .kor-rec small{display:block;color:#555;font-size:0.68rem}
 .kor-cv{display:inline-block;background:#fff3cd;color:#7a5a00;font-weight:800;border-radius:3px;padding:0 4px;margin-right:4px}
+
+/* ── 한국 자생구분·위험/보호 표시 ── */
+.kb{display:inline-block;font-size:0.68rem;font-weight:700;border-radius:4px;padding:0 5px;margin:1px 3px 1px 0;line-height:1.5;font-style:normal;white-space:nowrap;vertical-align:middle}
+.kb.nat{background:#e3f3e3;color:#1b6a2a}.kb.natcv{background:#eef6e0;color:#4a6a10;border:1px dashed #8aa84a}
+.kb.cult{background:#eee;color:#333}.kb.alien{background:#fff1dc;color:#9a5a00}
+.kb.info{background:#e8f0fb;color:#1f5fa8}
+.kb.warn{background:#fdeaea;color:#b3261e;border:1px solid #e3a49f;cursor:pointer}
+.kb.warn.on{background:#b3261e;color:#fff}
+.kb.hard{background:#b3261e;color:#fff}
+.kb.syn{background:#fff;color:#444;border:1px solid #ccc;font-weight:500}
+.k-wrap{position:relative}
+.k-stamp{position:absolute;inset:0;z-index:5;pointer-events:none;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.55)}
+.k-stamp span{transform:rotate(-8deg);border:5px double #c62828;color:#c62828;font-weight:900;font-size:1.6rem;letter-spacing:.08em;padding:4px 18px;border-radius:8px;background:rgba(255,255,255,0.85);white-space:nowrap}
+.k-stamp.small span{font-size:1.05rem;border-width:3px;padding:2px 10px}
+.k-stamp.warn span{border-color:#b3261e;color:#b3261e}
+.chip.k-out{border-color:#c62828!important;background:#fdeaea!important}
+.chip.k-out>span:first-of-type,.chip.k-out .chip-latin{text-decoration:line-through}
+tr.k-out td{background:#fdeaea!important}
 </style>
 </head>
 <body>
@@ -2807,7 +2825,9 @@ function renderChips() {
     const kor = p.korName && /[가-힣]/.test(p.korName) ? p.korName : '';
     const lat = p.latName || p.name;
     const com = p.commonName || '';
-    return `<span class="chip" draggable="true" data-idx="${i}">
+    const _kh = kInfo(p), _kout = kExcluded(p);
+    return `<span class="chip${_kout ? ' k-out' : ''}" draggable="true" data-idx="${i}" ${_kout ? `title="${escA(kStamp(p).replace(/<[^>]+>/g, ''))}"` : ''}>
+      ${_kh && _kh.hard.length ? '<span title="제외 대상">⛔</span>' : _kh && _kh.warn.length ? '<span title="경고">⚠</span>' : ''}
       ${p.fetching ? '<span class="chip-dot"></span>' : ''}
       ${p.notFound ? '<span style="font-size:0.85rem">⚠️</span>' : ''}
       <span onclick="chipEditName(${i},event)" title="클릭하여 학명 수정" style="cursor:pointer;text-decoration:underline dotted #aaa;font-style:italic">${lat}</span>
@@ -3255,12 +3275,13 @@ function imgRow(p, pi) {
       }).join('')
     : `<div class="gal-placeholder">🌿</div>`;
 
-  return `<div class="img-plant-row" data-pi="${pi}" onclick="imgSetActive(${pi})">
+  return `<div class="img-plant-row k-wrap" data-pi="${pi}" onclick="imgSetActive(${pi})">${kStamp(p)}
     <div class="img-plant-header">
       <span class="img-plant-name">${primary}</span>
       <a href="#" onclick="event.preventDefault();event.stopPropagation();googleImgSearch(${pi})" title="구글 이미지 검색" style="font-size:0.82rem;color:#52b788;text-decoration:none;flex-shrink:0">🔍</a>
       ${secondary ? `<span class="img-plant-lat">| <em>${secondary}</em></span>` : ''}
       ${badges ? `<span style="display:flex;gap:0.3rem;align-items:center">${badges}</span>` : ''}
+      <span style="position:relative;z-index:6">${kBadges(p, pi)}</span>
       <label class="btn btn-sm" style="cursor:pointer;padding:2px 8px;font-size:0.72rem;margin-left:0.2rem" title="파일 또는 구글 이미지에서 복사 후 Ctrl+V" onclick="event.stopPropagation();imgSetActive(${pi})">
         + 추가
         <input type="file" accept="image/*" style="display:none" onchange="ecoAddImgFile(event,${pi})">
@@ -3693,8 +3714,8 @@ function renderEcology() {
           style="padding:3px 9px;background:${p.notFound?'#f5c842':'#4a7a4a'};color:${p.notFound?'#664d03':'#fff'};border:none;border-radius:4px;cursor:pointer;font-size:0.74rem;font-weight:600;white-space:nowrap">재검색</button>
       </div>`;
 
-    return `<div class="eco-card" data-sun="${escA(dSun)}" data-maint="${escA(dMaint)}" data-zones="${escA(dZones)}" data-name="${escA(dName)}" data-colors="${escA(dColors)}" data-months="${escA(dMonths)}">
-      ${notFoundBanner}${nameEditRow}
+    return `<div class="eco-card k-wrap" data-sun="${escA(dSun)}" data-maint="${escA(dMaint)}" data-zones="${escA(dZones)}" data-name="${escA(dName)}" data-colors="${escA(dColors)}" data-months="${escA(dMonths)}">
+      ${kStamp(p)}${notFoundBanner}${nameEditRow}
       <div class="eco-card-hd${ecoActivePlant===pflanzIdx?' eco-hd-active':''}" onclick="ecoSetActive(${pflanzIdx})">
         <div class="eco-card-hd-left">
           ${(p.latName||p.name) ? `<div class="eco-card-primary" style="font-style:italic">${p.latName||p.name}</div>` : ''}
@@ -3705,6 +3726,7 @@ function renderEcology() {
               style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:${p.notFound?'#f5c842':'#bbb'};padding:0 2px;line-height:1">${p.notFound?'⚠️✏️':'✏️'}</button>
           </div>
           ${p.commonName ? `<div style="font-size:0.68rem;color:#888;margin-top:0.05rem">${p.commonName}</div>` : ''}
+          <div style="position:relative;z-index:6;margin-top:3px">${kBadges(p, pflanzIdx)}</div>
         </div>
         <div class="eco-img-strip">${imgThumbsHtml}${addImgHtml}</div>
         <div class="eco-card-hd-right">
@@ -4246,6 +4268,7 @@ function renderCare() {
     const { primary, secondary } = pNames(p);
     const nameTd = `<td>
       <div class="care-name-cell">${primary}</div>
+      <div>${kBadges(p, pi)}</div>
       ${secondary ? `<div class="care-lat-cell">${secondary}</div>` : ''}
       <div class="eco-ext-links" style="margin-top:4px;font-size:0.68rem">
         <a href="${mbgHref(p)}" target="_blank" style="${p.mbgTaxonId?'':'opacity:0.4'}">MBG</a>
@@ -4265,7 +4288,7 @@ function renderCare() {
       </td>`;
     }).join('');
 
-    return `<tr>${nameTd}${dataTds}</tr>`;
+    return `<tr${kExcluded(p) ? ' class="k-out"' : ''}>${nameTd}${dataTds}</tr>`;
   }).join('');
 
   el.innerHTML = `<div class="care-table-wrap">
@@ -4486,7 +4509,8 @@ let _nativeDB = null;
 async function loadNativePlantDB() {
   if (_nativeDB) return _nativeDB;
   try {
-    const CACHE_KEY = 'nativeDB_v2';
+    const CACHE_KEY = 'nativeDB_v3';
+    try { localStorage.removeItem('nativeDB_v2'); } catch (e) {}
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) { _nativeDB = JSON.parse(cached); return _nativeDB; }
     const resp = await fetch('./data/native_plants.json');
@@ -4501,19 +4525,79 @@ async function loadNativePlantDB() {
   return _nativeDB;
 }
 
+// 이명은 정명 항목으로 연결 ({a: 정명키})
+function _ndbGet(k) {
+  const e = _nativeDB && _nativeDB[k];
+  if (!e) return null;
+  if (e.a) { const t = _nativeDB[e.a]; return t ? Object.assign({ _acc: e.a }, t) : null; }
+  return e;
+}
 function lookupNativePlant(latName) {
   if (!_nativeDB || !latName) return null;
   const clean = latName.replace(/[\u2018\u2019''][^\u2018\u2019'']+[\u2018\u2019'']/g, '').trim().toLowerCase();
-  if (_nativeDB[clean]) return _nativeDB[clean];
+  if (_ndbGet(clean)) return _ndbGet(clean);
   // parsePlants\uac00 subsp./var. \uc810\uc744 \uc81c\uac70\ud558\ubbc0\ub85c \ubcf5\uc6d0 \ud6c4 \uc7ac\uc2dc\ub3c4
   const withDots = clean.replace(/\b(subsp|var|ssp|cv)\b/g, '$1.');
-  if (_nativeDB[withDots]) return _nativeDB[withDots];
+  if (_ndbGet(withDots)) return _ndbGet(withDots);
   const twoWord = clean.split(/\s+/).slice(0,2).join(' ').trim();
-  if (twoWord && _nativeDB[twoWord]) return _nativeDB[twoWord];
+  if (twoWord && _ndbGet(twoWord)) return _ndbGet(twoWord);
   return null;
 }
 
-loadNativePlantDB();
+loadNativePlantDB().then(() => { if (plants.length) { renderChips(); renderActiveTab(); } });
+
+// ── 자생구분 · 위험/보호 표시 (식물학명 목록 · 멸종위기 · 교란 · 유입주의 · 특산 · 희귀) ──
+// 교란·멸종위기 = 도장(제외), 외래화우려·유입주의 = 빨간 경고(눌러서 제외 켜고 끄기), 특산·희귀 = 정보
+const K_HARD = /^(교란|멸종위기)/, K_WARN = /^(외래화우려|유입주의)/;
+let _kExcl = new Set(); try { _kExcl = new Set(JSON.parse(localStorage.getItem('kExcl') || '[]')); } catch (e) {}
+const _kKey = p => (p.latName || p.name || '').trim().toLowerCase();
+function kInfo(p) {
+  if (!_nativeDB) return null;
+  const raw = (p.latName || p.name || '').replace(/[\u2018\u2019\u02BC\u2032]/g, "'").trim();
+  const low = raw.toLowerCase().replace(/\s*×\s*/g, ' × ').replace(/\s+/g, ' ');
+  const hasCv = /'[^']+'/.test(low);
+  let e = hasCv ? _ndbGet(low) : null, cvOfSp = false;
+  const sp = lookupNativePlant(raw);            // 종 단위 (품종명 뺀 것)
+  if (e && sp) {                                 // 품종 행이 따로 있어도 종의 자생구분·표시를 이어받음
+    e = Object.assign({}, e, { x: [...new Set([...(e.x || []), ...(sp.x || [])])] });
+    if (/자생/.test(sp.native || '')) { cvOfSp = true; e.native = sp.native; }
+  }
+  if (!e) { e = sp; cvOfSp = hasCv && !!e; }
+  if (!e) return null;
+  const x = e.x || [];
+  return { e, cvOfSp, x, hard: x.filter(f => K_HARD.test(f)), warn: x.filter(f => K_WARN.test(f)), info: x.filter(f => !K_HARD.test(f) && !K_WARN.test(f)) };
+}
+function kExcluded(p) { const k = kInfo(p); return !!(k && (k.hard.length || (k.warn.length && _kExcl.has(_kKey(p))))); }
+function kToggle(ev, pi) {
+  ev.stopPropagation();
+  const k = _kKey(plants[pi]);
+  if (_kExcl.has(k)) _kExcl.delete(k); else _kExcl.add(k);
+  try { localStorage.setItem('kExcl', JSON.stringify([..._kExcl])); } catch (e) {}
+  renderChips(); renderActiveTab();
+}
+function kBadges(p, pi) {
+  const k = kInfo(p);
+  if (!k) return '';
+  const e = k.e, nat = e.native || '';
+  let h = '';
+  if (/자생/.test(nat)) h += k.cvOfSp ? '<span class="kb natcv" title="자생종의 원예품종">자생종 품종</span>' : '<span class="kb nat">자생</span>';
+  else if (/재배/.test(nat)) h += '<span class="kb cult">재배</span>';
+  else if (/외래/.test(nat)) h += `<span class="kb alien">외래${e.alien ? ' · ' + escH(e.alien) : ''}</span>`;
+  k.hard.forEach(f => { h += `<span class="kb hard">⛔ ${escH(f === '교란' ? '생태계교란종' : f.replace('멸종위기', '멸종위기종'))}</span>`; });
+  const on = _kExcl.has(_kKey(p));
+  k.warn.forEach(f => { h += `<span class="kb warn${on ? ' on' : ''}" onclick="kToggle(event,${pi})" title="눌러서 제외 ${on ? '풀기' : '하기'}">⚠ ${escH(f)}${on ? ' · 제외함' : ' · 제외?'}</span>`; });
+  k.info.forEach(f => { h += `<span class="kb info">${escH(f)}</span>`; });
+  if (e._acc) h += `<span class="kb syn" title="국가표준식물목록의 정명">이명 → ${escH(e.kor || '')} (${escH(e._acc.charAt(0).toUpperCase() + e._acc.slice(1))})</span>`;
+  return h;
+}
+function kStamp(p, small) {
+  const k = kInfo(p);
+  if (!k) return '';
+  let t = '';
+  if (k.hard.length) t = k.hard.map(f => f === '교란' ? '생태계교란종 제외' : f.replace(/\s*([ⅠⅡ]급)/, '종 제외 ($1)')).join(' · ');
+  else if (k.warn.length && _kExcl.has(_kKey(p))) t = '제외 · ' + k.warn.join(' · ');
+  return t ? `<div class="k-stamp${small ? ' small' : ''}${k.hard.length ? '' : ' warn'}"><span>${escH(t)}</span></div>` : '';
+}
 
 
 // ── 아우돌프 수종리스트 연계 (data/oudolf.json) ─────────────────────────────
@@ -4535,6 +4619,20 @@ const OUD_LIGHT = { S: '양지', P: '반음지', H: '음지' };
 const OUD_ST = { B: '일시적', Y: '틈새 채움, 짧은 기간', U: '3~9개월', X: '9개월 이상' };
 const oudTags = a => (a || []).map(([t, c]) => `<span class="oud-t ${c || ''}">${escH(t)}</span>`).join('');
 const oudSrc = a => (a || []).map(s => `<span class="oud-src${/vandalorum/i.test(s) ? ' proj' : ''}">${escH(s)}</span>`).join('');
+// 아우돌프 행의 한국 자생구분·위험/보호 표시 (oudolf.json 의 k)
+function oudK(o) {
+  const k = o.k; if (!k) return '';
+  const cls = /자생종 품종/.test(k.nat) ? 'natcv' : /자생/.test(k.nat) ? 'nat' : /재배/.test(k.nat) ? 'cult' : 'alien';
+  let h = k.nat ? `<span class="kb ${cls}">${escH(k.nat)}</span>` : '';
+  (k.x || []).forEach(f => {
+    if (K_HARD.test(f)) h += `<span class="kb hard">⛔ ${escH(f === '교란' ? '생태계교란종' : f.replace('멸종위기', '멸종위기종'))}</span>`;
+    else if (K_WARN.test(f)) h += `<span class="kb warn" style="cursor:default">⚠ ${escH(f)}</span>`;
+    else h += `<span class="kb info">${escH(f)}</span>`;
+  });
+  if (k.acc) h += `<span class="kb syn">이명 → ${escH(k.acc)}</span>`;
+  return h ? h + '<br>' : '';
+}
+const oudHard = o => (o.k && (o.k.x || []).filter(f => K_HARD.test(f))) || [];
 function oudRow(o) {
   const bits = [];
   if (o.l) bits.push(o.l.split('').map(c => OUD_LIGHT[c] || c).join('~'));
@@ -4545,7 +4643,7 @@ function oudRow(o) {
   if (o.s) bits.push(escH(o.s));
   if (o.st) bits.push('구조 ' + o.st.map(x => OUD_ST[x] || x).join(', '));
   const sym = (o.sym || []).map(([z, m, n]) => `${escH(z)}${n ? ' (' + escH(n) + ')' : ''}${m && m.length ? ' + ' + m.map(escH).join(', ') : ''}`);
-  return `${o.role ? escH(o.role) + ' ' : ''}${oudTags(o.tags)}`
+  return oudK(o) + `${o.role ? escH(o.role) + ' ' : ''}${oudTags(o.tags)}`
     + (bits.length ? `<br>${bits.join(' · ')}` : '')
     + (o.note ? `<br>${escH(o.note)}` : '')
     + (sym.length ? `<br><span class="oud-src proj">vandalorum(2024)</span> ${sym.join(' / ')}` : '')
@@ -4565,7 +4663,7 @@ function oudHtml(p) {
     head = `<span class="oud-lvl oud-lvl3">속 정보</span><b>${escH(G)} ${escH(_oud.GKO[G] || '')}</b> — ${escH((_oud.grole[G] || []).join(', '))} ${oudTags(_oud.gtag[G])}`;
   else head = `<span class="oud-dim">수종리스트에 없음</span>`;
   const list = cvs.length ? `<details${ex ? '' : ' open'}><summary>이 종의 품종 ${cvs.length}개</summary>`
-    + cvs.map(o => `<div class="oud-cv"><b>${escH(o.n)}</b>${o.ko ? ` <span class="oud-dim">${escH(o.ko)}</span>` : ''}<br>${oudRow(o)}</div>`).join('') + `</details>` : '';
+    + cvs.map(o => `<div class="oud-cv k-wrap">${oudHard(o).length ? `<div class="k-stamp small"><span>${escH(oudHard(o).map(f => f === '교란' ? '생태계교란종 제외' : f + '종 제외').join(' · '))}</span></div>` : ''}<b>${escH(o.n)}</b>${o.ko ? ` <span class="oud-dim">${escH(o.ko)}</span>` : ''}<br>${oudRow(o)}</div>`).join('') + `</details>` : '';
   return `<div class="eco-sec-title oud-title">아우돌프</div><div class="eco-sec-body oud-body">${head}${list}</div>`;
 }
 
@@ -4599,8 +4697,9 @@ function fieldRecs(p) {
   return out;
 }
 function korHtml(p) {
-  const nat = p.native || '';
-  const chip = nat ? `<span class="kor-chip ${/자생/.test(nat) ? 'nat' : /외래/.test(nat) ? 'alien' : 'cult'}">${escH(nat)}</span>` : `<span class="oud-dim">자생구분 없음</span>`;
+  const _k = kInfo(p);
+  const nat = _k ? (_k.e.native || '') : (p.native || '');
+  const chip = nat ? `<span class="kor-chip ${/자생/.test(nat) ? 'nat' : /외래/.test(nat) ? 'alien' : 'cult'}">${escH(_k && _k.cvOfSp ? '자생종 품종' : nat)}</span>` : `<span class="oud-dim">자생구분 없음</span>`;
   const site = parseInt(document.getElementById('eco-zone-input')?.value || '');
   const h = p.hardiness || p.ndbHardiness || '';
   const m = h.match(/(\d+)\s*[-–~]\s*(\d+)/);
