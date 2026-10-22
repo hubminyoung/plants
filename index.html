@@ -4573,10 +4573,9 @@ function oudHtml(p) {
 const FIELD_EP = 'https://script.google.com/macros/s/AKfycbz_QfCwye48SzCArIT4D-fVyucfJrDnmkAZGcwvtRALtKm0X0t93OIOGhbFN3T075s/exec';
 let _field = null, _fieldErr = '';
 async function loadField() {
-  let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
-  if (!pw) { _fieldErr = 'nopw'; return; }
+  // 현장조사툴 서버의 읽기 전용 요청 (비밀번호 없이 기록 글만)
   try {
-    const r = await fetch(FIELD_EP, { method: 'POST', body: JSON.stringify({ password: pw, action: 'list' }) });
+    const r = await fetch(FIELD_EP + '?action=notes');
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || '불러오기 실패');
     _field = j.rows || []; _fieldErr = '';
@@ -4612,8 +4611,7 @@ function korHtml(p) {
   const tol = Array.isArray(p.tolerate) ? p.tolerate.join(',') : String(p.tolerate || '');
   const heat = /heat/i.test(tol) ? '<span class="kor-ok">고온 내성 (MBG)</span>' : '고온 <span class="oud-dim">자료 없음</span>';
   let rec;
-  if (_fieldErr === 'nopw') rec = `<div class="oud-dim">현장조사 기록: 이 브라우저에서 현장조사툴에 한 번 접속(비밀번호 입력)하면 연결돼요.</div>`;
-  else if (_fieldErr) rec = `<div class="oud-dim">현장조사 기록을 불러오지 못했어요 (${escH(_fieldErr)})</div>`;
+  if (_fieldErr) rec = `<div class="oud-dim">현장조사 기록을 불러오지 못했어요 (${escH(_fieldErr)})</div>`;
   else if (!_field) rec = `<div class="oud-dim">현장조사 기록 불러오는 중…</div>`;
   else {
     const rs = fieldRecs(p);
