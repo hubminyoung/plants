@@ -655,6 +655,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .kb.warn.on{background:#b3261e;color:#fff}
 .kb.hard{background:#b3261e;color:#fff}
 .kb.syn{background:#fff;color:#444;border:1px solid #ccc;font-weight:500}
+.km{font-style:normal;margin-right:3px}.km.hard,.km.warn{color:#c62828}
+.k-strike{text-decoration:line-through;text-decoration-color:#c62828;text-decoration-thickness:2px}
 .k-wrap{position:relative}
 .k-stamp{position:absolute;inset:0;z-index:5;pointer-events:none;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.55)}
 .k-stamp span{transform:rotate(-8deg);border:5px double #c62828;color:#c62828;font-weight:900;font-size:1.6rem;letter-spacing:.08em;padding:4px 18px;border-radius:8px;background:rgba(255,255,255,0.85);white-space:nowrap}
@@ -3010,6 +3012,8 @@ function renderImages() {
       <button class="btn btn-primary btn-sm" onclick="openGoogleAll()">🔍 Google 이미지 전체 검색</button>
       <button class="btn btn-sm" onclick="toggleRoleGroupView()" style="background:#f0f8ec;color:#2d5a1b;border:1px solid #cde8c8" title="역할별 카드 그룹핑 보기">📋 역할별 보기</button>
       <span style="font-size:0.72rem;color:#aaa">식물 클릭 후 Ctrl+V로 붙여넣기</span>
+      <button class="btn btn-sm" onclick="pietSyncNow()" title="앞 사진 2장을 Piet 수종리스트에 보내기">📤 Piet로 사진 보내기</button>
+      <span id="pietStat" style="font-size:0.72rem;color:#555">${escH(_pietStatus)}</span>
     </div>` + plants.map((p,i) => imgRow(p,i)).join("");
 }
 
@@ -3041,7 +3045,7 @@ function renderRoleGrouped(el) {
   // 칩 풀 (미할당 수종)
   const poolChips = unassigned.map(({p, pi}) => {
     const label = p.latName || p.name || p.korName || "";
-    return `<span class="role-chip" data-pi="${pi}" onclick="selectChip(${pi},this)">${label}</span>`;
+    return `<span class="role-chip" data-pi="${pi}" onclick="selectChip(${pi},this)">${kMark(p)}<span class="${kStrike(p)}">${label}</span></span>`;
   }).join("");
 
   const colBtns = [2,3,4,5].map(n =>
@@ -3067,7 +3071,7 @@ function renderRoleGrouped(el) {
 
     const catChips = items.map(({p, pi}) => {
       const label = p.latName || p.name || p.korName || "";
-      return `<span class="role-chip-in-cat">${label}<span class="rc-x" onclick="assignRole(${pi},'')">✕</span></span>`;
+      return `<span class="role-chip-in-cat">${kMark(p)}<span class="${kStrike(p)}">${label}</span><span class="rc-x" onclick="assignRole(${pi},'')">✕</span></span>`;
     }).join("");
 
     html += `<div class="role-section">
@@ -3164,7 +3168,7 @@ function _roleCard(p, pi) {
         : '<div class="role-card-placeholder">🌿</div>'}
     </div>
     <div class="role-card-body">
-      <div class="role-card-name" title="${name}">${name}</div>
+      <div class="role-card-name" title="${name}">${kMark(p)}<span class="${kStrike(p)}">${name}</span></div>
       <div class="role-card-lat" title="${lat}">${lat}</div>
       <div class="role-card-meta">
         ${heightBadge}
@@ -4042,7 +4046,7 @@ function renderSeasonal() {
     const swatches = `<div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">${colorChips}${addColorBtn}</div>`;
     return `<div class="season-row">
       <div class="s-name" style="flex-direction:column;align-items:flex-start;justify-content:center">
-        <span style="${sSecondary ? '' : 'font-style:italic'}">${sPrimary}</span>
+        ${kMark(p)}<span class="${kStrike(p)}" style="${sSecondary ? '' : 'font-style:italic'}">${sPrimary}</span>
         ${sSecondary ? `<span class="eco-latin">${sSecondary}</span>` : ''}
         ${swatches}
         <div style="display:flex;align-items:center;gap:3px;margin-top:3px">
@@ -4098,7 +4102,7 @@ function calcDensity() {
     const cnt = Math.ceil(area * perM2);
     total += cnt;
     return `<tr>
-      <td>${(({primary,secondary})=>`<div class="eco-name">${primary}</div>${secondary?`<div class="eco-latin">${secondary}</div>`:''}`)(pNames(p))}</td>
+      <td>${(({primary,secondary})=>`<div class="eco-name">${kMark(p)}<span class="${kStrike(p)}">${primary}</span></div>${secondary?`<div class="eco-latin">${secondary}</div>`:''}`)(pNames(p))}</td>
       <td>${d.toFixed(2)} m</td>
       <td>${perM2.toFixed(2)} 본/㎡</td>
       <td><strong>${cnt} 본</strong></td>
@@ -4121,7 +4125,7 @@ function renderAISel() {
   if (!plants.length) { el.innerHTML = '<div class="empty" style="padding:0.7rem;"><p>식물을 추가하면 여기에 표시됩니다.</p></div>'; return; }
   el.innerHTML = plants.map(p =>
     `<span class="sel-chip" data-name="${p.name}" onclick="this.classList.toggle('on')">
-      ${p.korName || p.name}
+      ${kMark(p)}<span class="${kStrike(p)}">${p.korName || p.name}</span>
     </span>`
   ).join('');
 }
@@ -4530,6 +4534,16 @@ function kBadges(p, pi) {
   if (e._acc) h += `<span class="kb syn" title="국가표준식물목록의 정명">이명 → ${escH(e.kor || '')} (${escH(e._acc.charAt(0).toUpperCase() + e._acc.slice(1))})</span>`;
   return h;
 }
+// 이름 옆 작은 표시 (계절 도표·개화 분포도·밀도·AI·역할 카드·구상판 등)
+function kMark(p) {
+  if (!p) return '';
+  const k = kInfo(p); if (!k) return '';
+  if (k.hard.length) return `<span class="km hard" title="${escA(k.hard.map(f => f === '교란' ? '생태계교란종' : f.replace('멸종위기', '멸종위기종')).join(' · ') + ' — 제외')}">⛔</span>`;
+  if (k.warn.length) { const on = _kExcl.has(_kKey(p)); return `<span class="km warn" title="${escA(k.warn.join(' · ') + (on ? ' — 제외함' : ''))}">⚠</span>`; }
+  return '';
+}
+function kMarkText(p) { const k = p && kInfo(p); return !k ? '' : k.hard.length ? '⛔ ' : k.warn.length ? '⚠ ' : ''; }
+const kStrike = p => (p && kExcluded(p)) ? 'k-strike' : '';
 function kStamp(p, small) {
   const k = kInfo(p);
   if (!k) return '';
@@ -4667,7 +4681,9 @@ loadField();
 
 // ── 식재툴 앞 사진 2장 → Piet 수종리스트와 공유 (현장조사 DB 시트 'Piet사진' 탭) ──────────
 // 아우돌프 수종리스트에 있는 종만, 앞 2장이 바뀌면 몇 초 뒤 저장. 후보 사진은 링크, 직접 붙여넣은 사진은 드라이브에 올려 링크.
-let _pietSyncT = null, _pietPwAsked = false;
+let _pietSyncT = null, _pietPwAsked = false, _pietStatus = '';
+function pietStat(t) { _pietStatus = t; const el = document.getElementById('pietStat'); if (el) el.textContent = t; }
+function pietSyncNow() { clearTimeout(_pietSyncT); pietSync(true); }
 function pietSyncSoon() { clearTimeout(_pietSyncT); _pietSyncT = setTimeout(pietSync, 4000); }
 function _pietName(p) {
   if (!_oud) return null;
@@ -4675,28 +4691,31 @@ function _pietName(p) {
   return null;
 }
 function _hashStr(t) { let h = 0; for (let i = 0; i < t.length; i += Math.max(1, (t.length / 4000) | 0)) h = (h * 31 + t.charCodeAt(i)) | 0; return h + ':' + t.length; }
-async function pietSync() {
-  if (!_oud || !plants.length) return;
+async function pietSync(force) {
+  if (!_oud) { if (force) pietStat('수종리스트 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return; }
+  if (!plants.length) { if (force) pietStat('식물 목록이 비어 있어요.'); return; }
   let done = {}, up = {};
   try { done = JSON.parse(localStorage.getItem('pietSync') || '{}'); up = JSON.parse(localStorage.getItem('pietUp') || '{}'); } catch (e) {}
-  const todo = [];
+  const todo = []; let matched = 0;
   plants.forEach(p => {
     if (p.fetching) return;
     const n = _pietName(p); if (!n) return;
     const two = (p.images || []).slice(0, 2);
     if (!two.length) return;
     const sig = two.map(u => u.startsWith('data:') ? _hashStr(u) : u).join('|');
-    if (done[n] !== sig) todo.push({ n, two, sig });
+    matched++;
+    if (force || done[n] !== sig) todo.push({ n, two, sig });
   });
-  if (!todo.length) return;
+  if (!todo.length) { if (force) pietStat(matched ? `이미 최신이에요 (Piet 리스트와 같은 종 ${matched}종)` : 'Piet 수종리스트와 이름이 같은 식물이 없어요 (사진이 아직 안 뜬 식물도 빠져요).'); return; }
   let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
   if (!pw) {
-    if (_pietPwAsked) return;
+    if (_pietPwAsked && !force) { pietStat('비밀번호가 없어 Piet로 보내지 않았어요. 버튼을 눌러 다시 시도하세요.'); return; }
     _pietPwAsked = true;
     pw = (prompt('식재툴 사진을 Piet 수종리스트와 같이 쓰려면 현장조사툴 비밀번호를 한 번 넣어 주세요.') || '').trim();
-    if (!pw) return;
+    if (!pw) { pietStat('비밀번호가 없어 Piet로 보내지 않았어요.'); return; }
     try { localStorage.setItem('fn_pw', pw); } catch (e) {}
   }
+  pietStat(`Piet로 ${todo.length}종 보내는 중…`);
   const post = async body => { const r = await fetch(FIELD_EP, { method: 'POST', body: JSON.stringify(Object.assign({ password: pw }, body)) }); const j = await r.json(); if (!j.ok) throw new Error(j.error || '저장 실패'); return j; };
   try {
     const items = {};
@@ -4717,8 +4736,10 @@ async function pietSync() {
     localStorage.setItem('pietSync', JSON.stringify(done));
     localStorage.setItem('pietUp', JSON.stringify(up));
     console.log('[Piet 사진] ' + todo.length + '종 저장');
+    pietStat(`Piet로 ${todo.length}종 보냈어요 (${new Date().toTimeString().slice(0, 5)}) · ${todo.map(t => t.n).slice(0, 3).join(', ')}${todo.length > 3 ? ' 외' : ''}`);
   } catch (e) {
     console.warn('[Piet 사진] 저장 실패:', e.message);
+    pietStat('Piet로 보내기 실패: ' + e.message);
     if (/비밀번호/.test(e.message)) { try { localStorage.removeItem('fn_pw'); } catch (er) {} }
   }
 }
@@ -4807,6 +4828,7 @@ function siteRow(r) {
     <span><b>${escH(o.n)}</b> ${o.ko ? `<span class="oud-dim">${escH(o.ko)}</span>` : ''}${inList ? ' <span class="oud-dim">(목록에 있음)</span>' : ''}${r.zoneBad ? ' <span class="kor-ng">Zone 부족</span>' : ''}<br>
     ${oudK(o).replace(/<br>$/, '')} <span class="oud-dim">${escH(bits)}</span>${o.role ? `<br><span style="font-size:0.74rem">${escH(o.role)}</span>` : ''}</span></label>`;
 }
+setTimeout(() => { try { siteApplyZone(); } catch (e) {} }, 0);   // 새로고침해도 현장 Zone이 생태 탭 Zone 칸에 들어가게
 function renderSite() {
   const el = document.getElementById('site-content'); if (!el) return;
   siteApplyZone();
@@ -5379,7 +5401,7 @@ function bcAddFromList() {
       ? `<img src="${img}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
         + `<div class="bc-add-ph" style="display:none">🌿</div>`
       : `<div class="bc-add-ph">🌿</div>`;
-    return `<div class="bc-add-item" title="${p.latName||p.name||''}" onclick="bcAddNode(${i}); document.getElementById('bc-add-popup')?.remove()">${imgHtml}<span>${label}</span></div>`;
+    return `<div class="bc-add-item" title="${p.latName||p.name||''}" onclick="bcAddNode(${i}); document.getElementById('bc-add-popup')?.remove()">${imgHtml}<span>${kMark(p)}<span class="${kStrike(p)}">${label}</span></span></div>`;
   }).join('');
   const btn = document.getElementById('bc-add-btn') || document.querySelector('.bc-toolbar button');
   const rect = btn?.getBoundingClientRect() || {left:80, bottom:40};
@@ -5414,7 +5436,7 @@ function bcRenderPlantPanel() {
       ? `<img src="${img}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
         + `<div class="bc-add-ph" style="display:none">🌿</div>`
       : `<div class="bc-add-ph">🌿</div>`;
-    return `<div class="bc-add-item" title="${p.latName||p.name||''}" onclick="bcAddNode(${i});showToast(this.dataset.label+' 추가됨')" data-label="${label.replace(/"/g,'&quot;')}">${imgHtml}<span>${label}</span></div>`;
+    return `<div class="bc-add-item" title="${p.latName||p.name||''}" onclick="bcAddNode(${i});showToast(this.dataset.label+' 추가됨')" data-label="${label.replace(/"/g,'&quot;')}">${imgHtml}<span>${kMark(p)}<span class="${kStrike(p)}">${label}</span></span></div>`;
   }).join('');
 }
 function bcAddAll() {
@@ -5636,7 +5658,7 @@ function bcRenderNode(n) {
   const _cultivarM = latN.match(/([''‘’][^''‘’]+[''‘’])/);
   const _genus = latN.trim().split(/\s+/)[0] || '';
   const shortName = _cultivarM ? `${_genus} ${_cultivarM[1]}` : latN;
-  const displayName = `<b style="font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${shortName || '?'}</b>`;
+  const displayName = `<b style="font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${kMark(p)}<span class="${kStrike(p)}">${shortName || '?'}</span></b>`;
   const imgs = p?.images || [];
   const imgIdx = Math.min(n.imgIdx||0, Math.max(0, imgs.length-1));
   const src = imgs[imgIdx] || '';
@@ -6185,7 +6207,7 @@ document.addEventListener('keydown', function(e) {
     tb.appendChild(hr);
     activePl.forEach(p=>{
       const row=document.createElement('tr'); row.className='pr';
-      const nc=document.createElement('td'); nc.className='nc'; nc.textContent=p.name; row.appendChild(nc);
+      const nc=document.createElement('td'); nc.className='nc'; nc.textContent=kMarkText(p)+p.name; if(kExcluded(p)) nc.style.textDecoration='line-through'; row.appendChild(nc);
       MN.forEach((_,i)=>{
         const mn=i+1, cell=document.createElement('td'); cell.className='bc';
         if(p.bloom.includes(mn)){
