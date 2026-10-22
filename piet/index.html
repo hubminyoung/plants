@@ -35,6 +35,7 @@ td.c .ic+.ic{margin-left:3px}
 .sci i{font-style:italic}
 .com{display:block;font-family:var(--sans);font-size:.76rem;color:var(--muted);margin-top:1px}
 td.sci{min-width:200px}
+a.tl{color:inherit;text-decoration:none}a.tl:hover{text-decoration:underline;text-decoration-color:#9a9;text-underline-offset:3px}
 tr.fam th{background:var(--band);padding:12px 10px 8px;border-top:2px solid var(--rule);text-align:left;font-weight:500}
 tr.fam .fl{font-family:var(--serif);font-size:1.1rem;color:var(--accent)}
 tr.fam .fk{font-weight:700;margin-left:4px}
@@ -254,7 +255,7 @@ function render(q){
       out+=gr?`<tr class="gen"><td class="pic"></td><td class="symc">${symHTML((DATA.gsym||{})[g])}</td><td class="sci">${lab}<span class="com">${sci(gr.name)} · ${esc(gr.ko)}</span></td>${cells(gr).replace(/<td class="role[^"]*">[^<]*<\/td>/,`<td class="role">${grH}</td>`).replace(/<td class="tags">/,`<td class="tags">${tagHTML(gt2)}`).replace(/<\/td>\n<td class="page">/,gdH+"</td>\n<td class=\"page\">")}</tr>`
              :`<tr class="gen"><td class="pic"></td><td class="symc">${symHTML((DATA.gsym||{})[g])}</td><td class="sci">${lab}</td>${'<td></td>'.repeat(6)}<td class="role">${grH}</td><td class="tags">${tagHTML(gt2)}</td><td class="note">${gdH}</td><td></td></tr>`;
       out+=rs.map(o=>{const com=[o.com,o.ko].filter(Boolean).join(" · ");
-        const kh=kHard(o);return `<tr class="sp${o.src.includes("Work(2023)")?" w":""}${kh?" k-wrap k-out":""}"><td class="pic">${kh?`<div class="k-stamp"><span>${esc(kh)}</span></div>`:""}${thumb(o.name)}</td><td class="symc">${symHTML(o.sym)}</td><td class="sci">${sci(o.name)}${kB(o)}${o.ly?`<span class="kbs">${o.ly.map(l=>`<span class="kb ly" title="Rainer & West 층위 — 수종리스트 정보로 추정한 참고값">층 추정 · ${esc(l)}</span>`).join("")}</span>`:""}${com?`<span class="com">${esc(com)}</span>`:""}</td>${cells(o)}</tr>`}).join("");
+        const kh=kHard(o);return `<tr class="sp${o.src.includes("Work(2023)")?" w":""}${kh?" k-wrap k-out":""}"><td class="pic">${kh?`<div class="k-stamp"><span>${esc(kh)}</span></div>`:""}${thumb(o.name)}</td><td class="symc">${symHTML(o.sym)}</td><td class="sci"><a class="tl" href="../#add=${encodeURIComponent(o.name)}" target="plantstool" title="식재분석툴에서 열기">${sci(o.name)}</a>${kB(o)}${o.ly?`<span class="kbs">${o.ly.map(l=>`<span class="kb ly" title="Rainer & West 층위 — 수종리스트 정보로 추정한 참고값">층 추정 · ${esc(l)}</span>`).join("")}</span>`:""}${com?`<span class="com">${esc(com)}</span>`:""}</td>${cells(o)}</tr>`}).join("");
     }
     if(!out) return "";
     total+=n;

@@ -4936,6 +4936,22 @@ const SITE_MOIST = { DRY: '건조', MESO: '적윤', MOIST: '적윤', WET: '습�
     setTimeout(() => switchTab('site'), 0);
   } catch (e) { console.warn('[입지] 대상지 정보를 읽지 못했어요', e); }
 })();
+/* Piet 수종리스트 → 식재툴 바로가기: #add=학명 */
+function addFromHash() {
+  const m = location.hash.match(/^#add=(.+)$/);
+  if (!m) return;
+  let n = ''; try { n = decodeURIComponent(m[1]).trim(); } catch (e) {}
+  history.replaceState(null, '', location.pathname + location.search);
+  if (!n) return;
+  if (!plants.find(p => p.name === n)) { const inp = document.getElementById('addInput'); if (inp) { inp.value = n; addPlant(); } }
+  switchTab('ecology');
+  setTimeout(() => {
+    const c = [...document.querySelectorAll('.eco-card')].find(el => (el.querySelector('.eco-card-primary') || {}).textContent === n);
+    if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 300);
+}
+window.addEventListener('load', addFromHash);
+window.addEventListener('hashchange', addFromHash);
 function siteZoneNum() { const z = SITE.profile && SITE.profile.zone && SITE.profile.zone.usda; const n = parseInt(z || ''); return isNaN(n) ? null : n; }
 function siteApplyZone() {
   const n = siteZoneNum(), inp = document.getElementById('eco-zone-input');
