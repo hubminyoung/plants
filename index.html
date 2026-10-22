@@ -611,6 +611,15 @@ table.dtbl tr:last-child td { border-bottom: none; }
 #bc-arrow-btn.active { background:#52b788;color:#fff; }
 
 /* ── 아우돌프 / 한국 적합성 (생태탭) ── */
+.eco-full{padding:0 14px 10px}
+.kb.reco{background:#fff3cd;color:#7a5a00;border:1px solid #e6c766}
+.reco-line{margin-top:6px}
+.reco-form{background:#fff;border:1px solid #e6c766;border-radius:6px;padding:8px 10px;margin-top:6px;line-height:2}
+.reco-form input[type=text],.reco-form input:not([type]){font:inherit;padding:2px 6px;border:1px solid #cfd8c8;border-radius:4px;min-width:240px}
+.reco-cb{display:inline-flex;align-items:center;gap:3px;margin-right:10px;white-space:nowrap}
+
+.oud-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 8px}
+.kor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:0 8px}
 .oud-title{color:#5b4a8a!important}
 .kor-title{color:#1d5f7a!important}
 .oud-body,.kor-body{display:block!important;font-size:0.78rem;line-height:1.6;color:#222;padding:6px 10px!important;border-radius:6px;margin-bottom:6px}
@@ -3702,7 +3711,6 @@ function renderEcology() {
             ${f('식재간격', p.pflanzAbstand || '—')}
             ${f('m²당 주수',p.pflanzCount   || '—')}
           </div>
-          ${oudHtml(p)}${korHtml(p)}
         </div>
         <div class="eco-right">
           ${(() => {
@@ -3731,6 +3739,7 @@ function renderEcology() {
 
 
 
+      <div class="eco-full">${oudHtml(p)}${korHtml(p, pflanzIdx)}</div>
     </div>`;
   }).join('');
 
@@ -4617,8 +4626,8 @@ function oudHtml(p) {
   else if ((_oud.grole[G] || []).length || (_oud.gtag[G] || []).length)
     head = `<span class="oud-lvl oud-lvl3">속 정보</span><b>${escH(G)} ${escH(_oud.GKO[G] || '')}</b> — ${escH((_oud.grole[G] || []).join(', '))} ${oudTags(_oud.gtag[G])}`;
   else head = `<span class="oud-dim">수종리스트에 없음</span>`;
-  const list = cvs.length ? `<details${ex ? '' : ' open'}><summary>이 종의 품종 ${cvs.length}개</summary>`
-    + cvs.map(o => `<div class="oud-cv k-wrap">${oudHard(o).length ? `<div class="k-stamp small"><span>${escH(oudHard(o).map(f => f === '교란' ? '생태계교란종 제외' : f + '종 제외').join(' · '))}</span></div>` : ''}<b>${escH(o.n)}</b>${o.ko ? ` <span class="oud-dim">${escH(o.ko)}</span>` : ''}<br>${oudRow(o)}</div>`).join('') + `</details>` : '';
+  const list = cvs.length ? `<details${ex ? '' : ' open'}><summary>이 종의 품종 ${cvs.length}개</summary><div class="oud-grid">`
+    + cvs.map(o => `<div class="oud-cv k-wrap">${oudHard(o).length ? `<div class="k-stamp small"><span>${escH(oudHard(o).map(f => f === '교란' ? '생태계교란종 제외' : f + '종 제외').join(' · '))}</span></div>` : ''}<b>${escH(o.n)}</b>${o.ko ? ` <span class="oud-dim">${escH(o.ko)}</span>` : ''}<br>${oudRow(o)}</div>`).join('') + `</div></details>` : '';
   return `<div class="eco-sec-title oud-title">아우돌프</div><div class="eco-sec-body oud-body">${head}${list}</div>`;
 }
 
@@ -4651,7 +4660,7 @@ function fieldRecs(p) {
   });
   return out;
 }
-function korHtml(p) {
+function korHtml(p, pi) {
   const _k = kInfo(p);
   const nat = _k ? (_k.e.native || '') : (p.native || '');
   const chip = nat ? `<span class="kor-chip ${/자생/.test(nat) ? 'nat' : /외래/.test(nat) ? 'alien' : 'cult'}">${escH(_k && _k.cvOfSp ? '자생종 품종' : nat)}</span>` : `<span class="oud-dim">자생구분 없음</span>`;
@@ -4669,14 +4678,131 @@ function korHtml(p) {
   else if (!_field) rec = `<div class="oud-dim">현장조사 기록 불러오는 중…</div>`;
   else {
     const rs = fieldRecs(p);
-    rec = rs.length ? `<details><summary>현장조사 ${rs.length}건</summary>` + rs.map(({ r, cv }) =>
-      `<div class="kor-rec"><small>${cv ? `<span class="kor-cv">'${escH(cv)}' 기록</span>` : ''}${escH(r.visit)} · ${escH(r.zone)} · ${escH(r.t)}</small>${escH(r.note)}</div>`).join('') + `</details>`
+    rec = rs.length ? `<details><summary>현장조사 ${rs.length}건</summary><div class="kor-grid">` + rs.map(({ r, cv }) =>
+      `<div class="kor-rec"><small>${cv ? `<span class="kor-cv">'${escH(cv)}' 기록</span>` : ''}${escH(r.visit)} · ${escH(r.zone)} · ${escH(r.t)}</small>${escH(r.note)}</div>`).join('') + `</div></details>`
       : `<div class="oud-dim">현장조사 기록 없음</div>`;
   }
-  return `<div class="eco-sec-title kor-title">한국 적합성</div><div class="eco-sec-body kor-body">${zone} · ${chip} · ${heat}${rec}</div>`;
+  const _recs = (!_fieldErr && _field) ? fieldRecs(p) : [];
+  return `<div class="eco-sec-title kor-title">한국 적합성</div><div class="eco-sec-body kor-body">${zone} · ${chip} · ${heat}${rec}${pi != null ? recoHtml(p, pi, _recs) : ''}</div>`;
 }
 loadOudolf();
 loadField();
+loadReco();
+
+// ── 추천수종 (한국에서 잘 자라는 것들) — 현장조사 DB 시트 '추천수종' 탭 ─────────────────
+let _reco = null, _recoForm = -1, _recoMsg = '';
+async function loadReco() {
+  try { const j = await (await fetch(FIELD_EP + '?action=reco')).json(); _reco = j.ok ? (j.rows || []) : []; }
+  catch (e) { _reco = []; }
+  if (activeTab === 'ecology') renderEcology();
+  if (activeTab === 'site') renderSite();
+}
+// 국명 → 학명 (시트에 국명만 적은 줄을 위해)
+let _korIdx = null;
+function korToSci(k) {
+  if (!_nativeDB || !k) return '';
+  if (!_korIdx) { _korIdx = {}; for (const key in _nativeDB) { const e = _nativeDB[key]; if (e && e.kor && !e.a && !_korIdx[e.kor]) _korIdx[e.kor] = key; } }
+  const key = _korIdx[k.trim()];
+  return key ? key.charAt(0).toUpperCase() + key.slice(1) : '';
+}
+const recoSci = r => r.n || korToSci(r.k);
+function recoFor(p) {
+  if (!_reco) return null;
+  const a = oudNm(p.latName || ''), b = oudNm(p.name || ''), k = (p.korName || '').trim();
+  return _reco.find(r => { const n = oudNm(recoSci(r)); return (n && (n === a || n === b)) || (k && r.k && r.k === k); }) || null;
+}
+const R_LIGHT = ['양지', '반양지', '반음지', '음지'], R_MOIST = ['건조', '적윤', '습윤'];
+function recoDefaults(p) {
+  const sun = (p.sunlight || []).join(',').toLowerCase(), w = (p.watering || '').toLowerCase(), L = [], M = [];
+  if (/full.?sun|^sun|,sun/.test(sun)) L.push('양지');
+  if (/part.?sun/.test(sun)) L.push('반양지');
+  if (/part.?shade/.test(sun)) L.push('반음지');
+  if (/full.?shade|(^|,)shade/.test(sun)) L.push('음지');
+  if (/drought|xeric|low|dry/.test(w)) M.push('건조');
+  if (/medium|average|moist/.test(w)) M.push('적윤');
+  if (/high|wet/.test(w)) M.push('습윤');
+  return { L, M };
+}
+function recoOpen(ev, pi) { ev.stopPropagation(); _recoForm = _recoForm === pi ? -1 : pi; _recoMsg = ''; renderEcology(); }
+async function recoSave(ev, pi) {
+  ev.stopPropagation();
+  const box = document.getElementById('reco-form-' + pi); if (!box) return;
+  const p = plants[pi];
+  const pick = name => [...box.querySelectorAll(`input[name=${name}]:checked`)].map(x => x.value);
+  const src = [...pick('rsrc'), box.querySelector('[name=rsrcx]').value.trim()].filter(Boolean).join('\n');
+  const body = { action: 'recoAdd', n: p.latName || (/[a-z]/i.test(p.name) ? p.name : ''), k: (p.korName && /[가-힣]/.test(p.korName)) ? p.korName : (/[가-힣]/.test(p.name) ? p.name : ''),
+    light: pick('rl').join(','), moist: pick('rm').join(','), src, memo: box.querySelector('[name=rmemo]').value.trim() };
+  let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
+  if (!pw) { pw = (prompt('추천수종을 저장하려면 현장조사툴 비밀번호를 넣어 주세요.') || '').trim(); if (!pw) return; try { localStorage.setItem('fn_pw', pw); } catch (e) {} }
+  _recoMsg = '저장 중…'; renderEcology();
+  try {
+    const r = await fetch(FIELD_EP, { method: 'POST', body: JSON.stringify(Object.assign({ password: pw }, body)) });
+    const j = await r.json(); if (!j.ok) throw new Error(j.error || '저장 실패');
+    _recoForm = -1; _recoMsg = '';
+    await loadReco();
+  } catch (e) {
+    if (/비밀번호/.test(e.message)) { try { localStorage.removeItem('fn_pw'); } catch (er) {} }
+    _recoMsg = '저장 실패: ' + e.message; renderEcology();
+  }
+}
+function recoHtml(p, pi, recs) {
+  const r = recoFor(p);
+  let h = '<div class="reco-line">';
+  if (r) h += `<span class="kb reco">⭐ 추천수종</span> ${escH([r.light, r.moist].filter(Boolean).join(' · ') || '광량·수분 미입력')}${r.memo ? ' · ' + escH(r.memo) : ''}${r.src ? `<span class="oud-dim"> · 근거: ${escH(r.src.replace(/\n/g, ' / '))}</span>` : ''} <button class="btn btn-sm" onclick="recoOpen(event,${pi})">수정</button>`;
+  else if (_reco) h += `<button class="btn btn-sm" onclick="recoOpen(event,${pi})">⭐ 추천수종에 추가</button>`;
+  h += _recoMsg && _recoForm === pi ? ` <span class="oud-dim">${escH(_recoMsg)}</span>` : '';
+  h += '</div>';
+  if (_recoForm === pi) {
+    const d = r ? { L: (r.light || '').split(','), M: (r.moist || '').split(',') } : recoDefaults(p);
+    const cb = (name, v, on) => `<label class="reco-cb"><input type="checkbox" name="${name}" value="${escA(v)}"${on ? ' checked' : ''}>${escH(v)}</label>`;
+    h += `<div class="reco-form" id="reco-form-${pi}" onclick="event.stopPropagation()">
+      <div><b>광량</b> ${R_LIGHT.map(v => cb('rl', v, d.L.includes(v))).join('')} <span class="oud-dim">(공식 정보로 미리 채움 · 고칠 수 있어요)</span></div>
+      <div><b>수분</b> ${R_MOIST.map(v => cb('rm', v, d.M.includes(v))).join('')}</div>
+      <div><b>근거</b> ${recs.map(({ r: x, cv }) => cb('rsrc', `${x.visit} · ${x.zone}${cv ? ` ('${cv}')` : ''}`, true)).join('') || '<span class="oud-dim">붙은 현장 기록 없음</span>'}
+        <input name="rsrcx" placeholder="지역·출처 직접 입력 (선택)"></div>
+      <div><b>메모</b> <input name="rmemo" value="${escA(r ? r.memo : '')}" placeholder="예: 그늘 하부 지피로 좋음"></div>
+      <div><button class="btn btn-sm btn-primary" onclick="recoSave(event,${pi})">저장</button> <button class="btn btn-sm" onclick="recoOpen(event,${pi})">취소</button></div>
+    </div>`;
+  }
+  return h;
+}
+// 수종 뽑기용: 추천수종 줄 → 후보 형식
+function recoKOud(name) {
+  const k = kInfo({ name, latName: name }); if (!k) return null;
+  const nat = k.e.native || '';
+  const lab = /자생/.test(nat) ? (k.cvOfSp ? '자생종 품종' : '자생') : /재배/.test(nat) ? '재배' : /외래/.test(nat) ? '외래' + (k.e.alien ? ' · ' + k.e.alien : '') : '';
+  const o = { nat: lab }; if (k.x.length) o.x = k.x; if (k.e._acc) o.acc = `${k.e.kor || ''} (${k.e._acc.charAt(0).toUpperCase() + k.e._acc.slice(1)})`;
+  return o;
+}
+// 식재툴이 한 번이라도 불러온 종은 공식 정보(일조·수분)가 캐시에 있음 → 광량이 빈 후보에 사용
+function officialLM(name) {
+  if (!name) return null;
+  try {
+    const c = _getCache(), e = c[name.toLowerCase().trim()];
+    if (!e) return null;
+    const d = recoDefaults(e);
+    return d.L.length ? d : null;
+  } catch (er) { return null; }
+}
+let _siteNames = { reco: [], oud: [] };
+let _siteTmp = [], _siteFetchTimer = null, _siteFetchMsg = '';
+function siteFetchOfficial(names) {
+  const todo = [...new Set(names)].filter(n => n && !officialLM(n) && !_siteTmp.find(t => t.name === n));
+  if (!todo.length) { _siteFetchMsg = '불러올 종이 없어요.'; renderSite(); return; }
+  const ps = todo.map(n => mkPlant(n));
+  _siteTmp.push(...ps);
+  loadPlantsQueued(ps);
+  clearInterval(_siteFetchTimer);
+  _siteFetchTimer = setInterval(() => {
+    const left = _siteTmp.filter(t => !t.done).length;
+    _siteFetchMsg = left ? `공식 정보 불러오는 중… ${_siteTmp.length - left}/${_siteTmp.length}` : `공식 정보 불러오기 끝 (${_siteTmp.length}종)`;
+    if (!left) { clearInterval(_siteFetchTimer); _siteTmp = []; }
+    if (activeTab === 'site') renderSite();
+  }, 3000);
+  _siteFetchMsg = `공식 정보 불러오는 중… 0/${ps.length}`; renderSite();
+}
+const RECO_OK = { '양지': ['양지', '반양지'], '반양지': ['양지', '반양지', '반음지'], '반음지': ['반양지', '반음지'], '음지': ['반음지', '음지'] };
+
 
 
 // ── 식재툴 앞 사진 2장 → Piet 수종리스트와 공유 (현장조사 DB 시트 'Piet사진' 탭) ──────────
@@ -4793,23 +4919,48 @@ function siteMoistOk(s, zm) {
   return true;
 }
 function sitePick(i) {
-  const z = SITE.zones[i]; if (!z || !_oud) return { ok: [], out: [], noLight: 0 };
+  const z = SITE.zones[i]; if (!z || !_oud) return { ok: [], out: [], noLight: 0, recoNo: [], noLightNames: [] };
   const site = siteZoneNum();
-  const ok = [], out = []; let noLight = 0;
+  const ok = [], out = []; let noLight = 0; const noLightNames = [];
   _oud.rows.forEach(o => {
-    const lo = siteLightOk(o.l, z.light);
-    if (lo === null) { noLight++; return; }
+    let lo = siteLightOk(o.l, z.light), off = null;
+    if (lo === null) {
+      off = officialLM(o.n);
+      if (!off) { noLight++; noLightNames.push(o.n); return; }
+      lo = (RECO_OK[z.light] || []).some(v => off.L.includes(v));
+    }
     if (!lo) return;
     if (siteMoistOk(o.s, z.moist) === false) return;
+    if (off && off.M.length && ((z.moist === '건조' && off.M.every(v => v === '습윤')) || (z.moist === '습윤' && off.M.every(v => v === '건조')))) return;
     const zmin = parseInt(o.z || '');
     const zoneBad = site && !isNaN(zmin) && zmin > site;
     const hard = oudHard(o);
-    const r = { o, zoneBad };
+    const r = { o, zoneBad, off: off ? off.L.join(',') + (off.M.length ? ' · ' + off.M.join(',') : '') : '' };
     (hard.length ? out : ok).push(r);
   });
-  const rank = r => { const k = r.o.k || {}; return (/^자생$/.test(k.nat || '') ? 0 : /자생종 품종/.test(k.nat || '') ? 1 : 2) * 10 + (/밀원/.test(r.o.role || '') ? 0 : 1) + (r.zoneBad ? 100 : 0); };
+  // 추천수종: 아우돌프에 같은 종이 있으면 ⭐ 표시, 없으면 따로 후보로
+  const recoNo = [];
+  (_reco || []).forEach(rr => {
+    const sci = recoSci(rr), key = oudNm(sci || rr.k);
+    const hit = ok.find(c => oudNm(c.o.n) === key) || out.find(c => oudNm(c.o.n) === key);
+    if (hit) { hit.reco = rr; return; }
+    const o = { n: sci || rr.k, ko: rr.k, role: rr.memo, reco: rr, k: sci ? recoKOud(sci) : null };
+    let L = rr.light ? rr.light.split(',').map(x => x.trim()) : null, offTxt = '';
+    if (!L) {
+      const off = officialLM(sci || rr.k);
+      if (!off) { recoNo.push({ o, reco: rr }); return; }
+      L = off.L; offTxt = off.L.join(',') + (off.M.length ? ' · ' + off.M.join(',') : '');
+      if (!rr.moist && off.M.length) rr = Object.assign({}, rr, { moist: off.M.join(',') });
+    }
+    if (!(RECO_OK[z.light] || []).some(v => L.includes(v))) return;
+    const M = (rr.moist || '').split(',').map(x => x.trim()).filter(Boolean);
+    if (M.length && ((z.moist === '건조' && M.every(v => v === '습윤')) || (z.moist === '습윤' && M.every(v => v === '건조')))) return;
+    const r = { o, reco: rr, zoneBad: false, off: offTxt };
+    (oudHard(o).length ? out : ok).push(r);
+  });
+  const rank = r => { const k = r.o.k || {}; return (r.reco ? 0 : 1000) + (/^자생$/.test(k.nat || '') ? 0 : /자생종 품종/.test(k.nat || '') ? 1 : 2) * 10 + (/밀원/.test(r.o.role || '') ? 0 : 1) + (r.zoneBad ? 100 : 0); };
   ok.sort((a, b) => rank(a) - rank(b) || a.o.n.localeCompare(b.o.n));
-  return { ok, out, noLight };
+  return { ok, out, noLight, recoNo, noLightNames };
 }
 let _siteMsg = '';
 function siteAddSel() {
@@ -4825,8 +4976,8 @@ function siteRow(r) {
   const o = r.o, inList = plants.find(p => p.name === o.n);
   const bits = [o.l ? o.l.split('').map(c => OUD_LIGHT[c] || c).join('~') : '', o.h ? o.h + 'cm' : '', o.b ? '개화 ' + o.b : '', o.z ? 'Z' + o.z : '', o.s || ''].filter(Boolean).join(' · ');
   return `<label class="site-cand${r.zoneBad ? ' zbad' : ''}"><input type="checkbox" value="${escA(o.n)}" ${inList ? 'disabled' : ''}>
-    <span><b>${escH(o.n)}</b> ${o.ko ? `<span class="oud-dim">${escH(o.ko)}</span>` : ''}${inList ? ' <span class="oud-dim">(목록에 있음)</span>' : ''}${r.zoneBad ? ' <span class="kor-ng">Zone 부족</span>' : ''}<br>
-    ${oudK(o).replace(/<br>$/, '')} <span class="oud-dim">${escH(bits)}</span>${o.role ? `<br><span style="font-size:0.74rem">${escH(o.role)}</span>` : ''}</span></label>`;
+    <span>${r.reco ? '<span class="kb reco">⭐ 추천</span>' : ''}<b>${escH(o.n)}</b> ${o.ko ? `<span class="oud-dim">${escH(o.ko)}</span>` : ''}${inList ? ' <span class="oud-dim">(목록에 있음)</span>' : ''}${r.zoneBad ? ' <span class="kor-ng">Zone 부족</span>' : ''}${r.off ? ` <span class="oud-dim" title="식재툴 공식 정보(MBG·NDB 등)">· 광량·수분 공식: ${escH(r.off)}</span>` : ''}<br>
+    ${oudK(o).replace(/<br>$/, '')} <span class="oud-dim">${escH(bits)}</span>${o.role ? `<br><span style="font-size:0.74rem">${escH(o.role)}</span>` : ''}${r.reco && r.reco.src ? `<br><span class="oud-dim" style="font-size:0.72rem">근거: ${escH(r.reco.src.replace(/\n/g, ' / '))}</span>` : ''}</span></label>`;
 }
 setTimeout(() => { try { siteApplyZone(); } catch (e) {} }, 0);   // 새로고침해도 현장 Zone이 생태 탭 Zone 칸에 들어가게
 function renderSite() {
@@ -4854,12 +5005,14 @@ function renderSite() {
   if (z) {
     if (!_oud) res = '<div class="oud-dim">수종리스트 불러오는 중…</div>';
     else {
-      const { ok, out, noLight } = sitePick(SITE.sel);
-      res = `<div class="site-h">${escH(z.name)} · ${escH(z.light)} · ${escH(z.moist)} → 후보 ${ok.length}종 <span class="oud-dim">(아우돌프 수종리스트 · 자생 → 자생종 품종 → 밀원 순)</span></div>
+      const { ok, out, noLight, recoNo, noLightNames } = sitePick(SITE.sel);
+      _siteNames = { reco: recoNo.map(r => r.o.n), oud: noLightNames };
+      res = `<div class="site-h">${escH(z.name)} · ${escH(z.light)} · ${escH(z.moist)} → 후보 ${ok.length}종 <span class="oud-dim">(⭐ 추천수종 → 자생 → 자생종 품종 → 밀원 순 · 아우돌프 수종리스트 + 추천수종)</span></div>
         <div style="margin:6px 0"><button class="btn btn-primary btn-sm" onclick="siteAddSel()">선택한 수종을 식물 목록에 추가</button> <span id="site-added" class="oud-dim">${escH(_siteMsg)}</span></div>
-        <div id="site-cands">${ok.map(siteRow).join('')}</div>
+        <div id="site-cands">${ok.map(siteRow).join('')}${recoNo.length ? `<div class="site-h" style="margin-top:10px">⭐ 추천수종 중 광량 정보 없음 ${recoNo.length}종 <button class="btn btn-sm" onclick="siteFetchOfficial(_siteNames.reco)">📥 공식 정보 불러오기</button> <span class="oud-dim">(시트에 광량을 적거나 공식 정보를 불러오면 조건에 맞춰 걸러져요)</span></div>${recoNo.map(siteRow).join('')}` : ''}</div>
         ${out.length ? `<div class="site-h" style="margin-top:12px">제외 대상 ${out.length}종</div>${out.map(r => `<div class="site-cand k-wrap" style="min-height:44px"><div class="k-stamp small"><span>${escH(oudHard(r.o).map(f => f === '교란' ? '생태계교란종 제외' : f.replace('멸종위기', '멸종위기종') + ' 제외').join(' · '))}</span></div><span><b>${escH(r.o.n)}</b> ${oudK(r.o).replace(/<br>$/, '')}</span></div>`).join('')}` : ''}
-        <div class="oud-dim" style="margin-top:8px">광량 정보가 없는 ${noLight}종은 뽑기에서 빠졌어요. 토양은 정보가 있는 종만 걸렀어요. Zone이 모자란 종은 맨 아래에 'Zone 부족'으로 표시돼요.</div>`;
+        ${_siteFetchMsg ? `<div class="oud-dim" style="margin-top:6px">${escH(_siteFetchMsg)}</div>` : ''}
+        <div class="oud-dim" style="margin-top:8px">${noLight ? `아우돌프 리스트에서 광량 정보가 없는 ${noLight}종은 빠졌어요 <button class="btn btn-sm" onclick="siteFetchOfficial(_siteNames.oud)">📥 공식 정보 불러오기</button> (오래 걸려요).` : ''} 광량은 시트·아우돌프 값이 먼저고, 없으면 식재툴 공식 정보(MBG·NDB 등)를 써요. 토양은 정보가 있는 종만 걸렀어요. Zone이 모자란 종은 맨 아래에 'Zone 부족'으로 표시돼요.</div>`;
     }
   }
   el.innerHTML = `<div class="site-wrap">${prof}
