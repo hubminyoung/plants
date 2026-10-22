@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="현장조사">
+<meta name="theme-color" content="#1f2a22">
+<title>현장조사 노트</title>
+<style>
+  /* 현장용: 밝은 야외에서도 읽히는 고대비, 큰 터치 영역. 위 기록 피드 → 아래 입력부 */
+  :root {
+    --bg:#f3f4ef; --surface:#ffffff; --ink:#1b1f1a; --sub:#5f6a5f; --line:#d6dbd2;
+    --accent:#2f5d3a; --accent-ink:#ffffff; --warn:#a4481f; --ok:#2f7d4a;
+    --font:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#121612; --surface:#1c221c; --ink:#e9ece6; --sub:#9aa69a; --line:#2e372e;
+      --accent:#7fb48b; --accent-ink:#102214; --warn:#e08a5f; --ok:#7fcf98; color-scheme:dark; }
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--font); -webkit-text-size-adjust:100%; }
+  body { padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0); }
+  button { font:inherit; color:inherit; cursor:pointer; }
+  input, textarea { font:inherit; color:var(--ink); }
+
+  header { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--line);
+    padding:10px 16px; display:grid; gap:8px; }
+  .row { display:flex; gap:8px; align-items:center; min-width:0; }
+  .field { flex:1; min-width:0; display:flex; align-items:center; gap:6px; background:var(--surface);
+    border:1px solid var(--line); border-radius:10px; padding:0 10px; }
+  .field span { font-size:12px; color:var(--sub); white-space:nowrap; }
+  .field input { flex:1; min-width:0; border:0; background:none; padding:10px 0; font-size:16px; outline:none; }
+  .queue { font-size:12px; color:var(--sub); white-space:nowrap; }
+  .queue.busy { color:var(--warn); }
+  .zsug { display:flex; gap:6px; overflow-x:auto; margin-top:-2px; }
+  .zsug button { flex:none; border:1px solid var(--accent); background:var(--surface); color:var(--accent); border-radius:16px; padding:6px 12px; font-size:14px; white-space:nowrap; }
+  .zhint { margin:-2px 2px 0; font-size:11px; color:var(--sub); line-height:1.4; }
+  .guide { font-size:12px; color:var(--sub); margin:-2px 2px 0; }
+  .guide summary { cursor:pointer; color:var(--accent); font-weight:600; padding:2px 0; list-style:none; }
+  .guide summary::-webkit-details-marker { display:none; }
+  .guide[open] summary { margin-bottom:4px; }
+  .guide dl { margin:0; display:grid; gap:6px; max-height:40vh; overflow:auto; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .guide dt { font-weight:700; color:var(--ink); }
+  .guide dd { margin:0; line-height:1.5; }
+  a.doc { font-size:13px; color:var(--accent); white-space:nowrap; }
+
+  main { padding:12px 16px 24px; display:grid; gap:14px; max-width:720px; margin:0 auto; }
+  .empty { color:var(--sub); font-size:14px; line-height:1.6; }
+  .zoneHead { font-size:15px; font-weight:700; padding-top:6px; border-top:2px solid var(--ink); }
+  .item { display:grid; gap:6px; }
+  .strip { display:flex; gap:4px; overflow-x:auto; }
+  .strip img { height:84px; border-radius:6px; flex:none; }
+  .note { white-space:pre-wrap; line-height:1.55; font-size:15px; }
+  .st { font-size:12px; color:var(--sub); }
+  .st.err { color:var(--warn); } .st.ok { color:var(--ok); }
+
+  /* 입력부 */
+  .composer { background:var(--surface); border-top:1px solid var(--line); padding:12px 16px 16px; display:grid; gap:10px; }
+  .cam { position:relative; background:#000; border-radius:12px; overflow:hidden; aspect-ratio:3/4; max-height:56vh; width:100%; }
+  .cam video { width:100%; height:100%; object-fit:cover; display:block; }
+  .cam .off { position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-size:16px; background:#111; border:0; width:100%; }
+  .shutter { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); width:74px; height:74px; border-radius:50%;
+    border:5px solid #fff; background:rgba(255,255,255,.25); }
+  .shutter:active { background:#fff; }
+  .count { position:absolute; right:12px; bottom:30px; background:rgba(0,0,0,.6); color:#fff; border-radius:14px; padding:4px 10px; font-size:14px; }
+  .zooms { position:absolute; left:12px; bottom:30px; display:flex; gap:6px; }
+  .zooms button { background:rgba(0,0,0,.55); color:#fff; border:0; border-radius:14px; padding:6px 10px; font-size:13px; }
+  .zooms button.on { background:#fff; color:#000; }
+  .flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity .15s; }
+  .flash.go { opacity:.6; transition:none; }
+  .shots { display:flex; gap:4px; overflow-x:auto; min-height:0; }
+  .shots div { position:relative; flex:none; }
+  .shots img { height:64px; border-radius:6px; display:block; }
+  .shots b { position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,.65);
+    color:#fff; font-size:13px; line-height:22px; text-align:center; font-weight:400; }
+  textarea { width:100%; min-height:88px; resize:vertical; border:1px solid var(--line); border-radius:10px; padding:10px;
+    font-size:16px; line-height:1.5; background:var(--bg); }
+  .actions { display:flex; gap:8px; }
+  .album { flex:none; border:1px solid var(--line); background:var(--bg); border-radius:10px; padding:0 14px; font-size:14px; }
+  .album input { display:none; }
+  .next { flex:1; border:0; border-radius:10px; background:var(--accent); color:var(--accent-ink); font-size:17px; font-weight:700; padding:15px; }
+  .next:disabled { opacity:.45; }
+  .hint { font-size:12px; color:var(--sub); }
+
+  /* 처음 한 번: 비밀번호 */
+  .gate { position:fixed; inset:0; z-index:10; background:var(--bg); display:grid; place-items:center; padding:24px 16px; }
+  .gate .box { width:100%; max-width:360px; display:grid; gap:12px; }
+  .gate h1 { font-size:22px; margin:0; }
+  .gate p { margin:0; color:var(--sub); font-size:14px; line-height:1.5; }
+  .gate input { width:100%; padding:13px; border:1px solid var(--line); border-radius:10px; font-size:18px; background:var(--surface); }
+
+  /* 탭 */
+  .tabs { display:flex; gap:0; border-bottom:1px solid var(--line); background:var(--bg); position:sticky; top:0; z-index:6; }
+  .tabs button { flex:1; border:0; background:none; padding:12px 0; font-size:15px; font-weight:600; color:var(--sub); border-bottom:3px solid transparent; }
+  .tabs button.on { color:var(--ink); border-bottom-color:var(--accent); }
+  header { top:46px; }
+  /* 찾기 */
+  .find { padding:12px 16px 40px; max-width:720px; margin:0 auto; display:grid; gap:12px; }
+  .find .bar { display:flex; gap:8px; position:sticky; top:46px; background:var(--bg); padding:6px 0; z-index:4; }
+  .find .bar input, .find .bar select { min-width:0; border:1px solid var(--line); border-radius:10px; padding:10px; font-size:16px; background:var(--surface); color:var(--ink); }
+  .find .bar input { flex:1; }
+  .find .bar select { flex:none; max-width:42%; }
+  .fmeta { font-size:13px; color:var(--sub); }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px; display:grid; gap:6px; }
+  .card .top { font-size:12px; color:var(--sub); display:flex; gap:6px; flex-wrap:wrap; }
+  .card .top b { color:var(--ink); font-weight:600; }
+  .card .strip a { flex:none; }
+  .card .strip .ph { width:110px; height:110px; border-radius:6px; background:var(--line); object-fit:cover; display:block; }
+  mark { background:#f3d36b; color:#1b1f1a; border-radius:2px; }
+  .card .top .edit { margin-left:auto; border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:2px 10px; font-size:12px; color:var(--ink); }
+  .sheet { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; justify-content:center; }
+  .sbox { width:100%; max-width:720px; max-height:92vh; overflow:auto; background:var(--surface); border-radius:16px 16px 0 0;
+    padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px)); display:grid; gap:10px; }
+  .shead { display:flex; align-items:center; justify-content:space-between; }
+  .ghost { border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:6px 12px; }
+  .egrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:6px; }
+  .egrid div { position:relative; aspect-ratio:1; max-width:100%; }
+  .egrid img { width:100%; height:100%; object-fit:cover; border-radius:8px; background:var(--line); display:block; }
+  .egrid b { position:absolute; top:4px; right:4px; width:26px; height:26px; border-radius:50%; background:rgba(0,0,0,.7); color:#fff;
+    text-align:center; line-height:26px; font-weight:400; cursor:pointer; }
+  .egrid .new::after { content:"새 사진"; position:absolute; left:4px; bottom:4px; font-size:10px; background:var(--accent); color:var(--accent-ink); border-radius:6px; padding:1px 5px; }
+  .pzone { min-height:44px; border:1.5px dashed var(--line); border-radius:10px; padding:10px; font-size:14px; color:var(--sub);
+    outline:none; -webkit-user-select:text; user-select:text; caret-color:transparent; }
+  .pzone:empty::before { content:attr(data-ph); }
+  body.dropping::after { content:"여기에 놓으면 사진이 들어갑니다"; position:fixed; inset:12px; z-index:30; border:3px dashed var(--accent);
+    border-radius:16px; background:color-mix(in srgb, var(--bg) 85%, transparent); display:grid; place-items:center;
+    font-size:18px; font-weight:700; color:var(--accent); pointer-events:none; }
+  .plist { display:grid; gap:4px; }
+  .plist button { text-align:left; border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:10px 12px; font-size:15px; }
+  .egrid .pick img { outline:3px solid var(--accent); outline-offset:-3px; }
+  .egrid .pick::after { content:"✓"; position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:var(--accent); color:var(--accent-ink); text-align:center; line-height:24px; font-size:14px; }
+  .netbar { position:sticky; top:0; z-index:7; background:var(--warn); color:#fff; font-size:14px; line-height:1.5; padding:10px 16px; }
+  [hidden] { display:none !important; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate" hidden>
+  <div class="box">
+    <h1>현장조사 노트</h1>
+    <p>처음 한 번만 비밀번호를 입력하세요. 이 폰에 기억됩니다.</p>
+    <input id="pw" type="password" inputmode="text" autocomplete="off" placeholder="비밀번호">
+    <button class="next" id="pwBtn">확인</button>
+    <p id="pwMsg"></p>
+  </div>
+</div>
+
+<div class="netbar" id="netBar" hidden>연결이 끊긴 것 같아요. <b>새로고침</b>해 주세요. 올리던 기록은 이 기기에 보관돼 있어서 새로고침 후 이어서 올라가요.</div>
+<nav class="tabs">
+  <button id="tabRec" class="on">기록하기</button>
+  <button id="tabFind">찾기</button>
+</nav>
+
+<div id="recView">
+<header>
+  <div class="row">
+    <label class="field"><span>답사</span><input id="visit" placeholder="예: 261013_보라매"></label>
+    <a class="doc" id="docLink" target="_blank" rel="noopener" hidden>문서 열기</a>
+  </div>
+  <div class="zsug" id="visitSug" hidden></div>
+  <div class="row">
+    <label class="field"><span>구역</span><input id="zone" placeholder="예: 1번출구, 입구~광장"></label>
+    <span class="queue" id="queue">대기 0</span>
+  </div>
+  <div class="zsug" id="zoneSug" hidden></div>
+  <p class="zhint">빛: 양지 · 반그늘(하늘 조각) · 그늘(하늘 거의 안 보임)<br>토양: 딱딱(약간 긁힘) · 보통(5~8cm) · 부드러움(8cm↑)<br>수분: 건조(마름) · 보통(촉촉, 안뭉침) · 습윤(뭉치고 물기) · 과습(질척/이끼)</p>
+  <details class="guide">
+    <summary>판단 기준 ▾</summary>
+    <dl>
+      <dt>잡초</dt>
+      <dd>젖음: 고마리, 여뀌류, 골풀, 미나리<br>마름: 쇠비름, 바랭이, 강아지풀<br>답압: 질경이, 새포아풀</dd>
+      <dt>식물 상태</dt>
+      <dd>마름: 아침 잎처짐, 작은잎/이른 낙엽<br>젖음: 아랫잎 노래짐, 젖은흙 잎처짐(뿌리과습), 줄기밑동 무름/냄새, 버섯(과습/통기)</dd>
+      <dt>통기부족</dt>
+      <dd>물고임, 썩은/시큼 냄새, 흙이 회색/청회색</dd>
+      <dt>지형/물길</dt>
+      <dd>높낮이, 배수구/빗물받이, 포장경사, 낙엽/흙 쌓인 자국</dd>
+    </dl>
+  </details>
+</header>
+
+<main id="feed">
+  <p class="empty" id="empty" hidden></p>
+</main>
+
+<section class="composer" id="composer">
+  <div class="cam">
+    <video id="video" playsinline muted autoplay></video>
+    <button class="off" id="camOn">카메라 켜기</button>
+    <div class="zooms" id="zooms" hidden></div>
+    <button class="shutter" id="shutter" aria-label="찍기" hidden></button>
+    <span class="count" id="count" hidden>0</span>
+    <div class="flash" id="flash"></div>
+  </div>
+  <div class="shots" id="shots"></div>
+  <div class="pzone" id="pzone" contenteditable="true" inputmode="none" data-ph="사진 붙여넣기: 폰은 여기를 길게 누르기 · PC는 Ctrl+V 또는 끌어다 놓기"></div>
+  <textarea id="note" placeholder="설명 (키보드 마이크로 말해도 됩니다)"></textarea>
+  <div class="actions">
+    <label class="album">앨범<input id="albumIn" type="file" accept="image/*" multiple></label>
+    <button class="album" id="driveBtn" type="button">드라이브</button>
+    <button class="next" id="nextBtn">다음 ▶</button>
+  </div>
+  <p class="st" id="pasteMsg"></p>
+  <p class="hint">업로드는 뒤에서 진행됩니다. 대기 숫자가 0이 될 때까지 이 화면을 닫지 마세요.</p>
+</section>
+</div>
+
+<section class="find" id="findView" hidden>
+  <div class="bar">
+    <input id="q" type="search" placeholder="검색: 버베나, 반그늘, 딱딱…">
+    <select id="fVisit"><option value="">모든 답사</option></select>
+  </div>
+  <div class="fmeta" id="fMeta">불러오는 중…</div>
+  <div id="results" style="display:grid;gap:12px"></div>
+</section>
+
+<div class="sheet" id="editSheet" hidden>
+  <div class="sbox">
+    <div class="shead"><b id="eTitle">기록 수정</b><button id="eClose" class="ghost">닫기</button></div>
+    <label class="field"><span>구역</span><input id="eZone"></label>
+    <div class="egrid" id="ePhotos"></div>
+    <div class="pzone" id="epzone" contenteditable="true" inputmode="none" data-ph="사진 붙여넣기: 폰은 여기를 길게 누르기 · PC는 Ctrl+V 또는 끌어다 놓기"></div>
+    <div class="actions">
+      <label class="album">사진 추가<input id="eAlbum" type="file" accept="image/*" multiple></label>
+      <button class="album" id="eDriveBtn" type="button">드라이브</button>
+    </div>
+    <textarea id="eNote"></textarea>
+    <button class="next" id="eSave">저장</button>
+    <p class="st" id="eMsg"></p>
+  </div>
+</div>
+
+<div class="sheet" id="pickSheet" hidden>
+  <div class="sbox">
+    <div class="shead"><button id="pBack" class="ghost">◀ 위로</button><b id="pTitle">드라이브</b><button id="pClose" class="ghost">닫기</button></div>
+    <div id="pFolders" class="plist"></div>
+    <div id="pImages" class="egrid"></div>
+    <p class="st" id="pMsg"></p>
+    <button class="next" id="pAdd" disabled>사진 추가</button>
+  </div>
+</div>
+
+<script>
+// ===== 설정 =====
+const ENDPOINT = 'https://script.google.com/macros/s/AKfycbz_QfCwye48SzCArIT4D-fVyucfJrDnmkAZGcwvtRALtKm0X0t93OIOGhbFN3T075s/exec'; // Apps Script 웹앱 주소
+
+// ===== 저장소(이 폰에만) =====
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+const $ = id => document.getElementById(id);
+
+// ===== 올리기 전 기록 보관(이 기기 안) — 새로고침·창 닫기에도 안 사라지고 다시 열면 이어서 올림 =====
+const qdb = (() => {
+  let p;
+  const open = () => p || (p = new Promise((res, rej) => {
+    const r = indexedDB.open('fn_queue', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('items', { keyPath: 'key' });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = async (mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('items', mode); const q = fn(t.objectStore('items'));
+      t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error);
+    });
+  };
+  return {
+    put: it => tx('readwrite', s => s.put(it)).catch(() => {}),
+    del: k => tx('readwrite', s => s.delete(k)).catch(() => {}),
+    all: () => tx('readonly', s => s.getAll()).catch(() => []),
+  };
+})();
+function persist(it) {
+  return qdb.put({ key: it.key, visit: it.visit, zone: it.zone, note: it.note, ids: it.ids || [], thumbs: it.thumbs || [], done: it.done || null,
+    shots: it.shots.map(x => x.driveId ? { driveId: x.driveId } : { blob: x.blob }) });
+}
+
+let password = store.get('fn_pw', '');
+let shots = [];        // 현재 세트 사진 {blob, url}
+let queue = [];        // 업로드 대기 세트
+let busy = false;
+let fails = 0;         // 연속 실패 횟수 (3번이면 위에 알림)
+let stream = null, track = null;
+let lastZone = null;
+
+// 답사 이름 기본값: YYMMDD_
+const d = new Date();
+const today = String(d.getFullYear()).slice(2) + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+$('visit').value = store.get('fn_visit_' + today, today + '_');
+$('zone').value = store.get('fn_zone', '');
+$('visit').addEventListener('input', e => store.set('fn_visit_' + today, e.target.value));
+$('zone').addEventListener('input', e => store.set('fn_zone', e.target.value));
+$('note').value = store.get('fn_draft', '');
+$('note').addEventListener('input', e => store.set('fn_draft', e.target.value));
+
+// ===== 서버 =====
+async function api(body) {
+  // 응답이 안 오면 멈춰 있지 말고 실패로 처리 → 대기열이 10초 뒤 다시 시도 (사진 1장 최대 3분)
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 180000);
+  let res;
+  try { res = await fetch(ENDPOINT, { method: 'POST', body: JSON.stringify(Object.assign({ password }, body)), signal: ctl.signal }); }
+  catch (e) { throw new Error(e.name === 'AbortError' ? '응답이 없어 다시 보냅니다' : '인터넷 연결 확인'); }
+  finally { clearTimeout(timer); }
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || '저장에 실패했습니다.');
+  return j;
+}
+
+// ===== 비밀번호 =====
+function showGate() { $('gate').hidden = false; $('pw').focus(); }
+$('pwBtn').onclick = async () => {
+  password = $('pw').value.trim();
+  $('pwMsg').textContent = '확인 중…';
+  try { await api({ action: 'ping' }); store.set('fn_pw', password); $('gate').hidden = true; run(); }
+  catch (e) { $('pwMsg').textContent = e.message; }
+};
+if (!password) showGate();
+
+// 지난번에 다 못 올린 기록이 이 기기에 있으면 다시 대기열에 넣고 이어서 올림
+(async () => {
+  const saved = (await qdb.all()).sort((a, b) => a.key < b.key ? -1 : 1);
+  saved.forEach(s => {
+    const sh = s.shots.map(x => x.driveId ? { driveId: x.driveId } : { blob: x.blob, url: URL.createObjectURL(x.blob) });
+    queue.push(Object.assign({}, s, { shots: sh, el: renderItem(s.zone, s.note, sh) }));
+  });
+  if (saved.length) { updateQueue(); if (password) run(); }
+})();
+
+// ===== 카메라 =====
+$('camOn').onclick = startCam;
+async function startCam() {
+  watchTilt(); // 아이폰은 이 버튼을 누를 때 한 번 '동작 및 방향' 허용을 물어봄
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 4032 }, height: { ideal: 3024 } },
+    });
+    $('video').srcObject = stream;
+    await $('video').play();
+    track = stream.getVideoTracks()[0];
+    $('camOn').hidden = true; $('shutter').hidden = false; $('count').hidden = false;
+    setupZoom();
+    keepAwake();
+  } catch (e) {
+    $('camOn').textContent = '카메라를 열 수 없습니다. 사파리 설정에서 카메라를 허용하세요.';
+  }
+}
+function setupZoom() {
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  if (!caps.zoom) return;
+  const levels = [1, 2, 3, 5].filter(z => z >= caps.zoom.min && z <= caps.zoom.max);
+  if (levels.length < 2) return;
+  const box = $('zooms');
+  box.innerHTML = levels.map(z => `<button data-z="${z}" class="${z === 1 ? 'on' : ''}">${z}×</button>`).join('');
+  box.hidden = false;
+  box.querySelectorAll('button').forEach(b => b.onclick = async () => {
+    try { await track.applyConstraints({ advanced: [{ zoom: Number(b.dataset.z) }] }); } catch (e) {}
+    box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  });
+}
+// 폰을 실제로 어떻게 들었는지(기울기)로 사진 방향 맞추기 — 화면 회전이 잠겨 있어도 가로로 찍으면 가로 사진
+let tilt = 0; // 0 세로, 90 왼쪽으로 눕힘, 180 거꾸로, 270 오른쪽으로 눕힘
+function onTilt(e) {
+  if (e.beta == null || e.gamma == null) return;
+  const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
+  const gx = Math.sin(g) * Math.cos(b), gy = -Math.sin(b); // 기기 기준 중력 방향
+  if (Math.abs(gx) < 0.35 && Math.abs(gy) < 0.35) return;   // 거의 수평(바닥 보고 찍기)이면 직전 방향 유지
+  tilt = Math.abs(gx) > Math.abs(gy) ? (gx < 0 ? 90 : 270) : (gy > 0 ? 180 : 0);
+}
+async function watchTilt() {
+  try { if (window.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) await DeviceOrientationEvent.requestPermission(); } catch (e) {}
+  window.addEventListener('deviceorientation', onTilt);
+}
+function screenAngle() {
+  const a = screen.orientation && typeof screen.orientation.angle === 'number' ? screen.orientation.angle : (window.orientation || 0);
+  return (a + 360) % 360;
+}
+$('shutter').onclick = () => {
+  const v = $('video');
+  if (!v.videoWidth) return;
+  const vw = v.videoWidth, vh = v.videoHeight;
+  const turn = (tilt - screenAngle() + 360) % 360; // 화면이 같이 돌았으면 0
+  const c = document.createElement('canvas');
+  const side = turn % 180 !== 0;
+  c.width = side ? vh : vw; c.height = side ? vw : vh;
+  const x = c.getContext('2d');
+  x.translate(c.width / 2, c.height / 2); x.rotate(-turn * Math.PI / 180);
+  x.drawImage(v, -vw / 2, -vh / 2);
+  const f = $('flash'); f.classList.add('go'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('go')));
+  c.toBlob(b => { if (b) addShot(b); }, 'image/jpeg', 0.92);
+};
+async function keepAwake() { try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && stream) keepAwake(); });
+
+// 앨범에서 여러 장 (보조)
+$('albumIn').onchange = e => { [...e.target.files].forEach(addShot); e.target.value = ''; };
+// 붙여넣기: 다른 곳에서 복사한 사진
+function pastedImages(e) {
+  return [...((e.clipboardData && e.clipboardData.items) || [])]
+    .filter(it => it.kind === 'file' && it.type.startsWith('image/')).map(it => it.getAsFile()).filter(Boolean);
+}
+function addPasted(files) {
+  if (editing) { files.forEach(f => editing.add.push({ blob: f, url: URL.createObjectURL(f) })); drawEdit(); }
+  else if (!$('recView').hidden) files.forEach(addShot);
+}
+document.addEventListener('paste', e => {
+  const imgs = pastedImages(e);
+  const inZone = e.target.closest && e.target.closest('.pzone');
+  if (imgs.length) { e.preventDefault(); addPasted(imgs); }
+  else if (inZone && !(e.clipboardData && [...e.clipboardData.types].some(t => t.includes('html')))) e.preventDefault(); // 글자는 넣지 않음
+});
+// PC: 폴더에서 사진을 끌어다 놓기
+let dragDepth = 0;
+document.addEventListener('dragenter', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragDepth++; document.body.classList.add('dropping'); } });
+document.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dropping'); } });
+document.addEventListener('dragover', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); });
+document.addEventListener('drop', e => {
+  const files = [...(e.dataTransfer?.files || [])].filter(f => f.type.startsWith('image/'));
+  dragDepth = 0; document.body.classList.remove('dropping');
+  if (!files.length) return;
+  e.preventDefault();
+  addPasted(files);
+});
+// 일부 아이폰은 사진을 파일 대신 <img>로 넣어 줌 → 꺼내서 사진으로 추가
+['pzone', 'epzone'].forEach(id => {
+  const z = $(id);
+  z.addEventListener('input', async () => {
+    const imgs = [...z.querySelectorAll('img')];
+    z.innerHTML = '';
+    const files = [];
+    for (const im of imgs) { try { files.push(await (await fetch(im.src)).blob()); } catch (e) {} }
+    if (files.length) addPasted(files);
+  });
+});
+
+function addShot(blob) { shots.push({ blob, url: URL.createObjectURL(blob) }); drawShots(); }
+function imgAttr(p) { return p.url ? `src="${p.url}"` : `class="ph" data-tid="${p.driveId}"`; }
+function drawShots() {
+  $('shots').innerHTML = shots.map((s, i) => `<div><img ${imgAttr(s)} alt=""><b data-i="${i}">×</b></div>`).join('');
+  watchThumbs();
+  $('shots').querySelectorAll('b').forEach(x => x.onclick = () => { shots.splice(+x.dataset.i, 1); drawShots(); });
+  $('count').textContent = shots.length;
+}
+
+// ===== 다음: 세트를 대기열에 넣고 바로 다음 세트 =====
+$('nextBtn').onclick = () => {
+  const note = $('note').value.trim();
+  if (!shots.length && !note) return;
+  const visit = $('visit').value.trim() || today + '_답사';
+  const zone = $('zone').value.trim();
+  addZone(visit, zone);
+  const item = { key: String(Date.now()) + Math.random().toString(36).slice(2, 6), visit, zone, note, shots, el: renderItem(zone, note, shots) };
+  queue.push(item); persist(item);
+  shots = []; drawShots();
+  $('note').value = ''; store.set('fn_draft', '');
+  updateQueue(); run();
+  $('composer').scrollIntoView({ block: 'end' });
+};
+
+// ===== 답사·구역: 전에 쓴 이름을 눌러서 고르기 =====
+// 답사는 날짜 뒤 이름(공원명)으로 찾고, 구역은 같은 공원의 모든 답사에서 쓴 것을 띄움(이번 답사 것 먼저)
+let used = [], usedAt = 0; // [{visit, zone}]
+const place = v => String(v || '').trim().replace(/^\d{6}_?/, '').trim();
+function addZone(v, z) { if (z) used.push({ visit: v, zone: z, local: true }); }
+async function refreshUsed() {
+  try {
+    const r = await api({ action: 'list' });
+    const local = used.filter(u => u.local);
+    used = r.rows.map(x => ({ visit: String(x.visit || '').trim(), zone: String(x.zone || '').trim() })).concat(local);
+    usedAt = Date.now();
+  } catch (e) {}
+}
+async function freshUsed(show) { show(); if (Date.now() - usedAt > 60000) { await refreshUsed(); show(); } }
+function chips(box, list, input) {
+  box.innerHTML = list.map(z => `<button type="button">${esc(z)}</button>`).join('');
+  box.hidden = !list.length || document.activeElement !== input;
+}
+function showVisits() {
+  const typed = place($('visit').value);
+  const names = [...new Set(used.map(u => place(u.visit)).filter(Boolean))];
+  chips($('visitSug'), typed ? names.filter(n => n !== typed && n.includes(typed)) : [], $('visit'));
+}
+function showZones() {
+  const v = $('visit').value.trim(), p = place(v), typed = $('zone').value.trim();
+  if (!p) { chips($('zoneSug'), [], $('zone')); return; }
+  const same = used.filter(u => place(u.visit) === p && u.zone);
+  const mine = same.filter(u => u.visit === v).map(u => u.zone);
+  const list = [...new Set(mine.concat(same.map(u => u.zone)))].filter(z => z !== typed && (!typed || z.includes(typed)));
+  chips($('zoneSug'), list, $('zone'));
+}
+function wire(input, box, show, pick) {
+  input.addEventListener('focus', () => freshUsed(show));
+  input.addEventListener('input', show);
+  input.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 200));
+  box.addEventListener('pointerdown', e => e.preventDefault()); // 누르는 동안 입력칸 포커스 유지
+  box.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; pick(b.textContent); box.hidden = true; input.blur(); });
+}
+wire($('visit'), $('visitSug'), showVisits, n => { const v = today + '_' + n; $('visit').value = v; store.set('fn_visit_' + today, v); });
+wire($('zone'), $('zoneSug'), showZones, z => { $('zone').value = z; store.set('fn_zone', z); });
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function renderItem(zone, note, list) {
+  $('empty').hidden = true;
+  if (zone && zone !== lastZone) {
+    const h = document.createElement('div'); h.className = 'zoneHead'; h.textContent = zone;
+    $('feed').appendChild(h); lastZone = zone;
+  }
+  const el = document.createElement('div'); el.className = 'item';
+  el.innerHTML = (list.length ? `<div class="strip">${list.map(s => `<img ${imgAttr(s)} alt="">`).join('')}</div>` : '')
+    + (note ? `<div class="note">${esc(note)}</div>` : '') + `<div class="st">대기 중</div>`;
+  $('feed').appendChild(el);
+  watchThumbs();
+  return el;
+}
+function updateQueue() {
+  const n = queue.length;
+  $('queue').textContent = n ? `업로드 ${n}` : '저장 완료';
+  $('queue').classList.toggle('busy', n > 0);
+}
+function toDataUrl(blob) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+}
+
+async function run() {
+  if (busy) return;
+  busy = true;
+  while (queue.length) {
+    const it = queue[0];
+    const st = it.el.querySelector('.st');
+    try {
+      // 사진은 3장씩 동시에 올림 (원본 그대로). 올린 사진은 기록해 둬서 실패해도 그 다음부터 이어서.
+      if (!it.done) it.done = Object.fromEntries((it.ids || []).map((id, i) => [i, { id, thumbId: (it.thumbs || [])[i] || '' }]));
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+      const total = it.shots.length;
+      const todo = it.shots.map((_, i) => i).filter(i => !it.done[i]);
+      const show = () => { st.textContent = `사진 ${Object.keys(it.done).length}/${total} 올림`; st.className = 'st'; };
+      show();
+      let err = null;
+      const worker = async () => {
+        while (todo.length && !err) {
+          const i = todo.shift(), sh = it.shots[i];
+          try {
+            const r = sh.driveId
+              ? await api({ action: 'copyIn', id: sh.driveId, visit: it.visit, thumb: await driveThumb(sh.driveId) })
+              : await api({ action: 'upload', visit: it.visit, name: `${stamp}_${i + 1}.jpg`, data: await toDataUrl(sh.blob), thumb: await makeThumb(sh.blob) });
+            it.done[i] = { id: r.id, thumbId: r.thumbId || '' };
+            show(); persist(it); fails = 0; $('netBar').hidden = true;
+          } catch (e) { err = e; }
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]);
+      if (err) throw err;
+      it.ids = it.shots.map((_, i) => it.done[i].id);
+      it.thumbs = it.shots.map((_, i) => it.done[i].thumbId);
+      st.textContent = '문서에 정리하는 중';
+      const r = await api({ action: 'save', visit: it.visit, zone: it.zone, note: it.note, photos: it.ids, thumbs: it.thumbs || [] });
+      allRows = null;
+      st.textContent = '저장됨'; st.className = 'st ok';
+      if (r.docUrl) { $('docLink').href = r.docUrl; $('docLink').hidden = false; }
+      queue.shift(); qdb.del(it.key); updateQueue();
+      fails = 0; $('netBar').hidden = true;
+    } catch (e) {
+      st.textContent = '전송 실패, 10초 뒤 다시 시도: ' + e.message; st.className = 'st err';
+      if (++fails >= 3) $('netBar').hidden = false;
+      if (/비밀번호/.test(e.message)) { busy = false; showGate(); return; }
+      await new Promise(r => setTimeout(r, 10000));
+    }
+  }
+  busy = false;
+}
+
+// ===== 미리보기 사진 (찾기 화면용, 360px) =====
+function makeThumb(blob) {
+  return new Promise(res => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const w = 360, h = Math.round(img.naturalHeight * w / img.naturalWidth);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(''); };
+    img.src = url;
+  });
+}
+
+// ===== 탭 =====
+function showTab(find) {
+  $('tabRec').classList.toggle('on', !find); $('tabFind').classList.toggle('on', find);
+  $('recView').hidden = find; $('findView').hidden = !find;
+  if (find) loadRows(true);
+  window.scrollTo(0, 0);
+}
+$('tabRec').onclick = () => showTab(false);
+$('tabFind').onclick = () => showTab(true);
+
+// ===== 찾기 =====
+let allRows = null;
+const thumbCache = {};
+async function loadRows(force) {
+  if (allRows && !force) { renderFind(); return; }
+  $('fMeta').textContent = '불러오는 중…';
+  try {
+    const r = await api({ action: 'list' });
+    allRows = r.rows.slice().reverse();
+    const visits = [...new Set(allRows.map(x => x.visit))];
+    const cur = $('fVisit').value;
+    $('fVisit').innerHTML = '<option value="">모든 답사</option>' + visits.map(v => `<option>${esc(v)}</option>`).join('');
+    if (visits.includes(cur)) $('fVisit').value = cur;
+    renderFind();
+  } catch (e) { $('fMeta').textContent = '불러오지 못했습니다: ' + e.message; }
+}
+$('q').addEventListener('input', () => { clearTimeout(window._qt); window._qt = setTimeout(renderFind, 200); });
+$('fVisit').onchange = renderFind;
+
+function hi(text, words) {
+  let h = esc(text);
+  words.forEach(w => { if (w) h = h.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<mark>${m}</mark>`); });
+  return h;
+}
+function renderFind() {
+  if (!allRows) return;
+  const words = $('q').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const v = $('fVisit').value;
+  const rows = allRows.filter(r => (!v || r.visit === v) &&
+    words.every(w => (r.visit + ' ' + r.zone + ' ' + r.note).toLowerCase().includes(w)));
+  $('fMeta').textContent = `${rows.length}건` + (words.length || v ? ` / 전체 ${allRows.length}건` : '');
+  $('results').innerHTML = rows.slice(0, 80).map((r, i) => {
+    const ph = r.photos.map((id, k) => {
+      const tid = r.thumbs[k] || id;
+      return `<a href="https://drive.google.com/file/d/${id}/view" target="_blank" rel="noopener"><img class="ph" data-tid="${tid}" alt=""></a>`;
+    }).join('');
+    return `<div class="card" data-id="${esc(r.id)}">
+      <div class="top"><b>${esc(r.visit)}</b>${r.zone ? `<span>· ${hi(r.zone, words)}</span>` : ''}<span>· ${esc(r.t.slice(5))}</span>${r.id ? `<button class="edit" data-edit="${esc(r.id)}">수정</button>` : ''}</div>
+      ${ph ? `<div class="strip">${ph}</div>` : ''}
+      ${r.note ? `<div class="note">${hi(r.note, words)}</div>` : ''}
+    </div>`;
+  }).join('') || '<p class="empty">찾는 기록이 없습니다.</p>';
+  $('results').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEdit(b.dataset.edit));
+  watchThumbs();
+}
+
+// 화면에 보이는 사진만 가져오기
+const pending = new Set();
+let thumbTimer = null;
+const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); queueThumb(e.target); } });
+}, { rootMargin: '300px' }) : null;
+function watchThumbs() {
+  document.querySelectorAll('img.ph[data-tid]').forEach(img => {
+    const id = img.dataset.tid;
+    if (thumbCache[id]) { img.src = thumbCache[id]; return; }
+    io ? io.observe(img) : queueThumb(img);
+  });
+}
+function queueThumb(img) {
+  pending.add(img.dataset.tid);
+  clearTimeout(thumbTimer);
+  thumbTimer = setTimeout(fetchThumbs, 60);
+}
+async function fetchThumbs() {
+  const ids = [...pending].filter(id => !thumbCache[id]).slice(0, 12);
+  ids.forEach(id => pending.delete(id));
+  if (!ids.length) return;
+  try {
+    const r = await api({ action: 'thumbs', ids });
+    Object.entries(r.thumbs).forEach(([id, src]) => {
+      if (!src) return;
+      thumbCache[id] = src;
+      document.querySelectorAll(`img.ph[data-tid="${id}"]`).forEach(i => i.src = src);
+    });
+  } catch (e) {}
+  if (pending.size) fetchThumbs();
+}
+
+// ===== 기록 수정 =====
+let editing = null; // {row, keep:[{id,tid}], add:[{blob,url}]}
+function openEdit(id) {
+  const row = allRows.find(r => r.id === id);
+  if (!row) return;
+  editing = { row, keep: row.photos.map((p, k) => ({ id: p, tid: row.thumbs[k] || '' })), add: [] };
+  $('eTitle').textContent = row.visit + ' 수정';
+  $('eZone').value = row.zone; $('eNote').value = row.note; $('eMsg').textContent = '';
+  $('editSheet').hidden = false;
+  drawEdit();
+}
+function drawEdit() {
+  const k = editing.keep.map((p, i) => `<div><img class="ph" data-tid="${p.tid || p.id}" alt=""><b data-k="${i}">×</b></div>`).join('');
+  const a = editing.add.map((p, i) => `<div class="new"><img ${imgAttr(p)} alt=""><b data-a="${i}">×</b></div>`).join('');
+  $('ePhotos').innerHTML = k + a;
+  $('ePhotos').querySelectorAll('[data-k]').forEach(x => x.onclick = () => { editing.keep.splice(+x.dataset.k, 1); drawEdit(); });
+  $('ePhotos').querySelectorAll('[data-a]').forEach(x => x.onclick = () => { editing.add.splice(+x.dataset.a, 1); drawEdit(); });
+  watchThumbs();
+}
+function closeEdit() { editing = null; $('editSheet').hidden = true; }
+$('eClose').onclick = closeEdit;
+$('editSheet').onclick = e => { if (e.target === $('editSheet')) closeEdit(); };
+$('eAlbum').onchange = e => { [...e.target.files].forEach(f => editing.add.push({ blob: f, url: URL.createObjectURL(f) })); e.target.value = ''; drawEdit(); };
+$('eSave').onclick = async () => {
+  if (!editing) return;
+  const ed = editing, row = ed.row;
+  const removed = row.photos.length - ed.keep.length;
+  $('eSave').disabled = true;
+  try {
+    const photos = ed.keep.map(p => p.id), thumbs = ed.keep.map(p => p.tid);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    for (let i = 0; i < ed.add.length; i++) {
+      $('eMsg').textContent = `새 사진 ${i + 1}/${ed.add.length} 올리는 중`;
+      const a = ed.add[i];
+      const r = a.driveId
+        ? await api({ action: 'copyIn', id: a.driveId, visit: row.visit, thumb: await driveThumb(a.driveId) })
+        : await api({ action: 'upload', visit: row.visit, name: `${stamp}_e${i + 1}.jpg`, data: await toDataUrl(a.blob), thumb: await makeThumb(a.blob) });
+      photos.push(r.id); thumbs.push(r.thumbId || '');
+    }
+    $('eMsg').textContent = '저장 중';
+    await api({ action: 'update', id: row.id, zone: $('eZone').value.trim(), note: $('eNote').value.trim(), photos, thumbs });
+    Object.assign(row, { zone: $('eZone').value.trim(), note: $('eNote').value.trim(), photos, thumbs });
+    closeEdit(); renderFind();
+    if (removed > 0) $('fMeta').textContent += ` · 사진 ${removed}장은 드라이브 휴지통으로 옮겼습니다`;
+  } catch (e) { $('eMsg').textContent = '저장하지 못했습니다: ' + e.message; $('eMsg').className = 'st err'; }
+  finally { $('eSave').disabled = false; }
+};
+
+
+// ===== 드라이브에서 사진 고르기 =====
+let pick = null; // {stack:[{id,name}], sel:Set, onAdd}
+function openPicker(onAdd) {
+  pick = { stack: [], sel: new Set(), onAdd };
+  $('pickSheet').hidden = false;
+  loadFolder('');
+}
+async function loadFolder(id) {
+  $('pMsg').textContent = '불러오는 중…'; $('pFolders').innerHTML = ''; $('pImages').innerHTML = '';
+  try {
+    const r = await api({ action: 'driveList', folderId: id });
+    if (!pick.stack.length || pick.stack[pick.stack.length - 1].id !== r.id) pick.stack.push({ id: r.id, name: r.name });
+    $('pTitle').textContent = r.name || '내 드라이브';
+    $('pBack').disabled = pick.stack.length < 2;
+    $('pFolders').innerHTML = r.folders.map(f => `<button data-f="${f.id}">📁 ${esc(f.name)}</button>`).join('');
+    $('pImages').innerHTML = r.images.map(f => `<div data-i="${f.id}" class="${pick.sel.has(f.id) ? 'pick' : ''}"><img class="ph" data-tid="${f.id}" alt="${esc(f.name)}"></div>`).join('');
+    $('pFolders').querySelectorAll('[data-f]').forEach(b => b.onclick = () => loadFolder(b.dataset.f));
+    $('pImages').querySelectorAll('[data-i]').forEach(d => d.onclick = () => {
+      const k = d.dataset.i; pick.sel.has(k) ? pick.sel.delete(k) : pick.sel.add(k);
+      d.classList.toggle('pick', pick.sel.has(k)); updatePickBtn();
+    });
+    $('pMsg').textContent = r.folders.length || r.images.length ? '' : '이 폴더에는 사진이 없습니다.';
+    watchThumbs();
+  } catch (e) { $('pMsg').textContent = '불러오지 못했습니다: ' + e.message; }
+}
+function updatePickBtn() { const n = pick.sel.size; $('pAdd').disabled = !n; $('pAdd').textContent = n ? `사진 ${n}장 추가` : '사진 추가'; }
+$('pBack').onclick = () => { if (pick.stack.length < 2) return; pick.stack.pop(); const up = pick.stack.pop(); loadFolder(up.id); };
+$('pClose').onclick = () => { pick = null; $('pickSheet').hidden = true; };
+$('pAdd').onclick = () => {
+  const ids = [...pick.sel]; const cb = pick.onAdd;
+  pick = null; $('pickSheet').hidden = true;
+  ids.forEach(id => cb({ driveId: id, url: thumbCache[id] || '' }));
+};
+// 기록 쪽 미리보기: 드라이브 사진은 받아 둔 썸네일을 줄여서 저장
+async function driveThumb(id) {
+  try {
+    if (!thumbCache[id]) { const r = await api({ action: 'thumbs', ids: [id] }); if (r.thumbs[id]) thumbCache[id] = r.thumbs[id]; }
+    return thumbCache[id] ? await makeThumb(await (await fetch(thumbCache[id])).blob()) : '';
+  } catch (e) { return ''; }
+}
+$('driveBtn').onclick = () => openPicker(p => { shots.push(p); drawShots(); });
+$('eDriveBtn').onclick = () => openPicker(p => { editing.add.push(p); drawEdit(); });
+
+window.addEventListener('beforeunload', e => { if (queue.length) { e.preventDefault(); e.returnValue = ''; } });
+</script>
+</body>
+</html>

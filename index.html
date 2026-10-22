@@ -2629,6 +2629,7 @@ function retryMissingNdb() {
 let _loadTotal = 0;
 let _loadDone  = 0;
 
+let _finalRenderKey = '';
 function _updateLoadProgress() {
   const el = document.getElementById('loadProgress');
   if (!el) return;
@@ -2640,8 +2641,10 @@ function _updateLoadProgress() {
     el.style.color = '#52b788';
     el.style.display = '';
     setTimeout(() => { if (el) el.style.display = 'none'; }, 3000);
-    // 로딩 완료 시 최종 전체 렌더 (디바운스로 놓친 게 없도록)
-    renderAll();
+    // 로딩 완료 시 최종 전체 렌더 (디바운스로 놓친 게 없도록) — 목록이 바뀐 뒤 1회만
+    // (renderChips → _updateLoadProgress → renderAll → renderChips 무한 반복 방지)
+    const fk = plants.map(p => p.name).join('|');
+    if (fk !== _finalRenderKey) { _finalRenderKey = fk; renderAll(); }
     // NDB 누락 있으면 재시도 버튼 표시
     const missingCount = plants.filter(p => p.done && !p.naturadbUrl && !p.notFound).length;
     const retryBtn = document.getElementById('ndbRetryBtn');
