@@ -609,6 +609,29 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .bc-resize { position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 40%, #52b788 40%); border-radius:0 0 8px 0; }
 .bc-arrow-pt { position:absolute;width:12px;height:12px;background:#f59e0b;border:2px solid #fff;border-radius:50%;cursor:crosshair;z-index:12;transform:translate(-50%,-50%); }
 #bc-arrow-btn.active { background:#52b788;color:#fff; }
+
+/* ── 아우돌프 / 한국 적합성 (생태탭) ── */
+.oud-title{color:#5b4a8a!important}
+.kor-title{color:#1d5f7a!important}
+.oud-body,.kor-body{display:block!important;font-size:0.78rem;line-height:1.6;color:#222;padding:6px 10px!important;border-radius:6px;margin-bottom:6px}
+.oud-body{background:#f6f3fc;border-left:3px solid #5b4a8a}
+.kor-body{background:#eef6f9;border-left:3px solid #1d5f7a}
+.oud-lvl{display:inline-block;font-size:0.68rem;font-weight:800;color:#fff;background:#5b4a8a;border-radius:3px;padding:0 5px;margin-right:5px}
+.oud-lvl2{background:#7d6bb3}.oud-lvl3{background:#9a8cc0}
+.oud-t{display:inline-block;padding:0 6px;border-radius:4px;font-size:0.7rem;margin:1px 2px 1px 0;background:#e9e6f2;color:#222}
+.oud-t.warn{background:#fdeaea;color:#c0392b;font-weight:700}.oud-t.good{background:#e8f0fb;color:#1f5fa8;font-weight:700}
+.oud-src{display:inline-block;font-size:0.66rem;border:1px solid #999;border-radius:3px;padding:0 4px;margin-right:3px;color:#333}
+.oud-src.proj{border:1.5px solid #8a4b16;color:#8a4b16;background:#fbf1e6;font-weight:700}
+.oud-dim{color:#666}
+.oud-cv{border-left:3px solid #d9d2ee;background:#fff;padding:3px 8px;margin:4px 0}
+.oud-body summary,.kor-body summary{cursor:pointer;font-weight:700;font-size:0.76rem}
+.oud-body summary{color:#5b4a8a}.kor-body summary{color:#1d5f7a}
+.kor-chip{display:inline-block;border-radius:4px;padding:0 6px;font-size:0.7rem;font-weight:700}
+.kor-chip.nat{background:#e3f3e3;color:#1b6a2a}.kor-chip.cult{background:#eee;color:#333}.kor-chip.alien{background:#fff1dc;color:#9a5a00}
+.kor-ok{color:#1b7a3a;font-weight:800}.kor-ng{color:#c0392b;font-weight:800}
+.kor-rec{background:#fff;border-left:3px solid #1d5f7a;padding:4px 8px;margin:4px 0;white-space:pre-line}
+.kor-rec small{display:block;color:#555;font-size:0.68rem}
+.kor-cv{display:inline-block;background:#fff3cd;color:#7a5a00;font-weight:800;border-radius:3px;padding:0 4px;margin-right:4px}
 </style>
 </head>
 <body>
@@ -719,7 +742,7 @@ table.dtbl tr:last-child td { border-bottom: none; }
       <button class="eco-chip" data-filter="maint" data-val="high" onclick="ecoChipToggle(this)">🔴 높음</button>
       <span class="eco-filter-sep"></span>
       <span class="eco-filter-label">Zone</span>
-      <input type="number" id="eco-zone-input" placeholder="예: 5" min="1" max="13" oninput="ecoFilter()" class="eco-zone-input">
+      <input type="number" id="eco-zone-input" placeholder="예: 5" min="1" max="13" oninput="renderEcology();ecoFilter()" class="eco-zone-input">
     </div>
     <div class="eco-filter-chips">
       <span class="eco-filter-label">꽃색</span>
@@ -3713,6 +3736,7 @@ function renderEcology() {
             ${f('식재간격', p.pflanzAbstand || '—')}
             ${f('m²당 주수',p.pflanzCount   || '—')}
           </div>
+          ${oudHtml(p)}${korHtml(p)}
         </div>
         <div class="eco-right">
           ${(() => {
@@ -3745,7 +3769,7 @@ function renderEcology() {
   }).join('');
 
   el.innerHTML = `<div class="eco-cards">${cards}</div>
-    <p class="src-note" style="padding:0 1rem 0.5rem">* 자생여부: 산림청 | 생태·형태: MBG + NaturaDB(🌿) | Ellenberg: EIVE</p>`;
+    <p class="src-note" style="padding:0 1rem 0.5rem">* 자생여부: 산림청 | 생태·형태: MBG + NaturaDB(🌿) | Ellenberg: EIVE | 아우돌프: Piet Oudolf 수종리스트 | 현장조사: 현장조사 DB</p>`;
   // 재빌드 시 스크롤 위치 보존 (로딩 중 레이아웃 시프트 방지)
   if (window.scrollY !== _sy) window.scrollTo(0, _sy);
 }
@@ -4490,6 +4514,117 @@ function lookupNativePlant(latName) {
 }
 
 loadNativePlantDB();
+
+
+// ── 아우돌프 수종리스트 연계 (data/oudolf.json) ─────────────────────────────
+// 매칭 순서: ① 같은 이름 → ② 이 종의 품종 목록 → ③ 속 정보. 종 정보를 품종에 붙이지 않음.
+let _oud = null, _oudIdx = {};
+const oudNm = x => String(x || '').replace(/[‘’ʼ′]/g, "'").replace(/\s*\([^)]*\)/g, '')
+  .replace(/\./g, '').replace(/\s*×\s*/g, ' × ').replace(/\s+/g, ' ').trim().toLowerCase();
+async function loadOudolf() {
+  try {
+    const r = await fetch('./data/oudolf.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _oud = await r.json();
+    _oudIdx = {}; _oud.rows.forEach(o => { _oudIdx[oudNm(o.n)] = o; });
+    console.log('[Oudolf] ' + _oud.rows.length + '종 로드');
+  } catch (e) { console.warn('[Oudolf] 로드 실패:', e.message); _oud = { rows: [], GKO: {}, grole: {}, gtag: {} }; }
+  if (activeTab === 'ecology') renderEcology();
+}
+const OUD_LIGHT = { S: '양지', P: '반음지', H: '음지' };
+const OUD_ST = { B: '일시적', Y: '틈새 채움, 짧은 기간', U: '3~9개월', X: '9개월 이상' };
+const oudTags = a => (a || []).map(([t, c]) => `<span class="oud-t ${c || ''}">${escH(t)}</span>`).join('');
+const oudSrc = a => (a || []).map(s => `<span class="oud-src${/vandalorum/i.test(s) ? ' proj' : ''}">${escH(s)}</span>`).join('');
+function oudRow(o) {
+  const bits = [];
+  if (o.l) bits.push(o.l.split('').map(c => OUD_LIGHT[c] || c).join('~'));
+  if (o.h) bits.push('초장 ' + o.h + 'cm');
+  if (o.pm2) bits.push('주/㎡ <b>' + escH(o.pm2) + '</b>');
+  if (o.b) bits.push('개화 ' + escH(o.b));
+  if (o.z) bits.push('Z' + escH(o.z));
+  if (o.s) bits.push(escH(o.s));
+  if (o.st) bits.push('구조 ' + o.st.map(x => OUD_ST[x] || x).join(', '));
+  const sym = (o.sym || []).map(([z, m, n]) => `${escH(z)}${n ? ' (' + escH(n) + ')' : ''}${m && m.length ? ' + ' + m.map(escH).join(', ') : ''}`);
+  return `${o.role ? escH(o.role) + ' ' : ''}${oudTags(o.tags)}`
+    + (bits.length ? `<br>${bits.join(' · ')}` : '')
+    + (o.note ? `<br>${escH(o.note)}` : '')
+    + (sym.length ? `<br><span class="oud-src proj">vandalorum(2024)</span> ${sym.join(' / ')}` : '')
+    + `<br>${oudSrc(o.src)}`;
+}
+function oudHtml(p) {
+  if (!_oud) return '';
+  const full = (p.latName || p.name || '').trim();
+  const nm = oudNm(full); if (!nm) return '';
+  const ex = _oudIdx[nm];
+  const cvs = nm.includes("'") ? [] : _oud.rows.filter(o => { const k = oudNm(o.n); return k !== nm && k.startsWith(nm + ' '); });
+  const g0 = full.split(/\s+/)[0] || ''; const G = g0.charAt(0).toUpperCase() + g0.slice(1).toLowerCase();
+  let head;
+  if (ex) head = `<span class="oud-lvl">종 일치</span>${oudRow(ex)}`;
+  else if (cvs.length) head = `<span class="oud-lvl oud-lvl2">품종만 있음</span><span class="oud-dim">이 종 자체 행은 없어요. 아래 품종을 참고</span>`;
+  else if ((_oud.grole[G] || []).length || (_oud.gtag[G] || []).length)
+    head = `<span class="oud-lvl oud-lvl3">속 정보</span><b>${escH(G)} ${escH(_oud.GKO[G] || '')}</b> — ${escH((_oud.grole[G] || []).join(', '))} ${oudTags(_oud.gtag[G])}`;
+  else head = `<span class="oud-dim">수종리스트에 없음</span>`;
+  const list = cvs.length ? `<details${ex ? '' : ' open'}><summary>이 종의 품종 ${cvs.length}개</summary>`
+    + cvs.map(o => `<div class="oud-cv"><b>${escH(o.n)}</b>${o.ko ? ` <span class="oud-dim">${escH(o.ko)}</span>` : ''}<br>${oudRow(o)}</div>`).join('') + `</details>` : '';
+  return `<div class="eco-sec-title oud-title">아우돌프</div><div class="eco-sec-body oud-body">${head}${list}</div>`;
+}
+
+// ── 한국 적합성: 자생구분 · Zone(현장) · 고온(MBG) · 현장조사 기록 ─────────────
+const FIELD_EP = 'https://script.google.com/macros/s/AKfycbz_QfCwye48SzCArIT4D-fVyucfJrDnmkAZGcwvtRALtKm0X0t93OIOGhbFN3T075s/exec';
+let _field = null, _fieldErr = '';
+async function loadField() {
+  let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
+  if (!pw) { _fieldErr = 'nopw'; return; }
+  try {
+    const r = await fetch(FIELD_EP, { method: 'POST', body: JSON.stringify({ password: pw, action: 'list' }) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || '불러오기 실패');
+    _field = j.rows || []; _fieldErr = '';
+  } catch (e) { _fieldErr = e.message || '불러오기 실패'; }
+  if (activeTab === 'ecology') renderEcology();
+}
+function fieldRecs(p) {
+  if (!_field) return [];
+  const full = (p.latName || p.name || '').replace(/[‘’ʼ′]/g, "'");
+  const w = full.replace(/\s*'[^']*'/g, '').trim().split(/\s+/);
+  const bin = (w[1] === '×' || w[1] === 'x' ? w.slice(0, 3) : w.slice(0, 2)).join(' ').toLowerCase();
+  const kor = (p.korName && /[가-힣]{3,}/.test(p.korName)) ? p.korName.replace(/\s*'.*$/, '').trim() : '';
+  const out = [];
+  _field.forEach(r => {
+    const note = String(r.note || '').replace(/[‘’ʼ′]/g, "'"); const low = note.toLowerCase();
+    let i = bin.includes(' ') ? low.indexOf(bin) : -1, cv = '';
+    if (i >= 0) { const m = note.slice(i + bin.length).match(/^\s*'([^']+)'/); if (m) cv = m[1]; }
+    else if (!(kor && note.includes(kor))) return;
+    out.push({ r, cv });
+  });
+  return out;
+}
+function korHtml(p) {
+  const nat = p.native || '';
+  const chip = nat ? `<span class="kor-chip ${/자생/.test(nat) ? 'nat' : /외래/.test(nat) ? 'alien' : 'cult'}">${escH(nat)}</span>` : `<span class="oud-dim">자생구분 없음</span>`;
+  const site = parseInt(document.getElementById('eco-zone-input')?.value || '');
+  const h = p.hardiness || p.ndbHardiness || '';
+  const m = h.match(/(\d+)\s*[-–~]\s*(\d+)/);
+  let zone;
+  if (m) zone = `Zone ${m[1]}–${m[2]}` + (site ? (site >= +m[1] && site <= +m[2] ? ' <span class="kor-ok">✓</span>' : ' <span class="kor-ng">✗</span>') : '');
+  else { const oz = _oudIdx[oudNm(p.latName || p.name)]; zone = oz && oz.z ? `Zone ${escH(oz.z)}~ (아우돌프)` + (site ? (site >= +oz.z ? ' <span class="kor-ok">✓</span>' : ' <span class="kor-ng">✗</span>') : '') : '<span class="oud-dim">Zone 자료 없음</span>'; }
+  if (!site) zone += ' <span class="oud-dim" style="font-size:0.68rem">(위 Zone 칸에 현장 Zone을 넣으면 비교)</span>';
+  const tol = Array.isArray(p.tolerate) ? p.tolerate.join(',') : String(p.tolerate || '');
+  const heat = /heat/i.test(tol) ? '<span class="kor-ok">고온 내성 (MBG)</span>' : '고온 <span class="oud-dim">자료 없음</span>';
+  let rec;
+  if (_fieldErr === 'nopw') rec = `<div class="oud-dim">현장조사 기록: 이 브라우저에서 현장조사툴에 한 번 접속(비밀번호 입력)하면 연결돼요.</div>`;
+  else if (_fieldErr) rec = `<div class="oud-dim">현장조사 기록을 불러오지 못했어요 (${escH(_fieldErr)})</div>`;
+  else if (!_field) rec = `<div class="oud-dim">현장조사 기록 불러오는 중…</div>`;
+  else {
+    const rs = fieldRecs(p);
+    rec = rs.length ? `<details><summary>현장조사 ${rs.length}건</summary>` + rs.map(({ r, cv }) =>
+      `<div class="kor-rec"><small>${cv ? `<span class="kor-cv">'${escH(cv)}' 기록</span>` : ''}${escH(r.visit)} · ${escH(r.zone)} · ${escH(r.t)}</small>${escH(r.note)}</div>`).join('') + `</details>`
+      : `<div class="oud-dim">현장조사 기록 없음</div>`;
+  }
+  return `<div class="eco-sec-title kor-title">한국 적합성</div><div class="eco-sec-body kor-body">${zone} · ${chip} · ${heat}${rec}</div>`;
+}
+loadOudolf();
+loadField();
 
 // ── 생태탭 식물 이미지 ─────────────────────────────────────────────────────────
 let ecoActivePlant = null; // 현재 선택된 식물 인덱스
