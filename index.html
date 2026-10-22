@@ -633,6 +633,19 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .kor-rec small{display:block;color:#555;font-size:0.68rem}
 .kor-cv{display:inline-block;background:#fff3cd;color:#7a5a00;font-weight:800;border-radius:3px;padding:0 4px;margin-right:4px}
 
+
+/* ── 입지분석 탭 ── */
+.site-wrap{max-width:1000px;margin:1rem auto;padding:0 1rem;font-size:0.84rem}
+.site-card{background:#fff;border:1px solid #d8e4d0;border-radius:8px;padding:10px 12px;line-height:1.7}
+.site-h{font-weight:800;color:#2d5a1b;margin:4px 0}
+.site-zones{width:100%;border-collapse:collapse;background:#fff}
+.site-zones th,.site-zones td{border-bottom:1px solid #e8f0e4;padding:4px 6px;text-align:left}
+.site-zones tr.sel{background:#f0f8ec}
+.site-zones input,.site-zones select{font:inherit;padding:3px 6px;border:1px solid #cfd8c8;border-radius:4px;width:100%;box-sizing:border-box}
+.site-st{font-size:0.72rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#fff3cd;color:#7a5a00}
+.site-st.ok{background:#e3f3e3;color:#1b6a2a}
+.site-cand{display:flex;gap:8px;align-items:flex-start;background:#fff;border:1px solid #e8f0e4;border-radius:6px;padding:6px 8px;margin:4px 0;line-height:1.5}
+.site-cand.zbad{opacity:.75}
 /* ── 한국 자생구분·위험/보호 표시 ── */
 .kb{display:inline-block;font-size:0.68rem;font-weight:700;border-radius:4px;padding:0 5px;margin:1px 3px 1px 0;line-height:1.5;font-style:normal;white-space:nowrap;vertical-align:middle}
 .kb.nat{background:#e3f3e3;color:#1b6a2a}.kb.natcv{background:#eef6e0;color:#4a6a10;border:1px dashed #8aa84a}
@@ -889,82 +902,7 @@ tr.k-out td{background:#fdeaea!important}
   <div id="care-content"><div class="empty"><div class="emo">🔧</div><p>식물을 입력하면 유지관리 정보를 불러옵니다.</p></div></div>
 </div>
 
-<div id="pane-site" class="tab-pane">
-  <div style="max-width:680px;margin:2rem auto;padding:0 1rem;">
-    <h2 style="color:#2d5a1b;margin-bottom:0.3rem;">📍 입지 분석 → 수종 추천</h2>
-    <p style="color:#6a8a5a;font-size:0.85rem;margin-bottom:2rem;">사이트 조건을 입력하면 적합한 수종 리스트를 제안합니다.</p>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
-      <label class="site-field">
-        <span>☀️ 빛 조건</span>
-        <select id="site-light" disabled>
-          <option value="">선택</option>
-          <option>양지 (Full sun, 6h+)</option>
-          <option>반양지 (Part sun, 4–6h)</option>
-          <option>반음지 (Part shade, 2–4h)</option>
-          <option>음지 (Full shade, 2h-)</option>
-        </select>
-      </label>
-      <label class="site-field">
-        <span>💧 토양 수분</span>
-        <select id="site-moisture" disabled>
-          <option value="">선택</option>
-          <option>건조 (Dry)</option>
-          <option>보통 (Medium)</option>
-          <option>습윤 (Moist)</option>
-          <option>습지 (Wet)</option>
-        </select>
-      </label>
-      <label class="site-field">
-        <span>🧪 토양 pH</span>
-        <select id="site-ph" disabled>
-          <option value="">선택</option>
-          <option>산성 (Acidic, pH &lt;6)</option>
-          <option>중성 (Neutral, pH 6–7)</option>
-          <option>알칼리 (Alkaline, pH &gt;7)</option>
-        </select>
-      </label>
-      <label class="site-field">
-        <span>❄️ 내한성 Zone</span>
-        <select id="site-zone" disabled>
-          <option value="">선택</option>
-          <option>Zone 5 (−29°C)</option>
-          <option>Zone 6 (−23°C)</option>
-          <option>Zone 7 (−18°C)</option>
-          <option>Zone 8 (−12°C)</option>
-        </select>
-      </label>
-      <label class="site-field">
-        <span>🏙️ 입지 유형</span>
-        <select id="site-type" disabled>
-          <option value="">선택</option>
-          <option>도시 가로</option>
-          <option>옥상·테라스</option>
-          <option>수변·우수정원</option>
-          <option>우드랜드·임연부</option>
-          <option>초지·메도우</option>
-          <option>암석원</option>
-        </select>
-      </label>
-      <label class="site-field">
-        <span>🎨 분위기</span>
-        <select id="site-mood" disabled>
-          <option value="">선택</option>
-          <option>자연주의 (Naturalistic)</option>
-          <option>포멀 (Formal)</option>
-          <option>야생화 (Wildflower)</option>
-          <option>미니멀</option>
-        </select>
-      </label>
-    </div>
-
-    <div style="background:#f8f4ec;border:1.5px dashed #c8b89a;border-radius:8px;padding:1.5rem;text-align:center;color:#9a7a5a;">
-      <div style="font-size:2rem;margin-bottom:0.5rem;">🚧</div>
-      <div style="font-weight:700;margin-bottom:0.3rem;">추천 엔진 준비 중</div>
-      <div style="font-size:0.8rem;">USDA PLANTS DB + 자체 수종 DB 연동 예정<br>입력 필드는 향후 자동 필터링에 사용됩니다.</div>
-    </div>
-  </div>
-</div>
+<div id="pane-site" class="tab-pane"><div id="site-content"></div></div>
 
 <!-- Lightbox for plant images -->
 <div id="eco-lightbox" onclick="ecoLightboxBgClick(event)">
@@ -2973,6 +2911,7 @@ function renderActiveTab() {
     case 'density':  calcDensity();    break;
     case 'ai':       renderAISel();    break;
     case 'care':     renderCare();     break;
+    case 'site':     renderSite();     break;
     case 'board':    bcInitPan(); bcRender(); break;
   }
 }
@@ -4614,6 +4553,7 @@ async function loadOudolf() {
     console.log('[Oudolf] ' + _oud.rows.length + '종 로드');
   } catch (e) { console.warn('[Oudolf] 로드 실패:', e.message); _oud = { rows: [], GKO: {}, grole: {}, gtag: {} }; }
   if (activeTab === 'ecology') renderEcology();
+  if (activeTab === 'site') renderSite();
 }
 const OUD_LIGHT = { S: '양지', P: '반음지', H: '음지' };
 const OUD_ST = { B: '일시적', Y: '틈새 채움, 짧은 기간', U: '3~9개월', X: '9개월 이상' };
@@ -4722,6 +4662,130 @@ function korHtml(p) {
 }
 loadOudolf();
 loadField();
+
+// ── 📍 입지분석 탭: 대상지 조건(구역별) → 아우돌프 수종리스트에서 후보 뽑기 ─────────────
+// LandScope 에서 '식재툴로 보내기' → #site=… 로 추정값이 넘어옴. 현장 판단으로 고치면 '확정'.
+const SITE_KEY = 'siteProfile';
+const LIGHTS = ['양지', '반양지', '반음지', '음지'], MOISTS = ['건조', '적윤', '습윤'];
+let SITE = { profile: null, zones: [], sel: 0 };
+try { SITE = Object.assign(SITE, JSON.parse(localStorage.getItem(SITE_KEY) || '{}')); } catch (e) {}
+function siteSave() { try { localStorage.setItem(SITE_KEY, JSON.stringify(SITE)); } catch (e) {} }
+const SITE_LIGHT = { FULL: '양지', MIXED: '반양지', SHADE: '반음지' };
+const SITE_MOIST = { DRY: '건조', MESO: '적윤', MOIST: '적윤', WET: '습윤' };
+(function siteFromHash() {
+  const m = location.hash.match(/^#site=(.+)$/);
+  if (!m) return;
+  try {
+    const prof = JSON.parse(decodeURIComponent(m[1]));
+    const same = SITE.profile && SITE.profile.addr === prof.addr;
+    SITE.profile = prof;
+    if (!same || !SITE.zones.length) {
+      SITE.zones = [{ name: '구역 1', light: SITE_LIGHT[prof.light && prof.light.code] || '양지', moist: SITE_MOIST[prof.moist && prof.moist.code] || '적윤', memo: '', status: '추정' }];
+      SITE.sel = 0;
+    }
+    siteSave();
+    history.replaceState(null, '', location.pathname + location.search);
+    setTimeout(() => switchTab('site'), 0);
+  } catch (e) { console.warn('[입지] 대상지 정보를 읽지 못했어요', e); }
+})();
+function siteZoneNum() { const z = SITE.profile && SITE.profile.zone && SITE.profile.zone.usda; const n = parseInt(z || ''); return isNaN(n) ? null : n; }
+function siteApplyZone() {
+  const n = siteZoneNum(), inp = document.getElementById('eco-zone-input');
+  if (n && inp && !inp.value) inp.value = n;
+}
+function siteSet(i, k, v) { const z = SITE.zones[i]; if (!z) return; z[k] = v; if (k !== 'name' && k !== 'memo') z.status = '확정'; SITE.sel = i; siteSave(); renderSite(); }
+function siteAdd() { SITE.zones.push({ name: '구역 ' + (SITE.zones.length + 1), light: '양지', moist: '적윤', memo: '', status: '확정' }); SITE.sel = SITE.zones.length - 1; siteSave(); renderSite(); }
+function siteDel(i) { SITE.zones.splice(i, 1); SITE.sel = Math.max(0, Math.min(SITE.sel, SITE.zones.length - 1)); siteSave(); renderSite(); }
+function siteClear() { SITE = { profile: null, zones: [], sel: 0 }; siteSave(); renderSite(); }
+// 아우돌프 광량 코드(S 양지 · P 반음지 · H 음지)와 구역 광량 맞추기
+function siteLightOk(l, zl) {
+  if (!l) return null;
+  if (zl === '양지') return l.includes('S');
+  if (zl === '반양지') return l.includes('S') || l.includes('P');
+  if (zl === '반음지') return l.includes('P');
+  return l.includes('H');
+}
+function siteMoistOk(s, zm) {
+  if (!s) return null;
+  if (zm === '건조') return !/적습|습윤/.test(s);
+  if (zm === '습윤') return !/건조/.test(s);
+  return true;
+}
+function sitePick(i) {
+  const z = SITE.zones[i]; if (!z || !_oud) return { ok: [], out: [], noLight: 0 };
+  const site = siteZoneNum();
+  const ok = [], out = []; let noLight = 0;
+  _oud.rows.forEach(o => {
+    const lo = siteLightOk(o.l, z.light);
+    if (lo === null) { noLight++; return; }
+    if (!lo) return;
+    if (siteMoistOk(o.s, z.moist) === false) return;
+    const zmin = parseInt(o.z || '');
+    const zoneBad = site && !isNaN(zmin) && zmin > site;
+    const hard = oudHard(o);
+    const r = { o, zoneBad };
+    (hard.length ? out : ok).push(r);
+  });
+  const rank = r => { const k = r.o.k || {}; return (/^자생$/.test(k.nat || '') ? 0 : /자생종 품종/.test(k.nat || '') ? 1 : 2) * 10 + (/밀원/.test(r.o.role || '') ? 0 : 1) + (r.zoneBad ? 100 : 0); };
+  ok.sort((a, b) => rank(a) - rank(b) || a.o.n.localeCompare(b.o.n));
+  return { ok, out, noLight };
+}
+let _siteMsg = '';
+function siteAddSel() {
+  const names = [...document.querySelectorAll('#site-cands input[type=checkbox]:checked')].map(c => c.value);
+  const add = names.filter(n => !plants.find(p => p.name === n));
+  if (!add.length) return;
+  const ps = add.map(n => { const p = mkPlant(n); plants.push(p); restoreImgForPlant(p); return p; });
+  _siteMsg = `${ps.length}종을 식물 목록에 추가했어요. 생태/형태 탭에서 점검하세요.`;
+  plantsToLS(); renderAll();
+  loadPlantsQueued(ps);
+}
+function siteRow(r) {
+  const o = r.o, inList = plants.find(p => p.name === o.n);
+  const bits = [o.l ? o.l.split('').map(c => OUD_LIGHT[c] || c).join('~') : '', o.h ? o.h + 'cm' : '', o.b ? '개화 ' + o.b : '', o.z ? 'Z' + o.z : '', o.s || ''].filter(Boolean).join(' · ');
+  return `<label class="site-cand${r.zoneBad ? ' zbad' : ''}"><input type="checkbox" value="${escA(o.n)}" ${inList ? 'disabled' : ''}>
+    <span><b>${escH(o.n)}</b> ${o.ko ? `<span class="oud-dim">${escH(o.ko)}</span>` : ''}${inList ? ' <span class="oud-dim">(목록에 있음)</span>' : ''}${r.zoneBad ? ' <span class="kor-ng">Zone 부족</span>' : ''}<br>
+    ${oudK(o).replace(/<br>$/, '')} <span class="oud-dim">${escH(bits)}</span>${o.role ? `<br><span style="font-size:0.74rem">${escH(o.role)}</span>` : ''}</span></label>`;
+}
+function renderSite() {
+  const el = document.getElementById('site-content'); if (!el) return;
+  siteApplyZone();
+  const pf = SITE.profile;
+  const prof = pf ? `<div class="site-card">
+      <div class="site-h">대상지 <span class="oud-dim">(LandScope ${escH(pf.t || '')} · 추정값)</span> <button class="btn btn-sm" onclick="siteClear()" style="float:right">지우기</button></div>
+      <div><b>${escH(pf.addr || '')}</b></div>
+      <div>내한성 <b>USDA Zone ${escH(pf.zone && pf.zone.usda || '—')}</b> <span class="oud-dim">${escH(pf.zone && pf.zone.basis || '')}</span>${pf.zone && pf.zone.nih ? ` · 농진청 ${escH(pf.zone.nih)}` : ''}</div>
+      <div>토양 pH ${escH(pf.soil && pf.soil.ph != null ? pf.soil.ph : '—')} ${escH(pf.soil && pf.soil.phClass || '')} · 배수 ${escH(pf.soil && pf.soil.drainage || '—')} · ${escH(pf.soil && pf.soil.type || '')}</div>
+      <div>광환경 ${escH(pf.light && pf.light.label || '—')} <span class="oud-dim">${escH(pf.light && pf.light.detail || '')}</span></div>
+      <div>수분 ${escH(pf.moist && pf.moist.label || '—')} <span class="oud-dim">${escH(pf.moist && pf.moist.detail || '')}</span></div>
+      <div class="oud-dim" style="margin-top:4px">현장 Zone은 생태/형태 탭의 Zone 칸에 자동으로 들어가요. 광량·수분은 아래 구역에서 현장 판단으로 고치면 '확정'이 돼요.</div>
+    </div>` : `<div class="site-card oud-dim">LandScope(입지분석툴)에서 <b>🌿 식재툴로 보내기</b>를 누르면 대상지 정보가 여기 들어와요. 없어도 아래에서 구역을 직접 만들 수 있어요.</div>`;
+  const zones = SITE.zones.map((z, i) => `<tr class="${i === SITE.sel ? 'sel' : ''}">
+      <td><input value="${escA(z.name)}" onchange="siteSet(${i},'name',this.value)"></td>
+      <td><select onchange="siteSet(${i},'light',this.value)">${LIGHTS.map(v => `<option${v === z.light ? ' selected' : ''}>${v}</option>`).join('')}</select></td>
+      <td><select onchange="siteSet(${i},'moist',this.value)">${MOISTS.map(v => `<option${v === z.moist ? ' selected' : ''}>${v}</option>`).join('')}</select></td>
+      <td><input value="${escA(z.memo || '')}" placeholder="토양 등 현장 메모" onchange="siteSet(${i},'memo',this.value)"></td>
+      <td><span class="site-st ${z.status === '확정' ? 'ok' : ''}">${escH(z.status)}</span></td>
+      <td><button class="btn btn-sm btn-primary" onclick="SITE.sel=${i};siteSave();renderSite()">수종 뽑기</button> <button class="btn btn-sm" onclick="siteDel(${i})">✕</button></td></tr>`).join('');
+  let res = '';
+  const z = SITE.zones[SITE.sel];
+  if (z) {
+    if (!_oud) res = '<div class="oud-dim">수종리스트 불러오는 중…</div>';
+    else {
+      const { ok, out, noLight } = sitePick(SITE.sel);
+      res = `<div class="site-h">${escH(z.name)} · ${escH(z.light)} · ${escH(z.moist)} → 후보 ${ok.length}종 <span class="oud-dim">(아우돌프 수종리스트 · 자생 → 자생종 품종 → 밀원 순)</span></div>
+        <div style="margin:6px 0"><button class="btn btn-primary btn-sm" onclick="siteAddSel()">선택한 수종을 식물 목록에 추가</button> <span id="site-added" class="oud-dim">${escH(_siteMsg)}</span></div>
+        <div id="site-cands">${ok.map(siteRow).join('')}</div>
+        ${out.length ? `<div class="site-h" style="margin-top:12px">제외 대상 ${out.length}종</div>${out.map(r => `<div class="site-cand k-wrap" style="min-height:44px"><div class="k-stamp small"><span>${escH(oudHard(r.o).map(f => f === '교란' ? '생태계교란종 제외' : f.replace('멸종위기', '멸종위기종') + ' 제외').join(' · '))}</span></div><span><b>${escH(r.o.n)}</b> ${oudK(r.o).replace(/<br>$/, '')}</span></div>`).join('')}` : ''}
+        <div class="oud-dim" style="margin-top:8px">광량 정보가 없는 ${noLight}종은 뽑기에서 빠졌어요. 토양은 정보가 있는 종만 걸렀어요. Zone이 모자란 종은 맨 아래에 'Zone 부족'으로 표시돼요.</div>`;
+    }
+  }
+  el.innerHTML = `<div class="site-wrap">${prof}
+    <div class="site-h" style="margin-top:12px">식재 구역 <button class="btn btn-sm" onclick="siteAdd()">+ 구역 추가</button></div>
+    ${SITE.zones.length ? `<table class="site-zones"><thead><tr><th>구역</th><th>광량</th><th>수분</th><th>메모</th><th>상태</th><th></th></tr></thead><tbody>${zones}</tbody></table>` : '<div class="oud-dim">구역이 없어요. + 구역 추가를 눌러 주세요.</div>'}
+    <div style="margin-top:12px">${res}</div></div>`;
+}
+
 
 // ── 생태탭 식물 이미지 ─────────────────────────────────────────────────────────
 let ecoActivePlant = null; // 현재 선택된 식물 인덱스
