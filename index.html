@@ -4567,6 +4567,7 @@ async function loadOudolf() {
   } catch (e) { console.warn('[Oudolf] 로드 실패:', e.message); _oud = { rows: [], GKO: {}, grole: {}, gtag: {} }; }
   if (activeTab === 'ecology') renderEcology();
   if (activeTab === 'site') renderSite();
+  if (activeTab === 'dotview') renderDotView();
 }
 const OUD_LIGHT = { S: '양지', P: '반음지', H: '음지' };
 const OUD_ST = { B: '일시적', Y: '틈새 채움, 짧은 기간', U: '3~9개월', X: '9개월 이상' };
@@ -6270,11 +6271,11 @@ document.addEventListener('keydown', function(e) {
 
     // 소형 밀집 도트 배수 (0 = 일반 렌더)
     const matchGenus = (p, re) => re.test(p.name||'') || re.test(p.genus||'');
+    // 아주 작은 점 무리 수종 (사용자 지정 목록)
+    const TINY_RE = /^(crocus|galanthus|eranthis|amana|hepatica|sisyrinchium|eremurus|asphodeline|camassia)\b|^tulipa\s+edulis\b/i;
     const smallDenseMult = p => {
-      if (p.bloom.length && Math.min(...p.bloom) <= 2) return 6;
-      if (matchGenus(p, /sisyrinchium/i)) return 9;
-      if (matchGenus(p, /coreopsis/i)) return 9;
-      return 0;
+      if (!TINY_RE.test((p.name||'').trim())) return 0;
+      return (p.bloom.length && Math.min(...p.bloom) <= 3) ? 6 : 9;   // 이른 봄 6배, 그 외 9배
     };
     const isFebPlant = p => smallDenseMult(p) > 0;
 
@@ -6316,7 +6317,12 @@ document.addEventListener('keydown', function(e) {
 
     // pool 생성 — 정렬 순서 유지 (셔플 없음, 위치는 cells 셔플로 랜덤)
     const pool=[];
-    data.forEach(d=>{ for(let i=0;i<d.n;i++) pool.push({r:d.r,c:d.c,feb:d.feb}); });
+    // 아주 작은 점 수종: 1·3·5·7·9·11개씩 무리 (평균 6개 → 무리 수 = n/6)
+    const CLUST=[1,3,5,7,9,11];
+    data.forEach(d=>{
+      if(d.feb){ const nc=Math.max(1,Math.round(d.n/6)); for(let i=0;i<nc;i++) pool.push({r:d.r,c:d.c,feb:true,k:CLUST[Math.floor(rand()*CLUST.length)]}); }
+      else for(let i=0;i<d.n;i++) pool.push({r:d.r,c:d.c,feb:false});
+    });
 
     // 그리드 배치
     const total=pool.length;
@@ -6366,12 +6372,12 @@ document.addEventListener('keydown', function(e) {
       const x=Math.max(p.r+1,Math.min(S-p.r-1, cell.cx+(rand()-.5)*cw*jitter));
       const y=Math.max(p.r+1,Math.min(S-p.r-1, cell.cy+(rand()-.5)*ch*jitter));
       ctx.beginPath(); ctx.arc(x,y,p.r,0,Math.PI*2); ctx.fillStyle=p.c; ctx.fill();
-      if(p.feb && rand()<0.30){
-        const clust=2+Math.floor(rand()*3);
-        for(let k=0;k<clust;k++){
-          const ox=(rand()-.5)*(p.r*4+4), oy=(rand()-.5)*(p.r*4+4);
-          const cx2=Math.max(p.r+1,Math.min(S-p.r-1,x+ox));
-          const cy2=Math.max(p.r+1,Math.min(S-p.r-1,y+oy));
+      if(p.feb && p.k>1){
+        const spread=p.r*1.8*Math.sqrt(p.k);
+        for(let k=1;k<p.k;k++){
+          const a=rand()*Math.PI*2, d=spread*Math.sqrt(rand());
+          const cx2=Math.max(p.r+1,Math.min(S-p.r-1,x+Math.cos(a)*d));
+          const cy2=Math.max(p.r+1,Math.min(S-p.r-1,y+Math.sin(a)*d));
           ctx.beginPath(); ctx.arc(cx2,cy2,p.r,0,Math.PI*2); ctx.fill();
         }
       }
@@ -6649,38 +6655,73 @@ function renderDotView() {
     return { sp: m||null, tier: m ? 'genus' : 'none' };
   }
 
+  // 구근(geophyte) 속 — 겨울 구조 없음, 2월 소형 밀집 판정용
+  const BULB_G = /^(crocus|narcissus|scilla|ornithogalum|allium|tulipa|galanthus|hyacinthus|muscari|fritillaria|camassia|chionodoxa|puschkinia|leucojum|eranthis|ipheion|colchicum|cyclamen)$/i;
+  const WI_M = '#d4c878', WI_K = '#1a1a1a';
+  // 초장(cm) 최대값: "60~90cm" → 90, "1.2m" → 120
+  function hMaxCm(p, o) {
+    const s = String(p.height || '');
+    const m = s.match(/([\d.]+)\s*(?:~|-|–)?\s*([\d.]+)?\s*(cm|m)?/i);
+    if (m) { let v = parseFloat(m[2] || m[1]); if (/^m$/i.test(m[3] || '') ) v *= 100; if (v > 0) return v; }
+    const oh = o && String(o.h || '').match(/([\d.]+)(?:\D+([\d.]+))?/);
+    return oh ? parseFloat(oh[2] || oh[1]) : 0;
+  }
+  // Oudolf 구조(st): 정확 → 종 → 같은 종 품종들
+  function oudSt(latName) {
+    if (typeof _oudIdx === 'undefined' || !_oud) return null;
+    const k = oudNm(latName); if (!k) return null;
+    if (_oudIdx[k]) return { o: _oudIdx[k], st: _oudIdx[k].st || [] };
+    const sp = k.replace(/\s*'.*$/, '').split(' ').slice(0, 2).join(' ');
+    if (_oudIdx[sp]) return { o: _oudIdx[sp], st: _oudIdx[sp].st || [] };
+    const cvs = _oud.rows.filter(o => oudNm(o.n).startsWith(sp + ' ') && (o.st || []).length);
+    return cvs.length ? { o: cvs[0], st: cvs[0].st } : null;
+  }
+
   const mapped = plants.map(p => {
     const latName = p.latName || p.name || '';
     const lat = latName.toLowerCase();
     const genus = lat.split(/\s+/)[0].replace(/^(.)/, c => c.toUpperCase());
-    const { sp: spMatch, tier: matchTier } = findSp(latName);
+    const { sp: spMatch0, tier: matchTier } = findSp(latName);
+    // 속(genus)만 같은 기준종은 쓰지 않음 — 다른 종에 기준종의 색·크기·밀도·겨울구조가 복사되던 원인
+    const ref = (spMatch0 && matchTier !== 'genus') ? spMatch0 : null;
     const { full: cvFull, first: cvFirst } = extractCultivar(latName);
-
-    // r: API꽃크기 > SP_PLANTS > 속평균 > 5
-    const r = p.flowerR
-      || (spMatch ? spMatch.r : null)
-      || GENUS_R[genus]
-      || 5;
-
-    const pflanz = parseFloat(p.pflanzCount);
-    const n = (pflanz > 0) ? Math.round(pflanz)
-            : spMatch      ? spMatch.n
-            : Math.max(5, Math.round(400 / Math.max(1, r * r)));
-
     const selColor = p.selectedFlowerColor;
-    const rawC = selColor ? (selColor.startsWith('#') ? selColor : c2css(selColor))
-               : spMatch  ? spMatch.c
-               : (p.flowerColors&&p.flowerColors[0]) ? c2css(p.flowerColors[0])
-               : '#4caf7d';
+    const selHex = selColor ? (selColor.startsWith('#') ? selColor : c2css(selColor)) : null;
+
+    if (ref) {
+      // 기준종(그림 이미지 수종): 기준 DB 값 그대로 — 사용자가 고른 꽃색만 반영
+      console.log(`[dotview] ${(latName||'').substring(0,24).padEnd(24)} tier=${matchTier.padEnd(9)} 기준종`);
+      return { name: latName, genus, bloom: ref.bloom, wc: ref.wc, c: selHex ? muteHex(selHex) : ref.c,
+               r: ref.r, n: ref.n, geophyte: !!ref.geophyte };
+    }
+
+    const os = oudSt(latName), o = os && os.o;
+    // r: 꽃 크기(API) > 속 평균 > 5
+    const r = p.flowerR || GENUS_R[genus] || 5;
+    // n: 기준 DB와 같은 척도(≈ 주/㎡ × 2) — 주/㎡(GSM) > Oudolf 주/㎡ > 꽃 크기로 추정
+    const pm = parseFloat(p.pflanzCount) || parseFloat(o && o.pm2) || 0;
+    const n = pm > 0 ? Math.max(4, Math.min(130, Math.round(pm * 2)))
+                     : Math.max(5, Math.min(130, Math.round(400 / Math.max(1, r * r))));
+    const rawC = selHex || ((p.flowerColors && p.flowerColors[0]) ? c2css(p.flowerColors[0]) : '#4caf7d');
     const c = rawC.startsWith('#') ? muteHex(rawC) : rawC;
 
+    // 겨울 구조(wc): 기준 wi() 규칙과 같은 조건 — 구근·초장 50cm 미만은 없음
+    const geophyte = BULB_G.test(genus) || /bulb|corm|tuber|구근/i.test(p.plantType || '');
+    const h = hMaxCm(p, o);
     const wiG = window.WI_GENUS || {};
-    const wc = spMatch ? spMatch.wc : (wiG[genus] || null);
+    let wc = null;
+    if (!geophyte && !(h && h < 50)) {
+      const st = os ? os.st : null;
+      if (st && st.length && !st.some(x => x === 'U' || x === 'X')) wc = null;          // Oudolf: 일시적·짧은 기간
+      else if (wiG[genus]) wc = wiG[genus];
+      else if (st && st.some(x => x === 'U' || x === 'X'))                               // Oudolf: 3개월+ 씨송이, 색 미상
+        wc = /grass|sedge|그래스|사초/i.test(p.plantType || '') ? WI_M : WI_K;
+    }
 
     const bloomSrc = (p.bloomRaw||[]).map(r=>r.src+'['+r.start+'-'+r.end+']').join(' | ') || 'none';
     const cvLog = cvFull ? `cv="${cvFull}"${cvFirst?`|"${cvFirst}"`:''}` : 'cv=none';
-    console.log(`[dotview] ${(latName||p.korName||'').substring(0,24).padEnd(24)} tier=${matchTier.padEnd(9)} ${cvLog.padEnd(32)} r=${r.toFixed(1)} bloom=${(p.bloomMonths||[]).join(',')||'-'} src=${bloomSrc}`);
-    return { name: latName || p.korName || '', genus, bloom: p.bloomMonths || [], wc, c, r, n };
+    console.log(`[dotview] ${(latName||p.korName||'').substring(0,24).padEnd(24)} tier=${matchTier.padEnd(9)} ${cvLog.padEnd(32)} r=${r.toFixed(1)} n=${n} h=${h||'-'} st=${os?os.st.join(''):'-'} bloom=${(p.bloomMonths||[]).join(',')||'-'} src=${bloomSrc}`);
+    return { name: latName || p.korName || '', genus, bloom: p.bloomMonths || [], wc, c, r, n, geophyte };
   }).filter(p => p.name);
 
   window.dvRebuild(mapped.length ? mapped : spPl);
