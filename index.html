@@ -2748,6 +2748,7 @@ function restoreImgForPlant(p) {
 }
 
 function renderChips() {
+  try { pietSyncSoon(); } catch (e) {}
   const sec  = document.getElementById('plant-list-section');
   const area = document.getElementById('chipArea');
   document.getElementById('plantCount').textContent = plants.length;
@@ -4662,6 +4663,65 @@ function korHtml(p) {
 }
 loadOudolf();
 loadField();
+
+
+// ── 식재툴 앞 사진 2장 → Piet 수종리스트와 공유 (현장조사 DB 시트 'Piet사진' 탭) ──────────
+// 아우돌프 수종리스트에 있는 종만, 앞 2장이 바뀌면 몇 초 뒤 저장. 후보 사진은 링크, 직접 붙여넣은 사진은 드라이브에 올려 링크.
+let _pietSyncT = null, _pietPwAsked = false;
+function pietSyncSoon() { clearTimeout(_pietSyncT); _pietSyncT = setTimeout(pietSync, 4000); }
+function _pietName(p) {
+  if (!_oud) return null;
+  for (const n of [p.name, p.latName]) { const o = n && _oudIdx[oudNm(n)]; if (o) return o.n; }
+  return null;
+}
+function _hashStr(t) { let h = 0; for (let i = 0; i < t.length; i += Math.max(1, (t.length / 4000) | 0)) h = (h * 31 + t.charCodeAt(i)) | 0; return h + ':' + t.length; }
+async function pietSync() {
+  if (!_oud || !plants.length) return;
+  let done = {}, up = {};
+  try { done = JSON.parse(localStorage.getItem('pietSync') || '{}'); up = JSON.parse(localStorage.getItem('pietUp') || '{}'); } catch (e) {}
+  const todo = [];
+  plants.forEach(p => {
+    if (p.fetching) return;
+    const n = _pietName(p); if (!n) return;
+    const two = (p.images || []).slice(0, 2);
+    if (!two.length) return;
+    const sig = two.map(u => u.startsWith('data:') ? _hashStr(u) : u).join('|');
+    if (done[n] !== sig) todo.push({ n, two, sig });
+  });
+  if (!todo.length) return;
+  let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
+  if (!pw) {
+    if (_pietPwAsked) return;
+    _pietPwAsked = true;
+    pw = (prompt('식재툴 사진을 Piet 수종리스트와 같이 쓰려면 현장조사툴 비밀번호를 한 번 넣어 주세요.') || '').trim();
+    if (!pw) return;
+    try { localStorage.setItem('fn_pw', pw); } catch (e) {}
+  }
+  const post = async body => { const r = await fetch(FIELD_EP, { method: 'POST', body: JSON.stringify(Object.assign({ password: pw }, body)) }); const j = await r.json(); if (!j.ok) throw new Error(j.error || '저장 실패'); return j; };
+  try {
+    const items = {};
+    for (const t of todo) {
+      const slots = [];
+      for (const u of t.two) {
+        if (u.startsWith('data:')) {
+          const h = _hashStr(u);
+          if (!up[h]) { const j = await post({ action: 'pietUpload', name: t.n, data: u }); up[h] = j.u; }
+          slots.push({ u: up[h], s: '식재툴', a: '' });
+        } else slots.push({ u, s: '식재툴', a: '' });
+      }
+      while (slots.length < 2) slots.push(null);
+      items[t.n] = slots;
+    }
+    await post({ action: 'pietSave', items });
+    todo.forEach(t => { done[t.n] = t.sig; });
+    localStorage.setItem('pietSync', JSON.stringify(done));
+    localStorage.setItem('pietUp', JSON.stringify(up));
+    console.log('[Piet 사진] ' + todo.length + '종 저장');
+  } catch (e) {
+    console.warn('[Piet 사진] 저장 실패:', e.message);
+    if (/비밀번호/.test(e.message)) { try { localStorage.removeItem('fn_pw'); } catch (er) {} }
+  }
+}
 
 // ── 📍 입지분석 탭: 대상지 조건(구역별) → 아우돌프 수종리스트에서 후보 뽑기 ─────────────
 // LandScope 에서 '식재툴로 보내기' → #site=… 로 추정값이 넘어옴. 현장 판단으로 고치면 '확정'.
