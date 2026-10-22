@@ -4663,12 +4663,14 @@ function fieldRecs(p) {
 function korHtml(p, pi) {
   const _k = kInfo(p);
   const nat = _k ? (_k.e.native || '') : (p.native || '');
-  const chip = nat ? `<span class="kor-chip ${/자생/.test(nat) ? 'nat' : /외래/.test(nat) ? 'alien' : 'cult'}">${escH(_k && _k.cvOfSp ? '자생종 품종' : nat)}</span>` : `<span class="oud-dim">자생구분 없음</span>`;
+  const chip = nat ? `<span class="kor-chip ${/자생/.test(nat) ? 'nat' : /외래/.test(nat) ? 'alien' : 'cult'}">${escH(_k && _k.cvOfSp && /자생/.test(nat) ? '자생종 품종' : nat)}</span>` : `<span class="oud-dim">자생구분 없음</span>`;
   const site = parseInt(document.getElementById('eco-zone-input')?.value || '');
   const h = p.hardiness || p.ndbHardiness || '';
   const m = h.match(/(\d+)\s*[-–~]\s*(\d+)/);
   let zone;
+  const m1 = !m && h.match(/(\d+)/);
   if (m) zone = `Zone ${m[1]}–${m[2]}` + (site ? (site >= +m[1] && site <= +m[2] ? ' <span class="kor-ok">✓</span>' : ' <span class="kor-ng">✗</span>') : '');
+  else if (m1) zone = `Zone ${m1[1]}~` + (site ? (site >= +m1[1] ? ' <span class="kor-ok">✓</span>' : ' <span class="kor-ng">✗</span>') : '');
   else { const oz = _oudIdx[oudNm(p.latName || p.name)]; zone = oz && oz.z ? `Zone ${escH(oz.z)}~ (아우돌프)` + (site ? (site >= +oz.z ? ' <span class="kor-ok">✓</span>' : ' <span class="kor-ng">✗</span>') : '') : '<span class="oud-dim">Zone 자료 없음</span>'; }
   if (!site) zone += ' <span class="oud-dim" style="font-size:0.68rem">(위 Zone 칸에 현장 Zone을 넣으면 비교)</span>';
   const tol = Array.isArray(p.tolerate) ? p.tolerate.join(',') : String(p.tolerate || '');
@@ -4748,12 +4750,13 @@ async function recoSave(ev, pi) {
 function recoHtml(p, pi, recs) {
   const r = recoFor(p);
   let h = '<div class="reco-line">';
-  if (r) h += `<span class="kb reco">⭐ 추천수종</span> ${escH([r.light, r.moist].filter(Boolean).join(' · ') || '광량·수분 미입력')}${r.memo ? ' · ' + escH(r.memo) : ''}${r.src ? `<span class="oud-dim"> · 근거: ${escH(r.src.replace(/\n/g, ' / '))}</span>` : ''} <button class="btn btn-sm" onclick="recoOpen(event,${pi})">수정</button>`;
+  const _d = recoDefaults(p), _off = (_d.L.length || _d.M.length) ? `공식: ${[_d.L.join(','), _d.M.join(',')].filter(Boolean).join(' · ')}` : '';
+  if (r) h += `<span class="kb reco">⭐ 추천수종</span> ${escH([r.light, r.moist].filter(Boolean).join(' · ') || ('광량·수분 미입력' + (_off ? ` (${_off} — 수정을 누르면 이 값으로 채워져요)` : '')))}${r.memo ? ' · ' + escH(r.memo) : ''}${r.src ? `<span class="oud-dim"> · 근거: ${escH(r.src.replace(/\n/g, ' / '))}</span>` : ''} <button class="btn btn-sm" onclick="recoOpen(event,${pi})">수정</button>`;
   else if (_reco) h += `<button class="btn btn-sm" onclick="recoOpen(event,${pi})">⭐ 추천수종에 추가</button>`;
   h += _recoMsg && _recoForm === pi ? ` <span class="oud-dim">${escH(_recoMsg)}</span>` : '';
   h += '</div>';
   if (_recoForm === pi) {
-    const d = r ? { L: (r.light || '').split(','), M: (r.moist || '').split(',') } : recoDefaults(p);
+    const d0 = recoDefaults(p), d = r ? { L: r.light ? r.light.split(',') : d0.L, M: r.moist ? r.moist.split(',') : d0.M } : d0;
     const cb = (name, v, on) => `<label class="reco-cb"><input type="checkbox" name="${name}" value="${escA(v)}"${on ? ' checked' : ''}>${escH(v)}</label>`;
     h += `<div class="reco-form" id="reco-form-${pi}" onclick="event.stopPropagation()">
       <div><b>광량</b> ${R_LIGHT.map(v => cb('rl', v, d.L.includes(v))).join('')} <span class="oud-dim">(공식 정보로 미리 채움 · 고칠 수 있어요)</span></div>
