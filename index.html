@@ -5051,6 +5051,32 @@ function extNdbUrl(z) {
   const q = [...(EXT_NDB.light[z.light] || []).map(v => 'filter[licht][]=' + v), ...(EXT_NDB.moist[z.moist] || []).map(v => 'filter[boden][]=' + v)];
   return 'https://www.naturadb.de/suche/?' + q.map(x => x.replace(/\[/g, '%5B').replace(/\]/g, '%5D')).join('&');
 }
+const EXT_GAISS = { light: { '양지': ['10'], '반양지': ['10', '20'], '반음지': ['20', '19'], '음지': ['46'] },   // so · abs(absonnig) · hs · sch
+  moist: { '건조': ["6','50','8','142','73','3139','52','762','164','100','79','58','40','108','81','39"],                // 1 Trockener Boden
+           '적윤': ["17','103','80','64','30','82','877','7','65','51','34','9','155','76','1852"],                   // 2 Frischer Boden
+           '습윤': ["534','2276','531','36','16','19746','533','1853','18','244','1079','715','532','4874','54"] } };  // 3 Feuchter Boden
+function extGaissUrl(z) {
+  const k = n => encodeURIComponent('filter[attribute][' + n + '][werte][]');
+  const q = [...(EXT_GAISS.light[z.light] || []).map(v => k('lichtverhaeltnisse') + '=' + encodeURIComponent(v)),
+             ...(EXT_GAISS.moist[z.moist] || []).map(v => k('bodenfeuchte') + '=' + encodeURIComponent(v))];
+  return 'https://www.gaissmayer.de/web/shop/suche/produkte/?' + q.join('&') + '&pflanzenfinder=suche';
+}
+const EXT_RHS = { light: { '양지': '1', '반양지': '1,2', '반음지': '2', '음지': '3' },            // Full sun · Partial shade · Full shade
+                  moist: { '건조': '1', '적윤': '3', '습윤': '2' } };                                    // Well-drained · Moist but well-drained · Poorly-drained
+function extRhsUrl(z) {
+  const q = ['semantic=true'];
+  if (EXT_RHS.light[z.light]) q.push('sunlight=' + EXT_RHS.light[z.light]);
+  if (EXT_RHS.moist[z.moist]) q.push('moisture=' + EXT_RHS.moist[z.moist]);
+  return 'https://www.rhs.org.uk/plants/search-results?' + q.join('&');
+}
+const EXT_GDN = { light: { '양지': ['full-sun'], '반양지': ['full-sun', 'partial-sun'], '반음지': ['partial-sun'], '음지': ['shade'] },
+                  moist: { '건조': ['Well-Drained'], '적윤': ['Moist but Well-Drained'], '습윤': ['Moisture Retentive', 'Poorly Drained'] } };
+function extGardeniaUrl(path, z) {   // gardenia: ?filter=<인코딩된 조건 문자열>
+  const e = encodeURIComponent;
+  const inner = [...(EXT_GDN.light[z.light] || []).map(v => e('sun-requirement[]') + '=' + e(v)),
+                 ...(EXT_GDN.moist[z.moist] || []).map(v => e('ad_soil_drainage[]') + '=' + e(v))].join('&');
+  return 'https://www.gardenia.net/' + path + (inner ? '?filter=' + e(inner) : '');
+}
 function extKoagi(i) {   // 정원누리: POST 방식이라 숨은 폼으로 새 탭에 보냄
   const z = SITE.zones[i]; if (!z) return;
   const f = document.createElement('form');
@@ -5066,9 +5092,10 @@ function extLinksHtml(i) {
   return `<div class="site-ext">🔎 외부 수종검색
     <a class="btn btn-sm" href="${extNdbUrl(z)}" target="_blank" rel="noopener" title="${cond}">NaturaDB <span class="oud-dim">조건</span></a>
     <button class="btn btn-sm" onclick="extKoagi(${i})" title="${cond}">정원누리 <span class="oud-dim">조건</span></button>
-    <a class="btn btn-sm" href="https://www.rhs.org.uk/plants/search-form" target="_blank" rel="noopener" title="조건은 RHS 화면에서 직접 선택">RHS</a>
-    <a class="btn btn-sm" href="https://www.gardenia.net/plant-finder" target="_blank" rel="noopener" title="조건은 gardenia 화면에서 직접 선택">gardenia 식물</a>
-    <a class="btn btn-sm" href="https://www.gardenia.net/plant-combinations" target="_blank" rel="noopener" title="식물 조합 사례">gardenia 조합</a>
+    <a class="btn btn-sm" href="${extGaissUrl(z)}" target="_blank" rel="noopener" title="${cond}">Gaissmayer <span class="oud-dim">조건</span></a>
+    <a class="btn btn-sm" href="${extRhsUrl(z)}" target="_blank" rel="noopener" title="${cond}">RHS <span class="oud-dim">조건</span></a>
+    <a class="btn btn-sm" href="${extGardeniaUrl('plant-finder', z)}" target="_blank" rel="noopener" title="${cond}">gardenia 식물 <span class="oud-dim">조건</span></a>
+    <a class="btn btn-sm" href="${extGardeniaUrl('plant-combinations', z)}" target="_blank" rel="noopener" title="${cond} (식물 조합 사례)">gardenia 조합 <span class="oud-dim">조건</span></a>
   </div>`;
 }
 function renderSite() {
