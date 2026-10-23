@@ -647,6 +647,8 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .site-wrap{max-width:1000px;margin:1rem auto;padding:0 1rem;font-size:0.84rem}
 .site-card{background:#fff;border:1px solid #d8e4d0;border-radius:8px;padding:10px 12px;line-height:1.7}
 .site-h{font-weight:800;color:#2d5a1b;margin:4px 0}
+.site-ext{margin:6px 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.85rem}
+.site-ext a.btn{text-decoration:none}
 .site-zones{width:100%;border-collapse:collapse;background:#fff}
 .site-zones th,.site-zones td{border-bottom:1px solid #e8f0e4;padding:4px 6px;text-align:left}
 .site-zones tr.sel{background:#f0f8ec}
@@ -5040,6 +5042,35 @@ function siteRow(r) {
     ${oudK(o).replace(/<br>$/, '')} <span class="oud-dim">${escH(bits)}</span>${o.role ? `<br><span style="font-size:0.74rem">${escH(o.role)}</span>` : ''}${r.reco && r.reco.src ? `<br><span class="oud-dim" style="font-size:0.72rem">근거: ${escH(r.reco.src.replace(/\n/g, ' / '))}</span>` : ''}</span></label>`;
 }
 setTimeout(() => { try { siteApplyZone(); } catch (e) {} }, 0);   // 새로고침해도 현장 Zone이 생태 탭 Zone 칸에 들어가게
+/* ── 외부 수종검색 바로가기 (구역 광량·수분 조건 반영) ── */
+const EXT_NDB = { light: { '양지': ['sonne'], '반양지': ['sonne', 'halbschatten'], '반음지': ['halbschatten'], '음지': ['schatten'] },
+                  moist: { '건조': ['trocken'], '적윤': ['frisch'], '습윤': ['feucht'] } };
+const EXT_KOAGI = { light: { '양지': ['LC001'], '반양지': ['LC001', 'LC002'], '반음지': ['LC002'], '음지': ['LC003'] },
+                    moist: { '건조': ['HU003'], '적윤': ['HU002'], '습윤': ['HU001'] } };
+function extNdbUrl(z) {
+  const q = [...(EXT_NDB.light[z.light] || []).map(v => 'filter[licht][]=' + v), ...(EXT_NDB.moist[z.moist] || []).map(v => 'filter[boden][]=' + v)];
+  return 'https://www.naturadb.de/suche/?' + q.map(x => x.replace(/\[/g, '%5B').replace(/\]/g, '%5D')).join('&');
+}
+function extKoagi(i) {   // 정원누리: POST 방식이라 숨은 폼으로 새 탭에 보냄
+  const z = SITE.zones[i]; if (!z) return;
+  const f = document.createElement('form');
+  f.method = 'POST'; f.action = 'https://garden.koagi.or.kr/cpage/industry/plantSearch/result.do'; f.target = '_blank';
+  const add = (n, v) => { const e = document.createElement('input'); e.type = 'hidden'; e.name = n; e.value = v; f.appendChild(e); };
+  (EXT_KOAGI.light[z.light] || []).forEach(v => add('srch_light_condition_cd', v));
+  (EXT_KOAGI.moist[z.moist] || []).forEach(v => add('srch_humidity_cd', v));
+  document.body.appendChild(f); f.submit(); f.remove();
+}
+function extLinksHtml(i) {
+  const z = SITE.zones[i]; if (!z) return '';
+  const cond = escA(z.light + ' · ' + z.moist + ' 조건으로 검색');
+  return `<div class="site-ext">🔎 외부 수종검색
+    <a class="btn btn-sm" href="${extNdbUrl(z)}" target="_blank" rel="noopener" title="${cond}">NaturaDB <span class="oud-dim">조건</span></a>
+    <button class="btn btn-sm" onclick="extKoagi(${i})" title="${cond}">정원누리 <span class="oud-dim">조건</span></button>
+    <a class="btn btn-sm" href="https://www.rhs.org.uk/plants/search-form" target="_blank" rel="noopener" title="조건은 RHS 화면에서 직접 선택">RHS</a>
+    <a class="btn btn-sm" href="https://www.gardenia.net/plant-finder" target="_blank" rel="noopener" title="조건은 gardenia 화면에서 직접 선택">gardenia 식물</a>
+    <a class="btn btn-sm" href="https://www.gardenia.net/plant-combinations" target="_blank" rel="noopener" title="식물 조합 사례">gardenia 조합</a>
+  </div>`;
+}
 function renderSite() {
   const el = document.getElementById('site-content'); if (!el) return;
   siteApplyZone();
@@ -5068,6 +5099,7 @@ function renderSite() {
       const { ok, out, noLight, recoNo, noLightNames } = sitePick(SITE.sel);
       _siteNames = { reco: recoNo.map(r => r.o.n), oud: noLightNames };
       res = `<div class="site-h">${escH(z.name)} · ${escH(z.light)} · ${escH(z.moist)} → 후보 ${ok.length}종 <span class="oud-dim">(⭐ 추천수종 → 자생 → 자생종 품종 → 밀원 순 · 아우돌프 수종리스트 + 추천수종)</span></div>
+        ${extLinksHtml(SITE.sel)}
         <div style="margin:6px 0"><button class="btn btn-primary btn-sm" onclick="siteAddSel()">선택한 수종을 식물 목록에 추가</button> <span id="site-added" class="oud-dim">${escH(_siteMsg)}</span></div>
         <div id="site-cands">${ok.map(siteRow).join('')}${recoNo.length ? `<div class="site-h" style="margin-top:10px">⭐ 추천수종 중 광량 정보 없음 ${recoNo.length}종 <button class="btn btn-sm" onclick="siteFetchOfficial(_siteNames.reco)">📥 공식 정보 불러오기</button> <span class="oud-dim">(시트에 광량을 적거나 공식 정보를 불러오면 조건에 맞춰 걸러져요)</span></div>${recoNo.map(siteRow).join('')}` : ''}</div>
         ${out.length ? `<div class="site-h" style="margin-top:12px">제외 대상 ${out.length}종</div>${out.map(r => `<div class="site-cand k-wrap" style="min-height:44px"><div class="k-stamp small"><span>${escH(oudHard(r.o).map(f => f === '교란' ? '생태계교란종 제외' : f.replace('멸종위기', '멸종위기종') + ' 제외').join(' · '))}</span></div><span><b>${escH(r.o.n)}</b> ${oudK(r.o).replace(/<br>$/, '')}</span></div>`).join('')}` : ''}
