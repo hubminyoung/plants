@@ -4688,7 +4688,7 @@ loadOudolf();
 loadField();
 loadReco();
 
-// ── 국내 생산·출품 업체 (국산 식물소재 카탈로그 · 정원식물 전시품평회 2021/2022) ──
+// ── 국내 생산·출품 업체 (국산 식물소재 카탈로그 · 정원식물 전시품평회 2021/2022/2025) ──
 let _kprod = null;
 async function loadKprod() {
   try { const r = await fetch('./data/kprod.json', { cache: 'no-cache' }); _kprod = r.ok ? await r.json() : { db: {}, src: {} }; }
@@ -4729,7 +4729,7 @@ function kprodFor(p) {
 function kprodHtml(p) {
   if (!_kprod) return '';
   const r = kprodFor(p);
-  if (!r) return `<div class="oud-dim">국내 생산·출품 기록 없음 <span style="font-size:0.68rem">(카탈로그·품평회 2021/22 기준)</span></div>`;
+  if (!r) return `<div class="oud-dim">국내 생산·출품 기록 없음 <span style="font-size:0.68rem">(카탈로그·품평회 2021/22/25 기준)</span></div>`;
   const src = r.srcs.map(s => (_kprod.src || {})[s] || s).join(', ');
   const head = r.orgs.slice(0, 4).map(escH).join(' · ') + (r.orgs.length > 4 ? ` 외 ${r.orgs.length - 4}곳` : '');
   const more = r.orgs.length > 4 ? `<details style="display:inline"><summary class="oud-dim" style="display:inline;cursor:pointer"> 전체</summary> ${r.orgs.map(escH).join(' · ')}</details>` : '';
