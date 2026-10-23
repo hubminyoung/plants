@@ -4981,7 +4981,7 @@ const SITE_MOIST = { DRY: '건조', MESO: '적윤', MOIST: '적윤', WET: '습�
     const same = SITE.profile && SITE.profile.addr === prof.addr;
     SITE.profile = prof;
     if (!same || !SITE.zones.length) {
-      SITE.zones = [{ name: '구역 1', light: SITE_LIGHT[prof.light && prof.light.code] || '양지', moist: SITE_MOIST[prof.moist && prof.moist.code] || '적윤', memo: '', status: '추정' }];
+      SITE.zones = [{ name: '구역 1', light: (prof.light && prof.light.pick) || SITE_LIGHT[prof.light && prof.light.code] || '양지', moist: SITE_MOIST[prof.moist && prof.moist.code] || '적윤', memo: '', status: '추정' }];
       SITE.sel = 0;
     }
     siteSave();
@@ -5164,8 +5164,9 @@ function renderSite() {
       <div class="site-h">대상지 <span class="oud-dim">(LandScope ${escH(pf.t || '')} · 추정값)</span> <button class="btn btn-sm" onclick="siteClear()" style="float:right">지우기</button></div>
       <div><b>${escH(pf.addr || '')}</b></div>
       <div>내한성 <b>USDA Zone ${escH(pf.zone && pf.zone.usda || '—')}</b> <span class="oud-dim">${escH(pf.zone && pf.zone.basis || '')}</span>${pf.zone && pf.zone.nih ? ` · 농진청 ${escH(pf.zone.nih)}` : ''}</div>
+      ${pf.heat ? `<div>더위 <b>AHS Heat Zone ${escH(pf.heat.zone)}</b> <span class="oud-dim">30°C 넘는 날 연 ${escH(pf.heat.days)}일 (${escH(pf.heat.period || '')}, ERA5 — 도심은 실제보다 낮게 나올 수 있음)</span></div>` : ''}
       <div>토양 pH ${escH(pf.soil && pf.soil.ph != null ? pf.soil.ph : '—')} ${escH(pf.soil && pf.soil.phClass || '')} · 배수 ${escH(pf.soil && pf.soil.drainage || '—')} · ${escH(pf.soil && pf.soil.type || '')}</div>
-      <div>광환경 ${escH(pf.light && pf.light.label || '—')} <span class="oud-dim">${escH(pf.light && pf.light.detail || '')}</span></div>
+      <div>광환경 ${pf.light && pf.light.pick ? '<b>' + escH(pf.light.pick) + '</b> <span class="site-st ok">현장 판단</span>' : escH(pf.light && pf.light.label || '—')} <span class="oud-dim">${escH(pf.light && pf.light.detail || '')}</span></div>
       <div>수분 ${escH(pf.moist && pf.moist.label || '—')} <span class="oud-dim">${escH(pf.moist && pf.moist.detail || '')}</span></div>
       <div class="oud-dim" style="margin-top:4px">현장 Zone은 생태/형태 탭의 Zone 칸에 자동으로 들어가요. 광량·수분은 아래 구역에서 현장 판단으로 고치면 '확정'이 돼요.</div>
     </div>` : `<div class="site-card oud-dim">LandScope(입지분석툴)에서 <b>🌿 식재툴로 보내기</b>를 누르면 대상지 정보가 여기 들어와요. 없어도 아래에서 구역을 직접 만들 수 있어요.</div>`;
