@@ -4682,11 +4682,59 @@ function korHtml(p, pi) {
       : `<div class="oud-dim">현장조사 기록 없음</div>`;
   }
   const _recs = (!_fieldErr && _field) ? fieldRecs(p) : [];
-  return `<div class="eco-sec-title kor-title">한국 적합성</div><div class="eco-sec-body kor-body">${zone} · ${chip} · ${heat}${rec}${pi != null ? recoHtml(p, pi, _recs) : ''}</div>`;
+  return `<div class="eco-sec-title kor-title">한국 적합성</div><div class="eco-sec-body kor-body">${zone} · ${chip} · ${heat}${kprodHtml(p)}${rec}${pi != null ? recoHtml(p, pi, _recs) : ''}</div>`;
 }
 loadOudolf();
 loadField();
 loadReco();
+
+// ── 국내 생산·출품 업체 (국산 식물소재 카탈로그 · 정원식물 전시품평회 2021/2022) ──
+let _kprod = null;
+async function loadKprod() {
+  try { const r = await fetch('./data/kprod.json', { cache: 'no-cache' }); _kprod = r.ok ? await r.json() : { db: {}, src: {} }; }
+  catch (e) { _kprod = { db: {}, src: {} }; }
+  if (activeTab === 'ecology') renderEcology();
+}
+loadKprod();
+function kprodKey(s) {   // 학명 → "genus epithet [var x] ['품종']" (저자명·점 제거, 소문자)
+  s = String(s || '').replace(/[‘’`′]/g, "'").trim();
+  const t = s.match(/'[^']*'|\S+/g) || []; if (!t.length || !/^[A-Z][a-z]+$/.test(t[0])) return '';
+  const o = [t[0]]; let i = 1;
+  if (t[i] === '×') { o.push('×'); i++; }
+  if (t[i] && /^[a-z][a-z-]+$/.test(t[i])) { o.push(t[i]); i++; }
+  while (i < t.length) {
+    const w = t[i];
+    if (/^(var|subsp|ssp|f)\.?$/.test(w) && t[i + 1] && /^[a-z][a-z-]+$/.test(t[i + 1])) { o.push(w.replace('.', '') + '', t[i + 1]); i += 2; continue; }
+    if (w[0] === "'") { o.push("'" + w.replace(/^'|'$/g, '').trim().replace(/\s+/g, ' ') + "'"); i++; continue; }
+    if (w === '×' && t[i + 1] && /^[a-z][a-z-]+$/.test(t[i + 1])) { o.push('×', t[i + 1]); i += 2; continue; }
+    i++;
+  }
+  return o.join(' ').toLowerCase().replace(/\./g, '');
+}
+function kprodFor(p) {
+  if (!_kprod || !_kprod.db) return null;
+  const lat = p.latName || p.name || '', k = kprodKey(lat); if (!k) return null;
+  const keys = [k];
+  try { const n = lookupNativePlant(lat); if (n && n._acc) keys.push(kprodKey(n._acc.replace(/^./, c => c.toUpperCase())) + (k.includes(" '") ? k.slice(k.indexOf(" '")) : '')); } catch (e) {}
+  let rows = [], level = 'exact';
+  keys.forEach(x => (_kprod.db[x] || []).forEach(r => rows.push(r)));
+  if (!rows.length && k.includes(" '")) {   // 품종 자료가 없으면 같은 종 기준
+    const sp = k.slice(0, k.indexOf(" '"));
+    rows = (_kprod.db[sp] || []).slice(); level = 'species';
+  }
+  if (!rows.length) return null;
+  const orgs = [...new Set(rows.map(r => r[0]))], srcs = [...new Set(rows.map(r => r[1]))];
+  return { orgs, srcs, level };
+}
+function kprodHtml(p) {
+  if (!_kprod) return '';
+  const r = kprodFor(p);
+  if (!r) return `<div class="oud-dim">국내 생산·출품 기록 없음 <span style="font-size:0.68rem">(카탈로그·품평회 2021/22 기준)</span></div>`;
+  const src = r.srcs.map(s => (_kprod.src || {})[s] || s).join(', ');
+  const head = r.orgs.slice(0, 4).map(escH).join(' · ') + (r.orgs.length > 4 ? ` 외 ${r.orgs.length - 4}곳` : '');
+  const more = r.orgs.length > 4 ? `<details style="display:inline"><summary class="oud-dim" style="display:inline;cursor:pointer"> 전체</summary> ${r.orgs.map(escH).join(' · ')}</details>` : '';
+  return `<div class="kprod">🏭 국내 생산·출품${r.level === 'species' ? ' <span class="oud-dim">(같은 종 기준)</span>' : ''}: ${head}${more} <span class="oud-dim" style="font-size:0.68rem">${escH(src)}</span></div>`;
+}
 
 // ── 추천수종 (한국에서 잘 자라는 것들) — 현장조사 DB 시트 '추천수종' 탭 ─────────────────
 let _reco = null, _recoForm = -1, _recoMsg = '';
