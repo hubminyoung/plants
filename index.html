@@ -607,6 +607,23 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .bc-info-h { display:block;font-size:0.9rem;font-weight:800;color:#111; }
 .bc-info-b { display:block;font-size:0.9rem;font-weight:800;color:#111; }
 .bc-resize { position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 40%, #52b788 40%); border-radius:0 0 8px 0; }
+.bc-text { position:absolute;z-index:20;border:1px dashed transparent;border-radius:4px;display:flex;flex-direction:column;min-width:80px;min-height:36px; }
+.bc-text:hover,.bc-text:focus-within { border-color:#9cc48a;background:rgba(255,255,255,.85); }
+.bc-text-hd { height:14px;flex-shrink:0;cursor:move;opacity:0;background:#cfe6c4;border-radius:3px 3px 0 0;display:flex;justify-content:flex-end;align-items:center;font-size:10px;color:#4a6a3a; }
+.bc-text:hover .bc-text-hd,.bc-text:focus-within .bc-text-hd { opacity:1; }
+.bc-text-del { cursor:pointer;padding:0 5px; }
+.bc-text-ta { flex:1;width:100%;border:none;outline:none;resize:none;background:transparent;font-family:inherit;color:#222;line-height:1.5;padding:2px 4px;overflow:hidden; }
+.bc-text-rs { position:absolute;right:-4px;bottom:-4px;width:10px;height:10px;cursor:nwse-resize;opacity:0;background:#7ab870;border-radius:2px; }
+.bc-text:hover .bc-text-rs { opacity:1; }
+.ana-ov { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:2000;display:flex;align-items:center;justify-content:center; }
+.ana-box { background:#fff;border-radius:10px;padding:16px 18px;width:min(560px,94vw);max-height:88vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.25);font-size:0.85rem; }
+.ana-box h3 { margin:0 0 10px;font-size:1rem;color:#2d5a1b; }
+.ana-box label { display:block;margin:8px 0 3px;color:#4a6a3a;font-weight:600;font-size:0.78rem; }
+.ana-box input,.ana-box textarea { width:100%;box-sizing:border-box;border:1px solid #c8dcbc;border-radius:6px;padding:6px 8px;font-family:inherit;font-size:0.85rem; }
+.ana-box textarea { min-height:160px;line-height:1.55; }
+.ana-btns { display:flex;gap:6px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap; }
+.ana-row { display:flex;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #eef3ea; }
+.ana-row b { flex:1; }
 .bc-arrow-pt { position:absolute;width:12px;height:12px;background:#f59e0b;border:2px solid #fff;border-radius:50%;cursor:crosshair;z-index:12;transform:translate(-50%,-50%); }
 #bc-arrow-btn.active { background:#52b788;color:#fff; }
 
@@ -930,6 +947,10 @@ tr.k-out td{background:#fdeaea!important}
     <button id="bc-add-btn" class="btn btn-sm btn-primary" onclick="bcTogglePlantPanel()" title="수종 패널 열기/닫기">+ 수종 추가</button>
     <button class="btn btn-sm" onclick="bcAddAll()" title="목록의 모든 수종 추가">전체 추가</button>
     <button class="btn btn-sm" id="bc-arrow-btn" onclick="bcToggleArrow()" title="카드→도면 인출선 표시/숨김">↗ 인출선</button>
+    <button class="btn btn-sm" onclick="bcAddText()" title="구상판에 글상자 추가">＋ 글상자</button>
+    <button class="btn btn-sm btn-primary" onclick="anaOpenSave()" title="도면 분석 노트로 저장 (드라이브·시트·문서)">📝 분석 저장</button>
+    <button class="btn btn-sm" onclick="anaOpenList()" title="저장한 도면 분석 열기">📂 분석 열기</button>
+    <span id="bc-ana-name" class="bc-hint" style="color:#2d5a1b;font-weight:600"></span>
     <span style="flex:1"></span>
     <span class="bc-hint">도면/연출이미지 Ctrl+V로 붙여넣기</span>
     <label class="btn btn-sm" title="컨셉이미지 추가 (여러 장 가능)" style="cursor:pointer">+ 컨셉<input type="file" accept="image/*" multiple style="display:none" onchange="bcBgFileInput(event)"></label> <button class="btn btn-sm" onclick="bcClearBg()" title="컨셉 전체 삭제">🗑 컨셉</button>
@@ -5682,7 +5703,7 @@ let bcScale = 1.0;
 let bcHistory = [], bcHistIdx = -1;
 function bcPushHistory() {
   bcHistory = bcHistory.slice(0, bcHistIdx + 1);
-  bcHistory.push(JSON.stringify({ bgs: BC.bgs, nodes: BC.nodes, nextId: BC.nextId, bgNextId: BC.bgNextId }));
+  bcHistory.push(JSON.stringify({ bgs: BC.bgs, nodes: BC.nodes, nextId: BC.nextId, bgNextId: BC.bgNextId, texts: BC.texts, textNextId: BC.textNextId }));
   if (bcHistory.length > 40) bcHistory.shift();
   bcHistIdx = bcHistory.length - 1;
 }
@@ -5690,7 +5711,7 @@ function bcUndo() {
   if (bcHistIdx <= 0) { showToast('더 이상 실행취소 없음'); return; }
   bcHistIdx--;
   const s = JSON.parse(bcHistory[bcHistIdx]);
-  BC.bgs = s.bgs; BC.nodes = s.nodes; BC.nextId = s.nextId; BC.bgNextId = s.bgNextId;
+  BC.bgs = s.bgs; BC.nodes = s.nodes; BC.nextId = s.nextId; BC.bgNextId = s.bgNextId; BC.texts = s.texts || []; BC.textNextId = s.textNextId || 1;
   BC.selectedIds = []; BC.selectedId = null;
   bcRenderBgs(); bcRender(); showToast('실행취소 ↩');
 }
@@ -5698,7 +5719,7 @@ function bcRedo() {
   if (bcHistIdx >= bcHistory.length - 1) { showToast('더 이상 다시실행 없음'); return; }
   bcHistIdx++;
   const s = JSON.parse(bcHistory[bcHistIdx]);
-  BC.bgs = s.bgs; BC.nodes = s.nodes; BC.nextId = s.nextId; BC.bgNextId = s.bgNextId;
+  BC.bgs = s.bgs; BC.nodes = s.nodes; BC.nextId = s.nextId; BC.bgNextId = s.bgNextId; BC.texts = s.texts || []; BC.textNextId = s.textNextId || 1;
   BC.selectedIds = []; BC.selectedId = null;
   bcRenderBgs(); bcRender(); showToast('다시실행 ↪');
 }
@@ -5755,6 +5776,9 @@ const BC = {
   selectedId: null,
   selectedIds: [], // 다중 선택
   clipboard: null, // 복사된 노드 데이터
+  texts: [],      // [{id, x, y, w, h, t, fs}] - 글상자
+  textNextId: 1,
+  ana: null,      // 지금 열린 도면 분석 {id, title, src, cond, memo}
 };
 
 // ── 배경 이미지 ──────────────────────────────────────────────────────────────
@@ -5815,13 +5839,14 @@ function bcClearAll() {
   if (!confirm('구상판 전체를 초기화합니다. 배치된 카드와 컨셉이미지가 모두 삭제됩니다.')) return;
   BC.nodes = [];
   BC.bgs = [];
+  BC.texts = []; BC.textNextId = 1; BC.ana = null; anaShowName();
   BC.nextId = 1;
   BC.bgNextId = 1;
   BC.selectedId = null;
   BC.selectedIds = [];
   BC.drag = null;
   const canvas = document.getElementById('bc-canvas');
-  if (canvas) [...canvas.querySelectorAll('.bc-node,.bc-arrow-pt,.bc-bg-layer')].forEach(el => el.remove());
+  if (canvas) [...canvas.querySelectorAll('.bc-node,.bc-arrow-pt,.bc-bg-layer,.bc-text')].forEach(el => el.remove());
   const svg = document.getElementById('bc-svg');
   if (svg) svg.innerHTML = '';
   const hint = document.getElementById('bc-bg-hint');
@@ -6023,6 +6048,9 @@ function bcBoardData() {
     nodes: BC.nodes.map(n => ({ id:n.id, pi:n.pi, x:n.x, y:n.y, w:n.w, h:n.h||0, imgIdx:n.imgIdx||0, ax:n.ax, ay:n.ay })),
     nextId: BC.nextId,
     bgNextId: BC.bgNextId,
+    texts: BC.texts,
+    textNextId: BC.textNextId,
+    ana: BC.ana,
   };
 }
 function bcRestoreData(data) {
@@ -6062,6 +6090,9 @@ function bcRestoreData(data) {
   BC.nodes = data.nodes || [];
   BC.nextId = data.nextId || (Math.max(0, ...(data.nodes||[]).map(n=>n.id||0), 0) + 1);
   BC.bgNextId = data.bgNextId || (Math.max(0, ...(data.bgs||[]).map(b=>b.id||0), 0) + 1);
+  BC.texts = data.texts || [];
+  BC.textNextId = data.textNextId || (Math.max(0, ...BC.texts.map(t=>t.id||0), 0) + 1);
+  BC.ana = data.ana || null; anaShowName();
   renderChips();
   bcRenderBgs();
   bcRender();  bcPushHistory();
@@ -6114,7 +6145,119 @@ function bcLoadPc(e) {
   reader.readAsText(file);
   e.target.value = '';
 }
-async function bcExportWord() {
+// ── 글상자 (구상판 메모) ─────────────────────────────────────────────────────
+function bcAddText() {
+  const outer = document.getElementById('bc-outer');
+  const x = (outer ? outer.scrollLeft : 0) + 60, y = (outer ? outer.scrollTop : 0) + 60;
+  const t = { id: BC.textNextId++, x, y, w: 240, h: 90, t: '', fs: 15 };
+  BC.texts.push(t); bcRenderTexts(); bcPushHistory();
+  setTimeout(() => { const ta = document.querySelector(`#bc-t-${t.id} textarea`); if (ta) ta.focus(); }, 0);
+}
+function bcDelText(id) { BC.texts = BC.texts.filter(t => t.id !== id); bcRenderTexts(); bcPushHistory(); }
+function bcRenderTexts() {
+  const canvas = document.getElementById('bc-canvas'); if (!canvas) return;
+  [...canvas.querySelectorAll('.bc-text')].forEach(el => el.remove());
+  BC.texts.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'bc-text'; el.id = 'bc-t-' + t.id;
+    el.style.cssText = `left:${t.x}px;top:${t.y}px;width:${t.w}px;height:${t.h}px`;
+    el.innerHTML = `<div class="bc-text-hd" title="드래그=이동"><span class="bc-text-del" title="글상자 삭제">✕</span></div><textarea class="bc-text-ta" placeholder="메모" style="font-size:${t.fs || 15}px"></textarea><div class="bc-text-rs" title="크기"></div>`;
+    const ta = el.querySelector('textarea'); ta.value = t.t || '';
+    ta.addEventListener('input', () => { t.t = ta.value; });
+    ta.addEventListener('change', () => bcPushHistory());
+    ta.addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.bc-text-del').addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); bcDelText(t.id); });
+    el.querySelector('.bc-text-hd').addEventListener('mousedown', e => { if (e.target.classList.contains('bc-text-del')) return; e.preventDefault(); e.stopPropagation(); const pos = evPos(e); BC.drag = { type: 'text', id: t.id, sx: pos.x, sy: pos.y, ox: t.x, oy: t.y }; });
+    el.querySelector('.bc-text-rs').addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); const pos = evPos(e); BC.drag = { type: 'text-resize', id: t.id, sx: pos.x, sy: pos.y, ow: t.w, oh: t.h }; });
+    canvas.appendChild(el);
+  });
+}
+
+// ── 도면 분석 노트: 현장조사툴 서버에 저장 (드라이브 폴더 · 시트 '도면분석' · 문서) ─────────
+function anaShowName() { const el = document.getElementById('bc-ana-name'); if (el) el.textContent = BC.ana && BC.ana.id ? '📝 ' + (BC.ana.title || '') : ''; }
+function anaPw() {
+  let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
+  if (!pw) { pw = (prompt('현장조사툴 비밀번호를 넣어 주세요.') || '').trim(); if (pw) try { localStorage.setItem('fn_pw', pw); } catch (e) {} }
+  return pw;
+}
+async function anaPost(body) {
+  const pw = anaPw(); if (!pw) throw new Error('비밀번호가 필요해요');
+  const r = await fetch(FIELD_EP, { method: 'POST', body: JSON.stringify(Object.assign({ password: pw }, body)) });
+  const j = await r.json();
+  if (!j.ok) { if (/비밀번호/.test(j.error || '')) try { localStorage.removeItem('fn_pw'); } catch (e) {} throw new Error(j.error || '실패'); }
+  return j;
+}
+function anaClose() { const o = document.getElementById('ana-ov'); if (o) o.remove(); }
+function anaModal(html) { anaClose(); const o = document.createElement('div'); o.id = 'ana-ov'; o.className = 'ana-ov'; o.innerHTML = `<div class="ana-box">${html}</div>`; o.addEventListener('mousedown', e => { if (e.target === o) anaClose(); }); document.body.appendChild(o); return o; }
+function anaOpenSave() {
+  if (!BC.bgs.length && !BC.nodes.length) { showToast('구상판이 비어 있어요'); return; }
+  const a = BC.ana || {};
+  const o = anaModal(`<h3>📝 도면 분석 저장${a.id ? ' <span style="font-weight:400;font-size:0.8rem;color:#6a8a5a">· 기존 분석 수정</span>' : ''}</h3>
+    <label>제목</label><input id="ana-title" value="${escA(a.title || '')}" placeholder="예: ○○정원 그늘 화단">
+    <label>출처 (설계자·프로젝트·연도)</label><input id="ana-src" value="${escA(a.src || '')}" placeholder="예: Piet Oudolf · ○○ · 2024">
+    <label>조건 (광량·수분·지역 등)</label><input id="ana-cond" value="${escA(a.cond || '')}" placeholder="예: 반음지 · 적윤 · Zone 7">
+    <label>분석 메모</label><textarea id="ana-memo" placeholder="왜 이 조합인지, 어디에 쓸 수 있을지…">${escH(a.memo || '')}</textarea>
+    <div class="oud-dim" style="margin-top:6px;font-size:0.74rem">구상판 그림 · 수종표(높이·개화·광량·한국 적용) · 글상자 내용이 문서에 같이 들어가요.</div>
+    <div class="ana-btns"><span id="ana-msg" class="oud-dim" style="flex:1;align-self:center"></span>
+      <button class="btn btn-sm" onclick="anaClose()">취소</button>
+      ${a.id ? `<button class="btn btn-sm" onclick="anaDoSave(true)">새 분석으로 저장</button>` : ''}
+      <button class="btn btn-sm btn-primary" onclick="anaDoSave(false)">저장</button></div>`);
+  setTimeout(() => o.querySelector('#ana-title').focus(), 0);
+}
+function anaSpecies() {
+  const pis = BC.nodes.length ? [...new Set(BC.nodes.map(n => n.pi))] : plants.map((_, i) => i);
+  return pis.map(i => plants[i]).filter(Boolean).map(p => {
+    const n = (p.latName || p.name || '').trim();
+    const o = typeof _oudIdx !== 'undefined' ? _oudIdx[oudNm(n)] : null;
+    const l = o && o.l ? o.l.split('').map(c => OUD_LIGHT[c] || c).join('~') : (p.sunlight || []).join(', ');
+    const b = p.bloomMonths && p.bloomMonths.length ? (p.bloomMonths.length === 1 ? p.bloomMonths[0] + '월' : p.bloomMonths[0] + '~' + p.bloomMonths[p.bloomMonths.length - 1] + '월') : '';
+    let risk = ''; try { const j = summerJudge(summerFor(n), null, recoFor(p)); risk = j ? j.lv : ''; } catch (e) {}
+    return { n, ko: p.korName || '', h: p.height || '', b, l, risk };
+  });
+}
+async function anaDoSave(asNew) {
+  const v = id => (document.getElementById(id) || {}).value || '';
+  const meta = { title: v('ana-title').trim(), src: v('ana-src').trim(), cond: v('ana-cond').trim(), memo: v('ana-memo') };
+  if (!meta.title) { alert('제목을 넣어 주세요.'); return; }
+  const msg = t => { const m = document.getElementById('ana-msg'); if (m) m.textContent = t; };
+  try {
+    msg('구상판 그림 만드는 중…');
+    const cvs = await bcExportWord({ canvasOnly: true, maxW: 2000 });
+    const img = cvs ? cvs.toDataURL('image/jpeg', 0.88) : '';
+    const id = asNew ? '' : (BC.ana && BC.ana.id) || '';
+    BC.ana = Object.assign({ id }, meta);
+    msg('저장 중… (드라이브·문서 만드는 데 몇 초 걸려요)');
+    const j = await anaPost({ action: 'anaSave', id, ...meta, texts: BC.texts.map(t => t.t || ''), species: anaSpecies(), img, state: JSON.stringify(bcBoardData()) });
+    BC.ana.id = j.id; anaShowName();
+    anaModal(`<h3>✓ 저장했어요</h3><div>${escH(meta.title)}</div>
+      <div class="ana-btns"><a class="btn btn-sm" href="${escA(j.folderUrl)}" target="_blank" rel="noopener">드라이브 폴더 ↗</a><a class="btn btn-sm btn-primary" href="${escA(j.docUrl)}" target="_blank" rel="noopener">문서 열기 ↗</a><button class="btn btn-sm" onclick="anaClose()">닫기</button></div>`);
+  } catch (e) { msg('저장 실패: ' + e.message); }
+}
+async function anaOpenList() {
+  anaModal(`<h3>📂 도면 분석 열기</h3><div id="ana-list" class="oud-dim">불러오는 중…</div><div class="ana-btns"><button class="btn btn-sm" onclick="anaClose()">닫기</button></div>`);
+  try {
+    const j = await anaPost({ action: 'anaList' });
+    const el = document.getElementById('ana-list'); if (!el) return;
+    el.className = '';
+    el.innerHTML = (j.rows || []).length ? j.rows.map(r => `<div class="ana-row"><b>${escH(r.title)}</b><span class="oud-dim" style="font-size:0.74rem">${escH([r.src, r.cond, r.n + '종', r.t].filter(Boolean).join(' · '))}</span>
+      ${r.docUrl ? `<a class="btn btn-sm" href="${escA(r.docUrl)}" target="_blank" rel="noopener">문서</a>` : ''}<button class="btn btn-sm btn-primary" onclick="anaLoad('${escA(r.id)}')">열기</button></div>`).join('')
+      : '<div class="oud-dim">저장한 분석이 아직 없어요.</div>';
+  } catch (e) { const el = document.getElementById('ana-list'); if (el) el.textContent = '불러오지 못했어요: ' + e.message; }
+}
+async function anaLoad(id) {
+  if ((BC.bgs.length || BC.nodes.length) && !(BC.ana && BC.ana.id === id) && !confirm('지금 구상판을 이 분석으로 바꿀까요? (저장하지 않은 내용은 사라져요)')) return;
+  const el = document.getElementById('ana-list'); if (el) el.textContent = '여는 중…';
+  try {
+    const j = await anaPost({ action: 'anaGet', id });
+    const data = JSON.parse(j.state);
+    data.ana = { id: j.id, title: j.title, src: j.src, cond: j.cond, memo: j.memo };
+    bcRestoreData(data);
+    anaClose();
+    showToast('📂 ' + j.title + ' 열기 완료 ✓');
+  } catch (e) { if (el) el.textContent = '열지 못했어요: ' + e.message; }
+}
+
+async function bcExportWord(opts) {
   showToast('캡처 중...');
   if (!window.html2canvas) {
     await new Promise((res, rej) => {
@@ -6131,6 +6274,12 @@ async function bcExportWord() {
   let minX=9999, minY=9999, maxX=0, maxY=0;
   BC.bgs.forEach(b => { minX=Math.min(minX,b.x); minY=Math.min(minY,b.y); maxX=Math.max(maxX,b.x+b.w); maxY=Math.max(maxY,b.y+b.h); });
   BC.nodes.forEach(n => { minX=Math.min(minX,n.x); minY=Math.min(minY,n.y); maxX=Math.max(maxX,n.x+n.w); maxY=Math.max(maxY,n.y+(n.h||180)); });
+  BC.texts.forEach(t => { minX=Math.min(minX,t.x); minY=Math.min(minY,t.y); maxX=Math.max(maxX,t.x+t.w); maxY=Math.max(maxY,t.y+t.h); });
+  if (opts && opts.canvasOnly) {
+    const sc0 = Math.min(2, (opts.maxW || 2000) / Math.max(maxX - Math.max(0, minX - PAD) + PAD, 1));
+    return html2canvas(document.getElementById('bc-canvas'), { backgroundColor:'#ffffff', scale:sc0, useCORS:true, allowTaint:true, logging:false,
+      x:Math.max(0,minX-PAD), y:Math.max(0,minY-PAD), width:maxX+PAD-Math.max(0,minX-PAD), height:maxY+PAD-Math.max(0,minY-PAD) });
+  }
   if (maxX===0 && maxY===0) { minX=0; minY=0; maxX=800; maxY=600; }
   minX=Math.max(0,minX-PAD); minY=Math.max(0,minY-PAD); maxX+=PAD; maxY+=PAD;
   const capW = maxX-minX, capH = maxY-minY;
@@ -6193,6 +6342,7 @@ function bcRender() {
     });
   }
   BC.nodes.forEach(n => bcRenderNode(n));
+  bcRenderTexts();
 }
 
 function bcRenderNode(n) {
@@ -6393,6 +6543,15 @@ function bcOnMove(e) {
     bcPinsApply(b, BC.drag.pins);
     return;
   }
+  // 글상자
+  if (BC.drag.type === 'text' || BC.drag.type === 'text-resize') {
+    const t = BC.texts.find(x => x.id === BC.drag.id); if (!t) return;
+    if (BC.drag.type === 'text') { t.x = Math.max(0, BC.drag.ox + dx); t.y = Math.max(0, BC.drag.oy + dy); }
+    else { t.w = Math.max(80, BC.drag.ow + dx); t.h = Math.max(36, BC.drag.oh + dy); }
+    const el = document.getElementById('bc-t-' + t.id);
+    if (el) { el.style.left = t.x + 'px'; el.style.top = t.y + 'px'; el.style.width = t.w + 'px'; el.style.height = t.h + 'px'; }
+    return;
+  }
   // 노드/화살표
   const n = BC.nodes.find(x => x.id === BC.drag.id);
   if (!n) return;
@@ -6428,7 +6587,7 @@ function bcOnUp() {
   if (BC.drag?.type === 'img-pan') {
     document.querySelectorAll('.bc-img-wrap').forEach(el => el.style.cursor = 'grab');
   }
-  if (BC.drag && ['node','resize','bg','bg-resize','bg-img-pan'].includes(BC.drag.type)) {
+  if (BC.drag && ['node','resize','bg','bg-resize','bg-img-pan','text','text-resize'].includes(BC.drag.type)) {
     bcPushHistory();
   }
   BC.drag = null;
