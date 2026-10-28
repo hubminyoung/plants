@@ -953,6 +953,7 @@ tr.k-out td{background:#fdeaea!important}
     <button class="btn btn-sm" onclick="bcAddAll()" title="목록의 모든 수종 추가">전체 추가</button>
     <button class="btn btn-sm" id="bc-arrow-btn" onclick="bcToggleArrow()" title="카드→도면 인출선 표시/숨김">↗ 인출선</button>
     <button class="btn btn-sm" onclick="bcAddText()" title="구상판에 글상자 추가">＋ 글상자</button>
+    <button class="btn btn-sm" onclick="openPietOnly(true)" title="구상판에 놓인 카드의 수종만 Piet 수종리스트에서 보기 (새 탭)">🌿 Piet에서 보기</button>
     <button class="btn btn-sm btn-primary" onclick="anaOpenSave()" title="도면 분석 노트로 저장 (드라이브·시트·문서)">📝 분석 저장</button>
     <button class="btn btn-sm" onclick="anaOpenList()" title="저장한 도면 분석 열기">📂 분석 열기</button>
     <span id="bc-ana-name" class="bc-hint" style="color:#2d5a1b;font-weight:600"></span>
@@ -1179,9 +1180,10 @@ function acPick(i) {
 window.addEventListener('scroll', () => { if (AC.box && AC.box.style.display !== 'none') acClose(); }, true);
 
 // Piet 수종리스트에서 지금 목록의 수종만 보기
-function openPietOnly() {
-  const names = [...new Set(plants.map(p => (p.latName || p.name || '').trim()).filter(Boolean))];
-  if (!names.length) { showToast('목록에 수종이 없어요'); return; }
+function openPietOnly(boardOnly) {
+  const src = boardOnly ? [...new Set(BC.nodes.map(n => n.pi))].map(i => plants[i]).filter(Boolean) : plants;
+  const names = [...new Set(src.map(p => (p.latName || p.name || '').trim()).filter(Boolean))];
+  if (!names.length) { showToast(boardOnly ? '구상판에 카드가 없어요' : '목록에 수종이 없어요'); return; }
   window.open('./piet/#only=' + encodeURIComponent(names.join('|')), 'pietlist');
 }
 
