@@ -665,6 +665,15 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .kb.warn{background:#fdeaea;color:#b3261e;border:1px solid #e3a49f;cursor:pointer}
 .kb.warn.on{background:#b3261e;color:#fff}
 .kb.hard{background:#b3261e;color:#fff}
+.kb.sm-ok{background:#e6f4ea;color:#1e7b34;border:1px solid #a8d5b5}
+.kb.sm-warn{background:#fff4e0;color:#9a5b00;border:1px solid #f0c27a}
+.kb.sm-no{background:#fdeaea;color:#b3261e;border:1px solid #e3a49f}
+.sum-line{margin-top:6px;font-size:0.8rem;line-height:1.6}
+.vt{display:inline-block;font-size:0.66rem;padding:0 5px;border-radius:8px;margin-left:3px;vertical-align:1px}
+.vt-r{background:#e3f2fd;color:#1565c0}
+.vt-e{background:#fff8e1;color:#8d6e00}
+.sum-form{margin-top:6px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:0.8rem}
+.sum-form select,.sum-form input{font-size:0.8rem;margin:2px 6px 2px 0}
 .kb.syn{background:#fff;color:#444;border:1px solid #ccc;font-weight:500}
 .kb.ly{background:#f1f1ef;color:#555;border:1px dashed #bbb}
 .ly-hint{font-size:0.62rem;color:#777;margin-left:4px;font-style:normal}
@@ -4682,11 +4691,12 @@ function korHtml(p, pi) {
       : `<div class="oud-dim">현장조사 기록 없음</div>`;
   }
   const _recs = (!_fieldErr && _field) ? fieldRecs(p) : [];
-  return `<div class="eco-sec-title kor-title">한국 적합성</div><div class="eco-sec-body kor-body">${zone} · ${chip} · ${heat}${kprodHtml(p)}${rec}${pi != null ? recoHtml(p, pi, _recs) : ''}</div>`;
+  return `<div class="eco-sec-title kor-title">한국 적합성</div><div class="eco-sec-body kor-body">${zone} · ${chip} · ${heat}${summerHtml(p, pi)}${kprodHtml(p)}${rec}${pi != null ? recoHtml(p, pi, _recs) : ''}</div>`;
 }
 loadOudolf();
 loadField();
 loadReco();
+loadSummer();
 
 // ── 국내 생산·출품 업체 (국산 식물소재 카탈로그 · 정원식물 전시품평회 2021/2022/2025) ──
 let _kprod = null;
@@ -4734,6 +4744,84 @@ function kprodHtml(p) {
   const head = r.orgs.slice(0, 4).map(escH).join(' · ') + (r.orgs.length > 4 ? ` 외 ${r.orgs.length - 4}곳` : '');
   const more = r.orgs.length > 4 ? `<details style="display:inline"><summary class="oud-dim" style="display:inline;cursor:pointer"> 전체</summary> ${r.orgs.map(escH).join(' · ')}</details>` : '';
   return `<div class="kprod">🏭 국내 생산·출품${r.level === 'species' ? ' <span class="oud-dim">(같은 종 기준)</span>' : ''}: ${head}${more} <span class="oud-dim" style="font-size:0.68rem">${escH(src)}</span></div>`;
+}
+
+// ── 여름 리스크 (고온다습 내성 · 과습 민감도 · 자기파종) ─────────────────────────────
+// 추정값: data/summer.json (MBG 설명·일반 재배 지식으로 채운 값) · 직접 고친 값: 시트 '여름리스크' 탭 (항상 우선)
+let _sum = null, _sumFix = null, _sumForm = -1, _sumMsg = '';
+async function loadSummer() {
+  try { const r = await fetch('./data/summer.json', { cache: 'no-cache' }); _sum = r.ok ? await r.json() : { rows: {} }; } catch (e) { _sum = { rows: {} }; }
+  try { const j = await (await fetch(FIELD_EP + '?action=summer')).json(); _sumFix = j.ok ? (j.rows || []) : []; } catch (e) { _sumFix = []; }
+  if (activeTab === 'ecology') renderEcology();
+  if (activeTab === 'site') renderSite();
+}
+const sumSp = n => { const w = oudNm(n).replace(/\s*'[^']*'/g, '').trim().split(' '); return (w[1] === '×' ? w.slice(0, 3) : w.slice(0, 2)).join(' '); };
+// 이름 → 여름 리스크 값 (고친 값 → 같은 이름 추정 → 같은 종 추정 순). 속 단위로는 붙이지 않음
+function summerFor(name) {
+  if (!_sum || !name) return null;
+  const k = oudNm(name);
+  const fix = (_sumFix || []).find(r => oudNm(r.n) === k);
+  if (fix) return Object.assign({}, fix, { fixed: true });
+  let e = _sum.rows[k], lvl = '';
+  if (!e) { const sp = sumSp(name); if (sp && sp !== k) { e = _sum.rows[sp]; lvl = '종 기준'; } }
+  return e ? Object.assign({}, e, { lvl }) : null;
+}
+// 대상지 조건: 구역 수분 '습윤' 또는 입지분석 배수 '불량' → 습함 · AHS Heat Zone 7 이상 → 더위 강함
+function summerCtx(zi) {
+  const pf = SITE.profile, z = SITE.zones[zi != null ? zi : SITE.sel];
+  if (!pf && !z) return null;
+  return { wet: !!((z && z.moist === '습윤') || /불량/.test((pf && pf.soil && pf.soil.drainage) || '')), hot: !!(pf && pf.heat && +pf.heat.zone >= 7) };
+}
+// 판정: 높음 / 주의 / 비추천 (추천수종 = 국내 현장 확인 → 높음)
+function summerJudge(e, ctx, reco) {
+  if (reco) return { lv: '높음', why: '추천수종(국내 현장 확인)' };
+  if (!e || !e.h) return null;
+  const weakH = e.h === '약', hiW = e.w === '높음', why = [];
+  if (weakH) why.push('고온다습 약함'); if (hiW) why.push('과습에 민감');
+  if (weakH && hiW && ctx && (ctx.wet || ctx.hot)) return { lv: '비추천', why: why.concat(ctx.wet ? ['대상지 습함·배수 불량'] : [], ctx.hot ? ['대상지 더위 강함'] : []).join(' · ') };
+  if (weakH || hiW) return { lv: '주의', why: why.join(' · ') + (ctx ? '' : ' (대상지 조건 미입력)') };
+  return { lv: '높음', why: '' };
+}
+const SUM_CLS = { '높음': 'sm-ok', '주의': 'sm-warn', '비추천': 'sm-no' };
+const summerBadge = j => j ? `<span class="kb ${SUM_CLS[j.lv]}" title="${escA(j.why || '여름 리스크 낮음')}">한국 적용 ${j.lv}</span>` : '';
+function summerHtml(p, pi) {
+  if (!_sum) return '';
+  const name = p.latName || p.name || '', e = summerFor(name), reco = recoFor(p);
+  const j = summerJudge(e, summerCtx(), reco);
+  let h = `<div class="sum-line">☀️💧 여름 리스크 `;
+  if (e && e.h) {
+    h += `${summerBadge(j)} 고온다습 내성 <b>${escH(e.h)}</b> · 과습 민감도 <b>${escH(e.w || '—')}</b> · 자기파종 <b>${escH(e.s || '—')}</b> `
+      + (e.fixed ? `<span class="vt vt-r" title="직접 판단한 값">현장 확인</span>${e.memo ? ' · ' + escH(e.memo) : ''}`
+        : `<span class="vt vt-e" title="${escA(e.b === 'MBG' ? 'MBG 설명 기준 추정' : '일반 재배 지식 기준 추정 (MBG 설명 없음)')}">추정</span>${e.lvl ? ` <span class="oud-dim">(${escH(e.lvl)})</span>` : ''}${e.y ? ` <span class="oud-dim">· ${escH(e.y)}</span>` : ''}`);
+  } else h += reco ? summerBadge(j) + ' <span class="oud-dim">여름 리스크 값 없음</span>' : `<span class="oud-dim">미판정</span>`;
+  if (pi != null) h += ` <button class="btn btn-sm" onclick="summerOpen(event,${pi})">${e && e.h ? '수정' : '직접 입력'}</button>`;
+  h += '</div>';
+  if (pi === _sumForm) {
+    const cur = e || {}, opt = (nm, arr, v) => `<select name="${nm}"><option value="">—</option>${arr.map(x => `<option${x === v ? ' selected' : ''}>${x}</option>`).join('')}</select>`;
+    h += `<div class="sum-form" id="sum-form-${pi}" onclick="event.stopPropagation()">고온다습 내성 ${opt('sh', ['강', '중', '약'], cur.h)} 과습 민감도 ${opt('sw', ['높음', '보통', '낮음'], cur.w)} 자기파종 ${opt('ss', ['많음', '보통', '적음'], cur.s)}
+      <br>메모 <input name="smemo" size="30" value="${escA(cur.fixed ? cur.memo || '' : '')}" placeholder="예: 보라매 장마 후 녹아내림">
+      <button class="btn btn-sm" onclick="summerSave(event,${pi})">저장</button> <span class="oud-dim">${escH(_sumMsg)}</span></div>`;
+  }
+  return h;
+}
+function summerOpen(ev, pi) { ev.stopPropagation(); _sumForm = _sumForm === pi ? -1 : pi; _sumMsg = ''; renderEcology(); }
+async function summerSave(ev, pi) {
+  ev.stopPropagation();
+  const box = document.getElementById('sum-form-' + pi); if (!box) return;
+  const p = plants[pi], v = nm => box.querySelector(`[name=${nm}]`).value.trim();
+  const body = { action: 'summerSet', n: p.latName || p.name, h: v('sh'), w: v('sw'), s: v('ss'), memo: v('smemo') };
+  let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
+  if (!pw) { pw = (prompt('저장하려면 현장조사툴 비밀번호를 넣어 주세요.') || '').trim(); if (!pw) return; try { localStorage.setItem('fn_pw', pw); } catch (e) {} }
+  _sumMsg = '저장 중…'; renderEcology();
+  try {
+    const r = await fetch(FIELD_EP, { method: 'POST', body: JSON.stringify(Object.assign({ password: pw }, body)) });
+    const j = await r.json(); if (!j.ok) throw new Error(j.error || '저장 실패');
+    _sumForm = -1; _sumMsg = '';
+    await loadSummer();
+  } catch (e) {
+    if (/비밀번호/.test(e.message)) { try { localStorage.removeItem('fn_pw'); } catch (er) {} }
+    _sumMsg = '저장 실패: ' + e.message; renderEcology();
+  }
 }
 
 // ── 추천수종 (한국에서 잘 자라는 것들) — 현장조사 DB 시트 '추천수종' 탭 ─────────────────
@@ -5068,7 +5156,9 @@ function sitePick(i) {
     const r = { o, reco: rr, zoneBad: false, off: offTxt };
     (oudHard(o).length ? out : ok).push(r);
   });
-  const rank = r => { const k = r.o.k || {}; return (r.reco ? 0 : 1000) + (/^자생$/.test(k.nat || '') ? 0 : /자생종 품종/.test(k.nat || '') ? 1 : 2) * 10 + (/밀원/.test(r.o.role || '') ? 0 : 1) + (r.zoneBad ? 100 : 0); };
+  const ctx = summerCtx(i);
+  ok.concat(out).forEach(r => { r.sj = summerJudge(summerFor(r.o.n), ctx, r.reco); });
+  const rank = r => { const k = r.o.k || {}; return (r.sj && r.sj.lv === '비추천' ? 5000 : 0) + (r.reco ? 0 : 1000) + (/^자생$/.test(k.nat || '') ? 0 : /자생종 품종/.test(k.nat || '') ? 1 : 2) * 10 + (/밀원/.test(r.o.role || '') ? 0 : 1) + (r.zoneBad ? 100 : 0); };
   ok.sort((a, b) => rank(a) - rank(b) || a.o.n.localeCompare(b.o.n));
   return { ok, out, noLight, recoNo, noLightNames };
 }
@@ -5086,7 +5176,7 @@ function siteRow(r) {
   const o = r.o, inList = plants.find(p => p.name === o.n);
   const bits = [o.l ? o.l.split('').map(c => OUD_LIGHT[c] || c).join('~') : '', o.h ? o.h + 'cm' : '', o.b ? '개화 ' + o.b : '', o.z ? 'Z' + o.z : '', o.s || ''].filter(Boolean).join(' · ');
   return `<label class="site-cand${r.zoneBad ? ' zbad' : ''}"><input type="checkbox" value="${escA(o.n)}" ${inList ? 'disabled' : ''}>
-    <span>${r.reco ? '<span class="kb reco">⭐ 추천</span>' : ''}<b>${escH(o.n)}</b> ${o.ko ? `<span class="oud-dim">${escH(o.ko)}</span>` : ''}${inList ? ' <span class="oud-dim">(목록에 있음)</span>' : ''}${r.zoneBad ? ' <span class="kor-ng">Zone 부족</span>' : ''}${r.off ? ` <span class="oud-dim" title="식재툴 공식 정보(MBG·NDB 등)">· 광량·수분 공식: ${escH(r.off)}</span>` : ''}<br>
+    <span>${r.reco ? '<span class="kb reco">⭐ 추천</span>' : ''}${summerBadge(r.sj)}<b>${escH(o.n)}</b> ${o.ko ? `<span class="oud-dim">${escH(o.ko)}</span>` : ''}${inList ? ' <span class="oud-dim">(목록에 있음)</span>' : ''}${r.zoneBad ? ' <span class="kor-ng">Zone 부족</span>' : ''}${r.off ? ` <span class="oud-dim" title="식재툴 공식 정보(MBG·NDB 등)">· 광량·수분 공식: ${escH(r.off)}</span>` : ''}<br>
     ${oudK(o).replace(/<br>$/, '')} <span class="oud-dim">${escH(bits)}</span>${o.role ? `<br><span style="font-size:0.74rem">${escH(o.role)}</span>` : ''}${r.reco && r.reco.src ? `<br><span class="oud-dim" style="font-size:0.72rem">근거: ${escH(r.reco.src.replace(/\n/g, ' / '))}</span>` : ''}</span></label>`;
 }
 setTimeout(() => { try { siteApplyZone(); } catch (e) {} }, 0);   // 새로고침해도 현장 Zone이 생태 탭 Zone 칸에 들어가게
