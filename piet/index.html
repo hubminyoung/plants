@@ -238,6 +238,23 @@ function kB(o){const k=o.kr;if(!k)return"";
   return `<span class="kbs">${h}</span>`}
 function kHard(o){const x=((o.kr||{}).x||[]).filter(f=>K_HARD.test(f));return x.map(f=>f==="교란"?"생태계교란종 제외":f.replace(/멸종위기\s*([ⅠⅡ]급)/,"멸종위기종 제외 ($1)")).join(" · ")}
 const EMPTY='<td></td>'.repeat(10);
+/* ── 식재툴 목록만 보기: 식재툴의 'Piet에서 이 목록 보기' → #only=학명|학명… ── */
+const onm=x=>String(x||"").replace(/[‘’ʼ′]/g,"'").replace(/\s*\([^)]*\)/g,"").replace(/\./g,"").replace(/\s*×\s*/g," × ").replace(/\s+/g," ").trim().toLowerCase();
+let ONLY=null;
+function onlyHit(n){if(!ONLY)return true;const r=onm(n);return ONLY.some(L=>r===L||r.startsWith(L+" ")||L.startsWith(r+" "))}
+function onlyRead(){
+  const m=location.hash.match(/^#only=(.*)$/);
+  ONLY=null;let names=[];
+  if(m){try{names=decodeURIComponent(m[1]).split("|").map(x=>x.trim()).filter(Boolean)}catch(e){}}
+  if(names.length) ONLY=[...new Set(names.map(onm))];
+  let bar=document.getElementById("onlyBar");
+  if(!bar){bar=document.createElement("div");bar.id="onlyBar";bar.style.cssText="margin:6px 0 8px;padding:7px 10px;border-radius:6px;background:#eef7e8;border:1px solid #b8d8a8;font-size:13px;line-height:1.6";document.querySelector(".search").after(bar)}
+  if(!ONLY){bar.hidden=true;return}
+  const miss=names.filter(n=>{const L=onm(n);return !DATA.rows.some(o=>{const r=onm(o.name);return r===L||r.startsWith(L+" ")||L.startsWith(r+" ")})});
+  bar.hidden=false;
+  bar.innerHTML=`🌿 식재툴 목록 <b>${names.length}종</b>만 보는 중 <button type="button" id="onlyAll" style="margin-left:8px">전체 보기</button>`+(miss.length?`<br><span style="color:#8a5a00">Piet에 없음 (${miss.length}): ${miss.map(esc).join(", ")}</span>`:"");
+  document.getElementById("onlyAll").onclick=()=>{history.replaceState(null,"",location.pathname+location.search);onlyRead();render(qEl.value)};
+}
 function render(q){
   q=norm(q.trim()); let total=0;
   const html=fams.map(f=>{
@@ -252,6 +269,7 @@ function render(q){
       const gx=gr2.join(" ")+" "+gt2.map(t=>t.t).join(" ");
       const gHit=!q||famHit||norm(g+" "+(GKO[g]||"")+" "+gd+" "+gx).includes(q)||(gr&&hay(gr).includes(q));
       if(q&&!gHit) rs=rs.filter(o=>hay(o).includes(q));
+      if(ONLY){rs=rs.filter(o=>onlyHit(o.name));if(!rs.length)continue}
       if(!rs.length&&!(gr&&gHit)) continue;
       n+=rs.length+(gr?1:0);
       const lab=`<i>${g}</i> <span class="gk">${GKO[g]||""}</span>`;
@@ -268,12 +286,14 @@ function render(q){
     return `<tr class="fam"><th colspan="13"><span class="fl">${lat}</span> <span class="fk">${ko}</span> <span class="fn">${n}</span></th></tr>`+out;
   }).join("");
   document.getElementById("rows").innerHTML=html||`<tr><td colspan="13" class="empty">"${esc(q)}"에 맞는 수종이 없어요.</td></tr>`;
-  document.getElementById("count").textContent=q?`${total}건 찾음`:`전체 ${ALL}건`;
+  document.getElementById("count").textContent=(q||ONLY)?`${total}건 찾음`:`전체 ${ALL}건`;
 }
 const ALL=DATA.rows.length+Object.keys(DATA.genus).length;
 document.getElementById("sub").textContent=`출처: 《Work》(2023) · 《식재디자인》(2013) · 《꿈의식물》(2003) · Vandalorum(2024) · Calder(2024) · Wisley(2021) · ${ALL}건`;
 const qEl=document.getElementById("q");
 qEl.addEventListener("input",()=>render(qEl.value));
+onlyRead();
+window.addEventListener("hashchange",()=>{onlyRead();render(qEl.value)});
 
 /* ── 사진 (보여주기만) — 고르는 건 식재분석툴에서. 식재툴 앞 사진 2장이 시트 'Piet사진' 탭을 거쳐 여기 뜸 ── */
 const IMGON=location.protocol==="file:"||/\.github\.io$/.test(location.hostname);

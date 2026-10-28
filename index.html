@@ -665,6 +665,13 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .kb.warn{background:#fdeaea;color:#b3261e;border:1px solid #e3a49f;cursor:pointer}
 .kb.warn.on{background:#b3261e;color:#fff}
 .kb.hard{background:#b3261e;color:#fff}
+.ac-box{position:fixed;z-index:1000;background:#fff;border:1px solid #b8d4ac;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.15);max-height:300px;overflow-y:auto;min-width:280px;font-size:0.8rem}
+.ac-item{padding:5px 10px;cursor:pointer;display:flex;gap:6px;align-items:baseline}
+.ac-item.on,.ac-item:hover{background:#eaf5e4}
+.ac-item i{color:#2d5a1b}
+.ac-item small{color:#7a8a72}
+.ac-src{font-size:0.66rem;padding:0 5px;border-radius:8px;background:#eef3ea;color:#5a7a4a;flex-shrink:0}
+.ac-src.piet{background:#e6f4ea;color:#1e7b34}
 .kb.sm-ok{background:#e6f4ea;color:#1e7b34;border:1px solid #a8d5b5}
 .kb.sm-warn{background:#fff4e0;color:#9a5b00;border:1px solid #f0c27a}
 .kb.sm-no{background:#fdeaea;color:#b3261e;border:1px solid #e3a49f}
@@ -756,6 +763,7 @@ tr.k-out td{background:#fdeaea!important}
     <span class="badge" id="plantCount">0</span>
     <span id="loadProgress" style="font-size:0.75rem;color:#888;margin-left:6px;display:none;"></span>
     <button id="ndbRetryBtn" onclick="retryMissingNdb()" style="display:none;font-size:0.72rem;padding:2px 8px;background:#fff3e0;color:#b45309;border:1px solid #f0c070;border-radius:6px;cursor:pointer;margin-left:6px" title="NDB 데이터 없는 식물 재시도">🔄 NDB 재시도</button>
+    <button class="btn btn-sm" onclick="openPietOnly()" title="Piet 수종리스트에서 지금 목록의 수종만 보기 (새 탭)" style="margin-left:6px">🌿 Piet에서 이 목록 보기</button>
     <span class="hint">✕ 클릭하여 제거</span>
   </div>
   <div id="chipArea"></div>
@@ -1065,6 +1073,85 @@ const _mbgMapPromise = fetch(MBG_MAP_URL)
 // ── Service Worker 등록 (MBG CORS 프록시) ─────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/plants/sw.js').catch(() => {});
+}
+
+// ── 수종 이름 자동완성 (식물 목록 입력 · 식물명 직접 추가) ─────────────────────────
+// 후보: 🌿 Piet 수종리스트 → MBG 학명 목록 → 국가식물목록(학명·국명). 고르면 학명이 들어감
+const AC = { idx: null, mbg: null, box: null, el: null, items: [], on: -1, t0: 0, t1: 0 };
+function acBuild() {
+  const out = [], seen = new Set();
+  const add = (v, ko, src) => { const k = v.toLowerCase(); if (!v || seen.has(k)) return; seen.add(k); out.push({ v, ko: ko || '', src, lv: k, lk: (ko || '').replace(/\s/g, '') }); };
+  ((_oud && _oud.rows) || []).forEach(o => add(o.n, o.ko, 'piet'));
+  (AC.mbg || []).forEach(m => add(m.name, '', 'mbg'));
+  if (_nativeDB) for (const k in _nativeDB) { const e = _nativeDB[k]; if (!e || e.a) continue; add(k.charAt(0).toUpperCase() + k.slice(1), e.kor, 'ndb'); }
+  AC.idx = out;
+}
+async function acPrep() {
+  if (!AC.mbg) { AC.mbg = []; try { AC.mbg = await (await fetch('./data/mbg_taxonids.json')).json(); } catch (e) {} AC.idx = null; }
+  if (!_nativeDB) { try { await loadNativePlantDB(); } catch (e) {} AC.idx = null; }
+}
+function acSearch(q) {
+  const _on = (_oud && _oud.rows || []).length;
+  if (!AC.idx || AC.oudN !== _on) { acBuild(); AC.oudN = _on; }
+  const ql = q.toLowerCase().replace(/[‘’]/g, "'"), kq = q.replace(/\s/g, ''), ko = /[가-힣]/.test(q), res = [];
+  for (const e of AC.idx) {
+    let sc;
+    if (ko) { if (!e.lk) continue; const i = e.lk.indexOf(kq); if (i < 0) continue; sc = i === 0 ? 0 : 1; }
+    else { const i = e.lv.indexOf(ql); if (i < 0) continue; sc = i === 0 ? 0 : (e.lv.charAt(i - 1) === ' ' || e.lv.charAt(i - 1) === "'") ? 1 : 2; }
+    res.push([(e.src === 'piet' ? 0 : e.src === 'mbg' ? 10 : 20) + sc, e.v.length, e]);
+  }
+  res.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return res.slice(0, 12).map(r => r[2]);
+}
+// 지금 입력 중인 이름 (textarea는 줄·쉼표로 나눈 마지막 조각)
+function acToken(el) {
+  if (el.tagName !== 'TEXTAREA') return { s: 0, e: el.value.length, q: el.value.trim() };
+  const c = el.selectionStart, v = el.value, b = Math.max(v.lastIndexOf('\n', c - 1), v.lastIndexOf(',', c - 1)) + 1;
+  let s0 = b; while (s0 < c && v[s0] === ' ') s0++;
+  return { s: s0, e: c, q: v.slice(s0, c).trim() };
+}
+function acClose() { if (AC.box) AC.box.style.display = 'none'; AC.items = []; AC.on = -1; }
+function acShow(el) {
+  const t = acToken(el);
+  if (t.q.length < 2) return acClose();
+  AC.items = acSearch(t.q); AC.on = -1; AC.el = el;
+  if (!AC.items.length) return acClose();
+  if (!AC.box) { AC.box = document.createElement('div'); AC.box.className = 'ac-box'; document.body.appendChild(AC.box);
+    AC.box.addEventListener('mousedown', ev => { const it = ev.target.closest('.ac-item'); if (it) { ev.preventDefault(); acPick(+it.dataset.i); } }); }
+  const SRC = { piet: ['🌿 Piet', 'piet'], mbg: ['MBG', ''], ndb: ['국가목록', ''] };
+  AC.box.innerHTML = AC.items.map((e, i) => `<div class="ac-item" data-i="${i}"><span class="ac-src ${SRC[e.src][1]}">${SRC[e.src][0]}</span><i>${escH(e.v)}</i>${e.ko ? `<small>${escH(e.ko)}</small>` : ''}</div>`).join('');
+  const r = el.getBoundingClientRect();
+  AC.box.style.left = r.left + 'px'; AC.box.style.width = Math.max(280, Math.min(r.width, 520)) + 'px';
+  AC.box.style.top = (r.bottom + 2) + 'px'; AC.box.style.display = 'block';
+}
+function acMark() { [...AC.box.children].forEach((d, i) => d.classList.toggle('on', i === AC.on)); const d = AC.box.children[AC.on]; if (d) d.scrollIntoView({ block: 'nearest' }); }
+function acPick(i) {
+  const e = AC.items[i], el = AC.el; if (!e || !el) return;
+  const t = acToken(el);
+  el.value = el.value.slice(0, t.s) + e.v + el.value.slice(t.e);
+  const c = t.s + e.v.length; el.setSelectionRange(c, c); el.focus();
+  acClose();
+}
+['plantInput', 'addInput'].forEach(id => {
+  const el = document.getElementById(id); if (!el) return;
+  el.addEventListener('focus', () => { acPrep(); });
+  el.addEventListener('input', () => { clearTimeout(AC.t0); AC.t0 = setTimeout(() => acShow(el), 120); });
+  el.addEventListener('blur', () => { AC.t1 = setTimeout(acClose, 150); });
+  // 목록이 열려 있으면 ↑↓로 고르고 Enter·Tab으로 넣음 (고른 게 없으면 Enter는 원래대로 검색·추가)
+  el.addEventListener('keydown', ev => {
+    if (!AC.box || AC.box.style.display === 'none' || !AC.items.length || AC.el !== el) return;
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); ev.stopImmediatePropagation(); AC.on = (AC.on + (ev.key === 'ArrowDown' ? 1 : -1) + AC.items.length) % AC.items.length; acMark(); }
+    else if ((ev.key === 'Enter' || ev.key === 'Tab') && AC.on >= 0) { ev.preventDefault(); ev.stopImmediatePropagation(); acPick(AC.on); }
+    else if (ev.key === 'Escape') { acClose(); }
+  }, true);
+});
+window.addEventListener('scroll', () => { if (AC.box && AC.box.style.display !== 'none') acClose(); }, true);
+
+// Piet 수종리스트에서 지금 목록의 수종만 보기
+function openPietOnly() {
+  const names = [...new Set(plants.map(p => (p.latName || p.name || '').trim()).filter(Boolean))];
+  if (!names.length) { showToast('목록에 수종이 없어요'); return; }
+  window.open('./piet/#only=' + encodeURIComponent(names.join('|')), 'pietlist');
 }
 
 // Enter = 검색, Shift+Enter = 줄바꿈
@@ -5641,9 +5728,11 @@ document.addEventListener('keydown', function(e) {
         const bid = parseInt(bg.dataset.bgid);
         const b = BC.bgs.find(x => x.id === bid);
         if (!b) return;
+        const _pins = bcPinsOf(b);
         b.imgScale = Math.max(0.3, Math.min(6, (b.imgScale||1) * factor));
         const img = bg.querySelector('img');
         if (img) { img.style.transform = `translate(${b.imgPanX||0}px,${b.imgPanY||0}px) scale(${b.imgScale})`; img.style.transformOrigin = 'center center'; }
+        bcPinsApply(b, _pins);
       }
     }, { passive: false });
   }
@@ -5700,7 +5789,7 @@ function bcRenderBgs() {
       <div style="width:100%;height:calc(100% - 20px);overflow:hidden;"><img src="${b.dataUrl}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;${bgImgScale}"></div>
       <div class="bc-bg-del" onclick="bcDelBg(${b.id})" title="삭제">✕</div>
       <div class="bc-bg-resize" data-bgid="${b.id}"></div>`;
-    el.querySelector('.bc-bg-handle').addEventListener('mousedown', e => { if(e.target.tagName==='BUTTON') return; e.preventDefault(); e.stopPropagation(); const pos=evPos(e); BC.drag={type:'bg',id:b.id,sx:pos.x,sy:pos.y,ox:b.x,oy:b.y}; });
+    el.querySelector('.bc-bg-handle').addEventListener('mousedown', e => { if(e.target.tagName==='BUTTON') return; e.preventDefault(); e.stopPropagation(); const pos=evPos(e); BC.drag={type:'bg',id:b.id,sx:pos.x,sy:pos.y,ox:b.x,oy:b.y,pins:bcPinsOf(b)}; });
     el.addEventListener('mousedown', e => bcBgDragStart(e, b.id));
     el.querySelector('.bc-bg-resize').addEventListener('mousedown', e => bcBgResizeStart(e, b.id));
     canvas.appendChild(el);
@@ -5773,6 +5862,38 @@ document.addEventListener('paste', function(ev) {
   r.readAsDataURL(file);
 });
 
+// ── 컨셉이미지 위 인출선 끝점: 이미지를 옮기거나 크기·확대를 바꿔도 도면의 같은 자리를 따라감 ──
+// 이미지 위(가장 위에 있는 이미지)에 놓인 끝점만 붙음. 이미지 안 위치는 원본 그림 기준 비율(u,v)로 기억
+function bcBgAr(b) {
+  const img = document.querySelector(`.bc-bg-layer[data-bgid="${b.id}"] img`);
+  return img && img.naturalWidth ? img.naturalWidth / img.naturalHeight : (b.w - 3) / Math.max(1, b.h - 23);
+}
+function bcBgGeo(b, ar) {   // 테두리 1.5px, 아래 20px 제외한 영역에 object-fit:contain 으로 그려짐
+  const cw = b.w - 3, ch = Math.max(1, b.h - 23);
+  let dw, dh; if (cw / ch > ar) { dh = ch; dw = ch * ar; } else { dw = cw; dh = cw / ar; }
+  return { cw, ch, dw, dh, s: b.imgScale || 1, tx: b.imgPanX || 0, ty: b.imgPanY || 0 };
+}
+function bcBgToUV(b, ar, X, Y) {
+  const g = bcBgGeo(b, ar);
+  const px = (X - b.x - 1.5 - g.cw / 2 - g.tx) / g.s + g.cw / 2, py = (Y - b.y - 1.5 - g.ch / 2 - g.ty) / g.s + g.ch / 2;
+  return [(px - (g.cw - g.dw) / 2) / g.dw, (py - (g.ch - g.dh) / 2) / g.dh];
+}
+function bcBgFromUV(b, ar, u, v) {
+  const g = bcBgGeo(b, ar);
+  const px = (g.cw - g.dw) / 2 + u * g.dw, py = (g.ch - g.dh) / 2 + v * g.dh;
+  return [b.x + 1.5 + g.cw / 2 + (px - g.cw / 2) * g.s + g.tx, b.y + 1.5 + g.ch / 2 + (py - g.ch / 2) * g.s + g.ty];
+}
+function bcPinsOf(b) {
+  const top = (x, y) => { for (let i = BC.bgs.length - 1; i >= 0; i--) { const g = BC.bgs[i]; if (x >= g.x && x <= g.x + g.w && y >= g.y && y <= g.y + g.h) return g; } return null; };
+  const ar = bcBgAr(b);
+  return { ar, pins: BC.nodes.filter(n => n.ax != null && top(n.ax, n.ay) === b).map(n => ({ n, uv: bcBgToUV(b, ar, n.ax, n.ay) })) };
+}
+function bcPinsApply(b, P) {
+  if (!P || !P.pins.length) return;
+  P.pins.forEach(({ n, uv }) => { const q = bcBgFromUV(b, P.ar, uv[0], uv[1]); n.ax = Math.round(q[0] * 10) / 10; n.ay = Math.round(q[1] * 10) / 10; });
+  bcUpdateArrows();
+}
+
 // ── 컨셉이미지 레이어 드래그/리사이즈 ────────────────────────────────────────
 function bcBgDragStart(e, bgId) {
   if (e.target.classList.contains('bc-bg-resize') || e.target.classList.contains('bc-bg-del') || e.target.tagName === 'BUTTON') return;
@@ -5782,17 +5903,17 @@ function bcBgDragStart(e, bgId) {
   const pos = evPos(e);
   // 확대된 상태 → 이미지 내부 패닝 (핸들바로 레이어 이동)
   if ((b.imgScale||1) > 1) {
-    BC.drag = { type:'bg-img-pan', id: bgId, sx:pos.x, sy:pos.y, px:b.imgPanX||0, py:b.imgPanY||0 };
+    BC.drag = { type:'bg-img-pan', id: bgId, sx:pos.x, sy:pos.y, px:b.imgPanX||0, py:b.imgPanY||0, pins: bcPinsOf(b) };
     return;
   }
-  BC.drag = { type:'bg', id: bgId, sx: pos.x, sy: pos.y, ox: b.x, oy: b.y };
+  BC.drag = { type:'bg', id: bgId, sx: pos.x, sy: pos.y, ox: b.x, oy: b.y, pins: bcPinsOf(b) };
 }
 function bcBgResizeStart(e, bgId) {
   e.preventDefault(); e.stopPropagation();
   const b = BC.bgs.find(x => x.id === bgId);
   if (!b) return;
   const pos = evPos(e);
-  BC.drag = { type:'bg-resize', id: bgId, sx: pos.x, sy: pos.y, ow: b.w, oh: b.h };
+  BC.drag = { type:'bg-resize', id: bgId, sx: pos.x, sy: pos.y, ow: b.w, oh: b.h, pins: bcPinsOf(b) };
 }
 
 // ── 노드 추가/삭제 ──────────────────────────────────────────────────────────
@@ -6248,6 +6369,7 @@ function bcOnMove(e) {
     b.imgPanY = BC.drag.py + dy;
     const img = document.querySelector(`.bc-bg-layer[data-bgid="${b.id}"] img`);
     if (img) img.style.transform = `translate(${b.imgPanX}px,${b.imgPanY}px) scale(${b.imgScale||1})`;
+    bcPinsApply(b, BC.drag.pins);
     return;
   }
   if (BC.drag.type === 'bg') {
@@ -6255,6 +6377,7 @@ function bcOnMove(e) {
     b.x = Math.max(0, BC.drag.ox + dx); b.y = Math.max(0, BC.drag.oy + dy);
     const el = document.querySelector(`.bc-bg-layer[data-bgid="${b.id}"]`);
     if (el) el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
+    bcPinsApply(b, BC.drag.pins);
     return;
   }
   if (BC.drag.type === 'bg-resize') {
@@ -6262,6 +6385,7 @@ function bcOnMove(e) {
     b.w = Math.max(100, BC.drag.ow + dx); b.h = Math.max(60, BC.drag.oh + dy);
     const el = document.querySelector(`.bc-bg-layer[data-bgid="${b.id}"]`);
     if (el) el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
+    bcPinsApply(b, BC.drag.pins);
     return;
   }
   // 노드/화살표
