@@ -241,7 +241,22 @@ const EMPTY='<td></td>'.repeat(10);
 /* ── 식재툴 목록만 보기: 식재툴의 'Piet에서 이 목록 보기' → #only=학명|학명… ── */
 const onm=x=>String(x||"").replace(/[‘’ʼ′]/g,"'").replace(/\s*\([^)]*\)/g,"").replace(/\./g,"").replace(/\s*×\s*/g," × ").replace(/\s+/g," ").trim().toLowerCase();
 let ONLY=null;
-function onlyHit(n){if(!ONLY)return true;const r=onm(n);return ONLY.some(L=>r===L||r.startsWith(L+" ")||L.startsWith(r+" "))}
+/* 이름 맞추기 — 표기가 조금 달라도 같은 종·품종으로 봄
+   ① 같거나 한쪽이 다른 쪽의 종/품종 (Carex montana ↔ Carex montana 'x')
+   ② 속이 같고 품종명이 같거나 앞부분이 같음: 따옴표 없음(Carex kyoto ↔ Carex 'Kyoto'),
+      품종명 일부(Sesleria 'Greenlee' ↔ 'Greenlee Hybrid'), 종명 생략(Thalictrum 'Thundercloud' ↔ T. aquilegiifolium 'Thundercloud') */
+function oparse(n){const s=onm(n),cv=(s.match(/'([^']+)'/)||[])[1]||"",w=s.replace(/'[^']*'/g," ").trim().split(/\s+/).filter(x=>x&&x!=="×");return{s,g:w[0]||"",ep:w.slice(1),cv:cv.replace(/\s+(hybrid|group|strain)$/,"").trim()}}
+function oMatch(L,R){
+  if(R===L||R.startsWith(L+" ")||L.startsWith(R+" "))return true;
+  const a=oparse(L),b=oparse(R);
+  if(!a.g||a.g!==b.g)return false;
+  const cvA=a.cv||(a.ep.length===1?a.ep[0]:"");   // 따옴표 없이 쓴 품종명 (Carex kyoto)
+  if(!cvA||!b.cv)return false;
+  const same=b.cv===cvA||b.cv.startsWith(cvA+" ")||cvA.startsWith(b.cv+" ");
+  if(!same)return false;
+  if(a.cv&&a.ep.length&&b.ep.length&&a.ep[0]!==b.ep[0])return false;   // 종명이 둘 다 있는데 다르면 다른 종
+  return true}
+function onlyHit(n){if(!ONLY)return true;const r=onm(n);return ONLY.some(L=>oMatch(L,r))}
 function onlyRead(){
   const m=location.hash.match(/^#only=(.*)$/);
   ONLY=null;let names=[];
@@ -250,7 +265,7 @@ function onlyRead(){
   let bar=document.getElementById("onlyBar");
   if(!bar){bar=document.createElement("div");bar.id="onlyBar";bar.style.cssText="margin:6px 0 8px;padding:7px 10px;border-radius:6px;background:#eef7e8;border:1px solid #b8d8a8;font-size:13px;line-height:1.6";document.querySelector(".search").after(bar)}
   if(!ONLY){bar.hidden=true;return}
-  const miss=names.filter(n=>{const L=onm(n);return !DATA.rows.some(o=>{const r=onm(o.name);return r===L||r.startsWith(L+" ")||L.startsWith(r+" ")})});
+  const miss=names.filter(n=>{const L=onm(n);return !DATA.rows.some(o=>oMatch(L,onm(o.name)))});
   bar.hidden=false;
   bar.innerHTML=`🌿 식재툴 목록 <b>${names.length}종</b>만 보는 중 <button type="button" id="onlyAll" style="margin-left:8px">전체 보기</button>`+(miss.length?`<br><span style="color:#8a5a00">Piet에 없음 (${miss.length}): ${miss.map(esc).join(", ")}</span>`:"");
   document.getElementById("onlyAll").onclick=()=>{history.replaceState(null,"",location.pathname+location.search);onlyRead();render(qEl.value)};
