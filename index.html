@@ -1093,11 +1093,16 @@ async function acPrep() {
 function acSearch(q) {
   const _on = (_oud && _oud.rows || []).length;
   if (!AC.idx || AC.oudN !== _on) { acBuild(); AC.oudN = _on; }
-  const ql = q.toLowerCase().replace(/[‘’]/g, "'"), kq = q.replace(/\s/g, ''), ko = /[가-힣]/.test(q), res = [];
+  const ql = q.toLowerCase().replace(/[‘’]/g, "'"), qw = ql.split(/\s+/).filter(Boolean), kq = q.replace(/\s/g, ''), ko = /[가-힣]/.test(q), res = [];
   for (const e of AC.idx) {
     let sc;
     if (ko) { if (!e.lk) continue; const i = e.lk.indexOf(kq); if (i < 0) continue; sc = i === 0 ? 0 : 1; }
-    else { const i = e.lv.indexOf(ql); if (i < 0) continue; sc = i === 0 ? 0 : (e.lv.charAt(i - 1) === ' ' || e.lv.charAt(i - 1) === "'") ? 1 : 2; }
+    else {
+      const i = e.lv.indexOf(ql);
+      if (i >= 0) sc = i === 0 ? 0 : (e.lv.charAt(i - 1) === ' ' || e.lv.charAt(i - 1) === "'") ? 1 : 2;
+      else if (qw.length > 1) { let at = 0; for (const w of qw) { const j = e.lv.indexOf(w, at); if (j < 0) { at = -1; break; } at = j + w.length; } if (at < 0) continue; sc = 3; }   // 'geran wl' → Geranium wlassovianum
+      else continue;
+    }
     res.push([(e.src === 'piet' ? 0 : e.src === 'mbg' ? 10 : 20) + sc, e.v.length, e]);
   }
   res.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
