@@ -624,6 +624,11 @@ table.dtbl tr:last-child td { border-bottom: none; }
 .ana-btns { display:flex;gap:6px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap; }
 .ana-row { display:flex;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #eef3ea; }
 .ana-row b { flex:1; }
+.ana-chips { display:flex;flex-wrap:wrap;gap:4px;align-items:center; }
+.ana-chip { border:1px solid #c8dcbc;background:#fff;border-radius:12px;padding:2px 10px;font-size:0.78rem;cursor:pointer;color:#3a5a2a; }
+.ana-chip.on { background:#52b788;border-color:#52b788;color:#fff; }
+.ana-chips input { width:120px !important;padding:2px 8px !important;font-size:0.78rem !important;border-radius:12px !important; }
+.ana-tag { font-size:0.68rem;padding:0 6px;border-radius:8px;background:#eef6e8;color:#3a6a2a;margin-left:3px; }
 .bc-arrow-pt { position:absolute;width:12px;height:12px;background:#f59e0b;border:2px solid #fff;border-radius:50%;cursor:crosshair;z-index:12;transform:translate(-50%,-50%); }
 #bc-arrow-btn.active { background:#52b788;color:#fff; }
 
@@ -6197,7 +6202,10 @@ function anaOpenSave() {
     <label>제목 <span class="oud-dim" style="font-weight:400">(프로젝트·책 — 고르면 출처가 채워져요)</span></label><input id="ana-title" list="ana-titles" value="${escA(a.title || '')}" placeholder="예: Calder Gardens" autocomplete="off"><datalist id="ana-titles"></datalist>
     <label>항목 <span class="oud-dim" style="font-weight:400">(이 도면 — 구역·부분)</span></label><input id="ana-item" value="${escA(a.item || '')}" placeholder="예: Matrix D 구역">
     <label>출처 (설계자·프로젝트·연도) <span class="oud-dim" style="font-weight:400">— 같은 제목의 모든 항목에 함께 적용</span></label><input id="ana-src" value="${escA(a.src || '')}" placeholder="예: Piet Oudolf · Calder Gardens · 2024">
-    <label>조건 (광량·수분·지역 등)</label><input id="ana-cond" value="${escA(a.cond || '')}" placeholder="예: 반음지 · 적윤 · Zone 7">
+    <label>식재 방식</label><div class="ana-chips" id="ana-way"></div>
+    <div id="ana-base-wrap"><label>바탕종 <span class="oud-dim" style="font-weight:400">(매트릭스의 바탕)</span></label><div class="ana-chips" id="ana-base"></div></div>
+    <label>광량</label><div class="ana-chips" id="ana-light"></div>
+    <label>수분</label><div class="ana-chips" id="ana-moist"></div>
     <label>분석 메모</label><textarea id="ana-memo" placeholder="왜 이 조합인지, 어디에 쓸 수 있을지…">${escH(a.memo || '')}</textarea>
     <div class="oud-dim" style="margin-top:6px;font-size:0.74rem">구상판 그림 · 수종표(높이·개화·광량·한국 적용) · 글상자 내용이 문서에 같이 들어가요.</div>
     <div class="ana-btns"><span id="ana-msg" class="oud-dim" style="flex:1;align-self:center"></span>
@@ -6205,7 +6213,16 @@ function anaOpenSave() {
       ${a.id ? `<button class="btn btn-sm" onclick="anaDoSave(true)" title="지금 구상판을 새 항목으로 저장 (항목 이름을 바꿔 주세요)">새 항목으로 저장</button>` : ''}
       <button class="btn btn-sm btn-primary" onclick="anaDoSave(false)">저장</button></div>`);
   setTimeout(() => o.querySelector('#ana-title').focus(), 0);
+  const split = x => String(x || '').split(',').map(t => t.trim()).filter(Boolean);
+  const extra = k => _anaRows ? [...new Set(_anaRows.flatMap(r => split(r[k])))] : [];
+  anaChips('ana-way', ['매트릭스', '블록(그룹)', '개별·소그룹', '보더'], split(a.way), true, () => anaBaseShow());
+  anaChips('ana-base', [], split(a.base), true);
+  anaChips('ana-light', ['양지', '반양지', '반음지', '음지'], split(a.light), false);
+  anaChips('ana-moist', ['건조', '적윤', '습윤'], split(a.moist), false);
+  anaBaseShow();
+  const more = () => { anaChipsAdd('ana-way', extra('way')); anaChipsAdd('ana-base', extra('base')); };
   const fill = () => {
+    more();
     const dl = document.getElementById('ana-titles'); if (!dl || !_anaRows) return;
     const T = {}; _anaRows.forEach(r => { if (r.title && !(r.title in T)) T[r.title] = r.src || ''; });
     dl.innerHTML = Object.keys(T).map(t => `<option value="${escA(t)}">${escH(T[t])}</option>`).join('');
@@ -6215,6 +6232,22 @@ function anaOpenSave() {
   };
   if (_anaRows) fill(); else anaPost({ action: 'anaList' }).then(j => { _anaRows = j.rows || []; fill(); }).catch(() => {});
 }
+// 버튼식 선택 (여러 개) — custom이면 새 값 직접 입력 칸
+function anaChips(id, opts, sel, custom, onchg) {
+  const box = document.getElementById(id); if (!box) return;
+  box._sel = new Set(sel); box._opts = [...new Set([...opts, ...sel])]; box._chg = onchg;
+  const draw = () => {
+    box.innerHTML = box._opts.map(v => `<span class="ana-chip${box._sel.has(v) ? ' on' : ''}" data-v="${escA(v)}">${escH(v)}</span>`).join('')
+      + (custom ? `<input placeholder="+ 직접 입력" title="입력 후 Enter">` : '');
+    box.querySelectorAll('.ana-chip').forEach(c => c.onclick = () => { const v = c.dataset.v; box._sel.has(v) ? box._sel.delete(v) : box._sel.add(v); draw(); box._chg && box._chg(); });
+    const inp = box.querySelector('input');
+    if (inp) inp.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); const v = inp.value.trim(); if (!v) return; if (!box._opts.includes(v)) box._opts.push(v); box._sel.add(v); draw(); box._chg && box._chg(); box.querySelector('input').focus(); };
+  };
+  box._draw = draw; draw();
+}
+function anaChipsAdd(id, vals) { const box = document.getElementById(id); if (!box || !box._draw) return; vals.forEach(v => { if (!box._opts.includes(v)) box._opts.push(v); }); box._draw(); }
+const anaChipsVal = id => { const box = document.getElementById(id); return box && box._sel ? box._opts.filter(v => box._sel.has(v)).join(', ') : ''; };
+function anaBaseShow() { const w = document.getElementById('ana-base-wrap'), box = document.getElementById('ana-way'); if (w && box) w.style.display = box._sel && box._sel.has('매트릭스') ? '' : 'none'; }
 function anaSpecies() {
   const pis = BC.nodes.length ? [...new Set(BC.nodes.map(n => n.pi))] : plants.map((_, i) => i);
   return pis.map(i => plants[i]).filter(Boolean).map(p => {
@@ -6228,7 +6261,8 @@ function anaSpecies() {
 }
 async function anaDoSave(asNew) {
   const v = id => (document.getElementById(id) || {}).value || '';
-  const meta = { title: v('ana-title').trim(), item: v('ana-item').trim(), src: v('ana-src').trim(), cond: v('ana-cond').trim(), memo: v('ana-memo') };
+  const way = anaChipsVal('ana-way');
+  const meta = { title: v('ana-title').trim(), item: v('ana-item').trim(), src: v('ana-src').trim(), way, base: /매트릭스/.test(way) ? anaChipsVal('ana-base') : '', light: anaChipsVal('ana-light'), moist: anaChipsVal('ana-moist'), memo: v('ana-memo') };
   if (!meta.title || !meta.item) { alert('제목과 항목을 넣어 주세요.'); return; }
   const msg = t => { const m = document.getElementById('ana-msg'); if (m) m.textContent = t; };
   try {
@@ -6255,7 +6289,7 @@ async function anaOpenList() {
     _anaRows.forEach(r => { if (!G[r.title]) { G[r.title] = []; order.push(r.title); } G[r.title].push(r); });
     el.innerHTML = order.length ? order.map(t => { const rs = G[t];
       return `<div style="margin-top:10px"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:#2d5a1b">${escH(t)}</b><span class="oud-dim" style="font-size:0.74rem">${escH(rs[0].src || '')}</span>${rs[0].docUrl ? `<a class="btn btn-sm" href="${escA(rs[0].docUrl)}" target="_blank" rel="noopener">문서</a>` : ''}</div>`
-        + rs.map(r => `<div class="ana-row" style="padding-left:12px"><span style="flex:1">${escH(r.item || '항목')}</span><span class="oud-dim" style="font-size:0.74rem">${escH([r.cond, r.n + '종', r.t].filter(Boolean).join(' · '))}</span><button class="btn btn-sm btn-primary" onclick="anaLoad('${escA(r.id)}')">열기</button></div>`).join('') + '</div>'; }).join('')
+        + rs.map(r => `<div class="ana-row" style="padding-left:12px"><span style="flex:1">${escH(r.item || '항목')}${[r.way && r.way + (r.base ? ' · ' + r.base : ''), r.light, r.moist].filter(Boolean).map(t => `<span class="ana-tag">${escH(t)}</span>`).join('')}</span><span class="oud-dim" style="font-size:0.74rem">${escH([r.n + '종', r.t].filter(Boolean).join(' · '))}</span><button class="btn btn-sm btn-primary" onclick="anaLoad('${escA(r.id)}')">열기</button></div>`).join('') + '</div>'; }).join('')
       : '<div class="oud-dim">저장한 분석이 아직 없어요.</div>';
   } catch (e) { const el = document.getElementById('ana-list'); if (el) el.textContent = '불러오지 못했어요: ' + e.message; }
 }
@@ -6265,7 +6299,7 @@ async function anaLoad(id) {
   try {
     const j = await anaPost({ action: 'anaGet', id });
     const data = JSON.parse(j.state);
-    data.ana = { id: j.id, title: j.title, item: j.item, src: j.src, cond: j.cond, memo: j.memo };
+    data.ana = { id: j.id, title: j.title, item: j.item, src: j.src, way: j.way, light: j.light, moist: j.moist, base: j.base, memo: j.memo };
     bcRestoreData(data);
     anaClose();
     showToast('📂 ' + j.title + ' 열기 완료 ✓');
