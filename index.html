@@ -6174,7 +6174,8 @@ function bcRenderTexts() {
 }
 
 // ── 도면 분석 노트: 현장조사툴 서버에 저장 (드라이브 폴더 · 시트 '도면분석' · 문서) ─────────
-function anaShowName() { const el = document.getElementById('bc-ana-name'); if (el) el.textContent = BC.ana && BC.ana.id ? '📝 ' + (BC.ana.title || '') : ''; }
+function anaShowName() { const el = document.getElementById('bc-ana-name'); if (el) el.textContent = BC.ana && BC.ana.id ? '📝 ' + [BC.ana.title, BC.ana.item].filter(Boolean).join(' › ') : ''; }
+let _anaRows = null;   // 저장된 분석 목록 (제목·출처 자동 채움용)
 function anaPw() {
   let pw = ''; try { pw = localStorage.getItem('fn_pw') || ''; } catch (e) {}
   if (!pw) { pw = (prompt('현장조사툴 비밀번호를 넣어 주세요.') || '').trim(); if (pw) try { localStorage.setItem('fn_pw', pw); } catch (e) {} }
@@ -6192,17 +6193,27 @@ function anaModal(html) { anaClose(); const o = document.createElement('div'); o
 function anaOpenSave() {
   if (!BC.bgs.length && !BC.nodes.length) { showToast('구상판이 비어 있어요'); return; }
   const a = BC.ana || {};
-  const o = anaModal(`<h3>📝 도면 분석 저장${a.id ? ' <span style="font-weight:400;font-size:0.8rem;color:#6a8a5a">· 기존 분석 수정</span>' : ''}</h3>
-    <label>제목</label><input id="ana-title" value="${escA(a.title || '')}" placeholder="예: ○○정원 그늘 화단">
-    <label>출처 (설계자·프로젝트·연도)</label><input id="ana-src" value="${escA(a.src || '')}" placeholder="예: Piet Oudolf · ○○ · 2024">
+  const o = anaModal(`<h3>📝 도면 분석 저장${a.id ? ' <span style="font-weight:400;font-size:0.8rem;color:#6a8a5a">· 기존 항목 수정</span>' : ''}</h3>
+    <label>제목 <span class="oud-dim" style="font-weight:400">(프로젝트·책 — 고르면 출처가 채워져요)</span></label><input id="ana-title" list="ana-titles" value="${escA(a.title || '')}" placeholder="예: Calder Gardens" autocomplete="off"><datalist id="ana-titles"></datalist>
+    <label>항목 <span class="oud-dim" style="font-weight:400">(이 도면 — 구역·부분)</span></label><input id="ana-item" value="${escA(a.item || '')}" placeholder="예: Matrix D 구역">
+    <label>출처 (설계자·프로젝트·연도) <span class="oud-dim" style="font-weight:400">— 같은 제목의 모든 항목에 함께 적용</span></label><input id="ana-src" value="${escA(a.src || '')}" placeholder="예: Piet Oudolf · Calder Gardens · 2024">
     <label>조건 (광량·수분·지역 등)</label><input id="ana-cond" value="${escA(a.cond || '')}" placeholder="예: 반음지 · 적윤 · Zone 7">
     <label>분석 메모</label><textarea id="ana-memo" placeholder="왜 이 조합인지, 어디에 쓸 수 있을지…">${escH(a.memo || '')}</textarea>
     <div class="oud-dim" style="margin-top:6px;font-size:0.74rem">구상판 그림 · 수종표(높이·개화·광량·한국 적용) · 글상자 내용이 문서에 같이 들어가요.</div>
     <div class="ana-btns"><span id="ana-msg" class="oud-dim" style="flex:1;align-self:center"></span>
       <button class="btn btn-sm" onclick="anaClose()">취소</button>
-      ${a.id ? `<button class="btn btn-sm" onclick="anaDoSave(true)">새 분석으로 저장</button>` : ''}
+      ${a.id ? `<button class="btn btn-sm" onclick="anaDoSave(true)" title="지금 구상판을 새 항목으로 저장 (항목 이름을 바꿔 주세요)">새 항목으로 저장</button>` : ''}
       <button class="btn btn-sm btn-primary" onclick="anaDoSave(false)">저장</button></div>`);
   setTimeout(() => o.querySelector('#ana-title').focus(), 0);
+  const fill = () => {
+    const dl = document.getElementById('ana-titles'); if (!dl || !_anaRows) return;
+    const T = {}; _anaRows.forEach(r => { if (r.title && !(r.title in T)) T[r.title] = r.src || ''; });
+    dl.innerHTML = Object.keys(T).map(t => `<option value="${escA(t)}">${escH(T[t])}</option>`).join('');
+    const ti = document.getElementById('ana-title'), si = document.getElementById('ana-src');
+    const sync = () => { const t = ti.value.trim(); if (t in T && T[t] && !si.value.trim()) si.value = T[t]; };
+    ti.addEventListener('change', sync); ti.addEventListener('input', sync);
+  };
+  if (_anaRows) fill(); else anaPost({ action: 'anaList' }).then(j => { _anaRows = j.rows || []; fill(); }).catch(() => {});
 }
 function anaSpecies() {
   const pis = BC.nodes.length ? [...new Set(BC.nodes.map(n => n.pi))] : plants.map((_, i) => i);
@@ -6217,8 +6228,8 @@ function anaSpecies() {
 }
 async function anaDoSave(asNew) {
   const v = id => (document.getElementById(id) || {}).value || '';
-  const meta = { title: v('ana-title').trim(), src: v('ana-src').trim(), cond: v('ana-cond').trim(), memo: v('ana-memo') };
-  if (!meta.title) { alert('제목을 넣어 주세요.'); return; }
+  const meta = { title: v('ana-title').trim(), item: v('ana-item').trim(), src: v('ana-src').trim(), cond: v('ana-cond').trim(), memo: v('ana-memo') };
+  if (!meta.title || !meta.item) { alert('제목과 항목을 넣어 주세요.'); return; }
   const msg = t => { const m = document.getElementById('ana-msg'); if (m) m.textContent = t; };
   try {
     msg('구상판 그림 만드는 중…');
@@ -6228,8 +6239,8 @@ async function anaDoSave(asNew) {
     BC.ana = Object.assign({ id }, meta);
     msg('저장 중… (드라이브·문서 만드는 데 몇 초 걸려요)');
     const j = await anaPost({ action: 'anaSave', id, ...meta, texts: BC.texts.map(t => t.t || ''), species: anaSpecies(), img, state: JSON.stringify(bcBoardData()) });
-    BC.ana.id = j.id; anaShowName();
-    anaModal(`<h3>✓ 저장했어요</h3><div>${escH(meta.title)}</div>
+    BC.ana.id = j.id; anaShowName(); _anaRows = null;
+    anaModal(`<h3>✓ 저장했어요</h3><div>${escH(meta.title)} › ${escH(meta.item)}</div>
       <div class="ana-btns"><a class="btn btn-sm" href="${escA(j.folderUrl)}" target="_blank" rel="noopener">드라이브 폴더 ↗</a><a class="btn btn-sm btn-primary" href="${escA(j.docUrl)}" target="_blank" rel="noopener">문서 열기 ↗</a><button class="btn btn-sm" onclick="anaClose()">닫기</button></div>`);
   } catch (e) { msg('저장 실패: ' + e.message); }
 }
@@ -6237,10 +6248,14 @@ async function anaOpenList() {
   anaModal(`<h3>📂 도면 분석 열기</h3><div id="ana-list" class="oud-dim">불러오는 중…</div><div class="ana-btns"><button class="btn btn-sm" onclick="anaClose()">닫기</button></div>`);
   try {
     const j = await anaPost({ action: 'anaList' });
+    _anaRows = j.rows || [];
     const el = document.getElementById('ana-list'); if (!el) return;
     el.className = '';
-    el.innerHTML = (j.rows || []).length ? j.rows.map(r => `<div class="ana-row"><b>${escH(r.title)}</b><span class="oud-dim" style="font-size:0.74rem">${escH([r.src, r.cond, r.n + '종', r.t].filter(Boolean).join(' · '))}</span>
-      ${r.docUrl ? `<a class="btn btn-sm" href="${escA(r.docUrl)}" target="_blank" rel="noopener">문서</a>` : ''}<button class="btn btn-sm btn-primary" onclick="anaLoad('${escA(r.id)}')">열기</button></div>`).join('')
+    const G = {}, order = [];
+    _anaRows.forEach(r => { if (!G[r.title]) { G[r.title] = []; order.push(r.title); } G[r.title].push(r); });
+    el.innerHTML = order.length ? order.map(t => { const rs = G[t];
+      return `<div style="margin-top:10px"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;color:#2d5a1b">${escH(t)}</b><span class="oud-dim" style="font-size:0.74rem">${escH(rs[0].src || '')}</span>${rs[0].docUrl ? `<a class="btn btn-sm" href="${escA(rs[0].docUrl)}" target="_blank" rel="noopener">문서</a>` : ''}</div>`
+        + rs.map(r => `<div class="ana-row" style="padding-left:12px"><span style="flex:1">${escH(r.item || '항목')}</span><span class="oud-dim" style="font-size:0.74rem">${escH([r.cond, r.n + '종', r.t].filter(Boolean).join(' · '))}</span><button class="btn btn-sm btn-primary" onclick="anaLoad('${escA(r.id)}')">열기</button></div>`).join('') + '</div>'; }).join('')
       : '<div class="oud-dim">저장한 분석이 아직 없어요.</div>';
   } catch (e) { const el = document.getElementById('ana-list'); if (el) el.textContent = '불러오지 못했어요: ' + e.message; }
 }
@@ -6250,7 +6265,7 @@ async function anaLoad(id) {
   try {
     const j = await anaPost({ action: 'anaGet', id });
     const data = JSON.parse(j.state);
-    data.ana = { id: j.id, title: j.title, src: j.src, cond: j.cond, memo: j.memo };
+    data.ana = { id: j.id, title: j.title, item: j.item, src: j.src, cond: j.cond, memo: j.memo };
     bcRestoreData(data);
     anaClose();
     showToast('📂 ' + j.title + ' 열기 완료 ✓');
