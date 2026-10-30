@@ -1261,9 +1261,9 @@ async function kvSet(req, env) {
   const key = (body.key ?? '').trim().toLowerCase();
   if (!key) return { error: 'key required' };
   const entry = {};
-  if (body.geselligkeit  !== undefined) entry.geselligkeit  = body.geselligkeit;
-  if (body.pflanzAbstand !== undefined) entry.pflanzAbstand = body.pflanzAbstand;
-  if (body.pflanzCount   !== undefined) entry.pflanzCount   = body.pflanzCount;
+  // 식재간격·사교성(직접 입력) + Gaissmayer 상세 페이지 값(사용자 브라우저의 Tampermonkey 스크립트가 보냄)
+  const FIELDS = ['geselligkeit', 'pflanzAbstand', 'pflanzCount', 'giftklasse', 'bienenfreundlich', 'insektenweide', 'lebensbereich', 'pflanzZeitpunkt', 'gaissmayerUrl', 'gsmName', 'gsmSaved'];
+  FIELDS.forEach(f => { if (body[f] !== undefined) entry[f] = String(body[f]).slice(0, 500); });
   // 기존 데이터와 병합
   const existing = await env.PLANT_DATA.get(key, { type: 'json' }) || {};
   await env.PLANT_DATA.put(key, JSON.stringify({ ...existing, ...entry }));

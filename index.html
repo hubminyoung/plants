@@ -1778,16 +1778,7 @@ async function loadPlant(p) {
   renderChips(); renderActiveTabDebounced();
 
   // 3b. KV에서 식재 추가 데이터 조회
-  const kvKey = (p.latName || p.name || '').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-  const _pw = localStorage.getItem('appPassword') || '';
-  fetch(CFG.worker + '/api/kv/get?key=' + encodeURIComponent(kvKey),
-    { headers: _pw ? {'x-app-password': _pw} : {} })
-    .then(r => r.json()).then(d => {
-      if (d.geselligkeit)  p.geselligkeit  = d.geselligkeit;
-      if (d.pflanzAbstand) p.pflanzAbstand = d.pflanzAbstand;
-      if (d.pflanzCount)   p.pflanzCount   = d.pflanzCount;
-      renderActiveTabDebounced();
-    }).catch(() => {});
+  gsmKvLoad(p);
 
   // 3. MBG Plant Finder (via Worker)
   // 학명 변경 자동 처리: iNaturalist accepted name의 속명 + 원래 재배종명 조합
@@ -2164,6 +2155,8 @@ async function loadNaturadbDetail(p) {
   const t = det.table   || {};
   const s = det.sections || {};
 
+  // ㎡당 주수: Gaissmayer·직접 입력 값이 없을 때 NaturaDB 값 사용
+  if (t['Pflanzen je ㎡'] && !p.pflanzCount) { p.pflanzCount = String(t['Pflanzen je ㎡']).replace(',', '.') + '주/m² (NDB)'; p.pflanzCountSrc = 'ndb'; }
   if (t['Boden'])                p.ndbBoden       = t['Boden'];
   if (t['Nährstoffe'])           p.ndbNaehrstoffe  = t['Nährstoffe'];
   if (t['PH-Wert'])              p.ndbPH           = t['PH-Wert'];
@@ -2283,6 +2276,38 @@ async function loadNaturadbDetail(p) {
   if (!hasNdbText && korForKna) await loadKnagardenDetail(p, korForKna);
 }
 
+// ── Gaissmayer 값: Worker KV (사용자 브라우저의 Tampermonkey 스크립트가 상세 페이지에서 저장) ──
+// Gaissmayer가 자동 요청을 막아서, 사용자가 Gsm 링크로 상세 페이지를 한 번 열면 스크립트가 값을 저장 → 이후 자동
+const kvKeyOf = p => (p.latName || p.name || '').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+function gsmApply(p, d) {
+  if (!d) return false;
+  let hit = false;
+  const set = (k, v) => { if (v) { p[k] = v; hit = true; } };
+  set('geselligkeit', d.geselligkeit); set('pflanzAbstand', d.pflanzAbstand);
+  if (d.pflanzCount) { p.pflanzCount = d.pflanzCount; p.pflanzCountSrc = ''; hit = true; }
+  set('gsmGiftklasse', d.giftklasse); set('gsmBienenfreundlich', d.bienenfreundlich); set('gsmInsektenweide', d.insektenweide);
+  set('gsmLebensbereich', d.lebensbereich); set('gsmPflanzZeitpunkt', d.pflanzZeitpunkt); set('gaissmayerUrl', d.gaissmayerUrl);
+  return hit;
+}
+async function gsmKvLoad(p) {
+  const key = kvKeyOf(p); if (!key) return;
+  const _pw = localStorage.getItem('appPassword') || '';
+  try {
+    const d = await (await fetch(CFG.worker + '/api/kv/get?key=' + encodeURIComponent(key), { headers: _pw ? {'x-app-password': _pw} : {} })).json();
+    if (gsmApply(p, d)) { p.gsmWait = false; renderActiveTabDebounced(); }
+  } catch (e) {}
+}
+// Gsm 링크: 상세 주소가 있으면 그리로, 없으면 품종명까지 넣어 검색. #lsk=키 → 스크립트가 이 수종 이름으로 저장
+function gsmHref(p) {
+  const key = kvKeyOf(p);
+  const q = (p.latName || p.name || '').replace(/[\u2018\u2019\u02BC\u2032'"]/g, '').replace(/\s+(var|subsp|f|ssp|cv)\.?(?=\s|$)/gi, '').replace(/\./g, '').replace(/\s+/g, ' ').trim();
+  const u = p.gaissmayerUrl || 'https://www.gaissmayer.de/web/shop/suche/produkte/?suche=' + encodeURIComponent(q);
+  return u + (u.includes('?') ? '&' : '?') + 'lsk=' + encodeURIComponent(key);
+}
+function gsmWait(pi) { const p = plants[pi]; if (p) p.gsmWait = true; }
+// Gaissmayer 탭에서 돌아오면 저장됐는지 다시 확인
+window.addEventListener('focus', () => { plants.filter(p => p.gsmWait).forEach(p => gsmKvLoad(p)); });
+
 async function loadGaissmayerDetail(p) {
   const q = p.latName || p.name;
   if (!q) return;
@@ -2300,7 +2325,7 @@ async function loadGaissmayerDetail(p) {
     const stm = raw.match(/([\d.]+)개\/m²/)?.[1]
              || raw.match(/([\d,]+)\s*St\./i)?.[1]?.replace(',','.');
     if (cm)  p.pflanzAbstand = +cm;
-    if (stm && !p.pflanzCount) p.pflanzCount = +stm;
+    if (stm && (!p.pflanzCount || p.pflanzCountSrc === 'ndb')) { p.pflanzCount = +stm; p.pflanzCountSrc = ''; }
   }
   if (det.giftklasse       && !p.gsmGiftklasse)       p.gsmGiftklasse       = det.giftklasse;
   if (det.bienenfreundlich && !p.gsmBienenfreundlich) p.gsmBienenfreundlich = det.bienenfreundlich;
@@ -3811,7 +3836,7 @@ function renderEcology() {
             <a href="${mbgHref(p)}" target="_blank" title="Missouri Botanical Garden${p.mbgTaxonId?'':' 검색'}" style="${p.mbgTaxonId?'':'opacity:0.75'}">🌺 MBG</a>
             <a href="${p.naturadbUrl||`https://www.naturadb.de/pflanzen/${_ndbSlug}/`}" target="_blank" rel="noopener" title="NaturaDB${p.naturadbUrl?'':' 검색'}" style="${p.naturadbUrl?'':'opacity:0.75'}">🌿 NDB</a>
             ${p.knaUrl ? `<a href="${p.knaUrl}" target="_blank" rel="noopener" title="정원백과">🌸 KNA</a>` : ''}
-            <a href="${p.gaissmayerUrl||`https://www.gaissmayer.de/web/shop/suche/produkte/?suche=${gsmSlug}`}" target="_blank" rel="noopener" title="Gaissmayer${p.gaissmayerUrl?'':' 검색'}">🌱 Gsm</a>
+            <a href="${escA(gsmHref(p))}" target="_blank" rel="noopener" onclick="gsmWait(${pi})" title="Gaissmayer${p.gaissmayerUrl?'':' 검색 — 상품을 열면 값이 식재툴에 저장돼요 (Tampermonkey 스크립트)'}" style="${p.geselligkeit||p.gsmLebensbereich?'':'opacity:0.75'}">🌱 Gsm</a>
             <a href="${p.rhsUrl||`https://www.rhs.org.uk/plants/search-results?query=${rhsQ}`}" target="_blank" rel="noopener" title="RHS${p.rhsUrl?'':' 검색'}">🌹 RHS</a>
           </div>
         </div>
@@ -4349,7 +4374,7 @@ function renderCare() {
       <div class="eco-ext-links" style="margin-top:4px;font-size:0.68rem">
         <a href="${mbgHref(p)}" target="_blank" style="${p.mbgTaxonId?'':'opacity:0.4'}">MBG</a>
         <a href="${p.naturadbUrl||''}" target="_blank" style="${p.naturadbUrl?'':'opacity:0.2;pointer-events:none'}">NDB</a>
-        <a href="${p.gaissmayerUrl||''}" target="_blank" style="${p.gaissmayerUrl?'':'opacity:0.2;pointer-events:none'}">Gsm</a>
+        <a href="${escA(gsmHref(p))}" target="_blank" onclick="gsmWait(${pi})" style="${p.gaissmayerUrl?'':'opacity:0.5'}">Gsm</a>
         <a href="${p.rhsUrl||''}" target="_blank" style="${p.rhsUrl?'':'opacity:0.2;pointer-events:none'}">RHS</a>
       </div>
     </td>`;
