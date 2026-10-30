@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gaissmayer → 식재리스트툴 자동 저장
 // @namespace    https://hubminyoung.github.io/plants/
-// @version      1.0
+// @version      1.1
 // @description  Gaissmayer 상품 페이지를 열면 사교성·식재간격·서식처유형 등을 읽어 식재리스트툴(Worker KV)에 저장합니다
 // @author       K
 // @match        https://www.gaissmayer.de/*
@@ -14,7 +14,7 @@
 // (링크 주소의 lsk=… 가 식재툴 수종 이름 — 이 탭 안에서 상품을 열 때까지 기억)
 // 식재툴을 거치지 않고 연 상품 페이지에서는 오른쪽 아래 상자에서 수종 이름을 확인하고 [저장]을 누르면 됨.
 
-(function () {
+(async function () {
   'use strict';
   const WORKER = 'https://plantlist.younrake.workers.dev';
   const LS = 'lsk_plants';
@@ -30,18 +30,22 @@
     giftklasse: 'Giftklasse', bienenfreundlich: 'Bienenfreundlich', insektenweide: 'Insektenweide',
     pflanzZeitpunkt: 'Pflanz-Zeitpunkt',
   };
+  // Chrome 자동 번역이 화면 글자를 바꾸므로, 번역 전 원본 HTML을 다시 받아 읽음 (같은 사이트라 차단 없음)
+  if (!/\/\d+\/?$/.test(location.pathname)) return;   // 상품 페이지 주소(…/숫자/)가 아니면 끝
+  let doc;
+  try { doc = new DOMParser().parseFromString(await (await fetch(location.pathname, { credentials: 'include' })).text(), 'text/html'); }
+  catch (e) { doc = document; }
+  // <div><strong>LABEL <설명 버튼></strong><p>VALUE</p></div>
   function field(label) {
-    // <strong>LABEL …</strong><p>VALUE</p>
-    for (const st of document.querySelectorAll('strong')) {
-      if (!st.textContent.trim().toLowerCase().startsWith(label.toLowerCase())) continue;
+    for (const st of doc.querySelectorAll('strong')) {
+      const first = (st.childNodes[0] && st.childNodes[0].nodeValue || st.textContent).trim();
+      if (first.toLowerCase() !== label.toLowerCase()) continue;
       let n = st.nextElementSibling;
       while (n && n.tagName !== 'P') n = n.nextElementSibling;
-      if (!n && st.parentElement) n = st.parentElement.querySelector('p');
       const v = n && n.textContent.trim();
       if (v) return v.replace(/\s+/g, ' ');
     }
-    const m = document.body.innerHTML.match(new RegExp('<strong>\\s*' + label + '[\\s\\S]*?<\\/strong>\\s*<p>([^<]+)<\\/p>', 'i'));
-    return m ? m[1].trim() : '';
+    return '';
   }
   const vals = {};
   Object.entries(LABELS).forEach(([k, l]) => { const v = field(l) || (k === 'pflanzZeitpunkt' ? field('Pflanzzeitpunkt') : ''); if (v) vals[k] = v; });
@@ -55,7 +59,7 @@
     if (cm) vals.pflanzAbstand = cm.replace(',', '.') + 'cm';
     if (st) vals.pflanzCount = st.replace(',', '.') + '주/m²';
   }
-  const h1 = (document.querySelector('h1') || {}).textContent || document.title;
+  const h1 = (doc.querySelector('h1') || document.querySelector('h1') || {}).textContent || document.title;
   vals.gsmName = h1.trim().replace(/\s+/g, ' ');
   vals.gaissmayerUrl = location.origin + location.pathname;
   vals.gsmSaved = new Date().toISOString().slice(0, 10);
